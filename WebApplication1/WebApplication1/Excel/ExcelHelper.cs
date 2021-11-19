@@ -109,7 +109,7 @@ namespace PPPayReportTools.Excel
 
             int tCount = tList.Count;
             int currentRowIndex = 0;
-            int dataIndex = 0;
+            int dataIndex = -1;
             do
             {
                 row1 = worksheet.GetRow(currentRowIndex);
