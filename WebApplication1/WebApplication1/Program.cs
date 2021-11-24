@@ -25,7 +25,6 @@ namespace WebApplication1
                     config.AddJsonFile("en-Template3.json", false, true);
                     config.AddJsonFile("en-Template4.json", false, true);
                     config.AddJsonFile("en-Template1007.json", false, true);
-                    config.AddJsonFile("en-Template100501.json", false, true);
                 });
     }
 }

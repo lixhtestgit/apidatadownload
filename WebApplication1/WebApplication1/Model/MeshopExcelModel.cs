@@ -10,28 +10,40 @@ namespace WebApplication1.Model
         [ExcelTitle("英语")]
         public string En { get; set; }
 
-        /// <summary>
-        /// 德语
-        /// </summary>
-        [ExcelTitle("德语")]
-        public string De { get; set; }
+        ///// <summary>
+        ///// 德语
+        ///// </summary>
+        //[ExcelTitle("德语")]
+        //public string De { get; set; }
+
+        ///// <summary>
+        ///// 法语
+        ///// </summary>
+        //[ExcelTitle("法语")]
+        //public string Fr { get; set; }
+
+        ///// <summary>
+        ///// 日语
+        ///// </summary>
+        //[ExcelTitle("日语")]
+        //public string Ja { get; set; }
+
+        ///// <summary>
+        ///// 意大利语
+        ///// </summary>
+        //[ExcelTitle("意大利语")]
+        //public string It { get; set; }
 
         /// <summary>
-        /// 法语
+        /// 葡萄牙语
         /// </summary>
-        [ExcelTitle("法语")]
-        public string Fr { get; set; }
+        [ExcelTitle("葡语")]
+        public string Pt { get; set; }
 
         /// <summary>
-        /// 日语
+        /// 西班牙语
         /// </summary>
-        [ExcelTitle("日语")]
-        public string Ja { get; set; }
-
-        /// <summary>
-        /// 意大利语
-        /// </summary>
-        [ExcelTitle("意大利语")]
-        public string It { get; set; }
+        [ExcelTitle("西班牙语")]
+        public string Es { get; set; }
     }
 }

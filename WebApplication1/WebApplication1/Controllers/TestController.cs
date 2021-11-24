@@ -35,9 +35,9 @@ namespace WebApplication1.Controllers
         /// 将enJSON文建转换为EXCEL发给产品进行翻译
         /// </summary>
         /// <returns></returns>
-        [Route("BuildExcelByEnJson")]
+        [Route("BuildEnJsonToExcel")]
         [HttpGet]
-        public IActionResult BuildExcelByEnJson()
+        public IActionResult BuildEnJsonToExcel()
         {
             string templateName = "Template1007";
 
@@ -74,7 +74,7 @@ namespace WebApplication1.Controllers
             }
 
             IWorkbook workbook = null;
-                
+
             foreach (var pageCultureListItem in pageCultureListDic)
             {
                 workbook = ExcelHelper.CreateOrUpdateWorkbook(pageCultureListItem.Value, workbook, sheetName: pageCultureListItem.Key);
@@ -93,7 +93,7 @@ namespace WebApplication1.Controllers
         [HttpGet]
         public IActionResult BuildCultureEXCELToJson()
         {
-            string templateName = "Template4";
+            string templateName = "Template1007";
 
             string contentRootPath = this.WebHostEnvironment.ContentRootPath;
 
@@ -101,17 +101,21 @@ namespace WebApplication1.Controllers
 
             List<MeShopCultureTran> meShopCultureTranList = new List<MeShopCultureTran>(5);
             meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "en", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "de", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "fr", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "ja", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "it", MeShopPageTranList = new List<MeShopPageTran>(0) });
+            //meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "de", MeShopPageTranList = new List<MeShopPageTran>(0) });
+            //meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "fr", MeShopPageTranList = new List<MeShopPageTran>(0) });
+            //meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "ja", MeShopPageTranList = new List<MeShopPageTran>(0) });
+            //meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "it", MeShopPageTranList = new List<MeShopPageTran>(0) });
+            meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "pt", MeShopPageTranList = new List<MeShopPageTran>(0) });
+            meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "es", MeShopPageTranList = new List<MeShopPageTran>(0) });
 
             List<MeShopCultureTran> newMeShopCultureTranList = new List<MeShopCultureTran>(5);
             newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "en", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "de", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "fr", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "ja", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "it", MeShopPageTranList = new List<MeShopPageTran>(0) });
+            //newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "de", MeShopPageTranList = new List<MeShopPageTran>(0) });
+            //newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "fr", MeShopPageTranList = new List<MeShopPageTran>(0) });
+            //newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "ja", MeShopPageTranList = new List<MeShopPageTran>(0) });
+            //newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "it", MeShopPageTranList = new List<MeShopPageTran>(0) });
+            newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "pt", MeShopPageTranList = new List<MeShopPageTran>(0) });
+            newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "es", MeShopPageTranList = new List<MeShopPageTran>(0) });
 
             var myDataSectionList = this.Configuration.GetSection($"MyData_{templateName}").GetChildren();
 
@@ -130,22 +134,32 @@ namespace WebApplication1.Controllers
                     PageName = pageName,
                     PageKeyTranDic = new Dictionary<string, string>(0)
                 };
-                MeShopPageTran deMeShopPageTran = new MeShopPageTran
+                //MeShopPageTran deMeShopPageTran = new MeShopPageTran
+                //{
+                //    PageName = pageName,
+                //    PageKeyTranDic = new Dictionary<string, string>(0)
+                //};
+                //MeShopPageTran frMeShopPageTran = new MeShopPageTran
+                //{
+                //    PageName = pageName,
+                //    PageKeyTranDic = new Dictionary<string, string>(0)
+                //};
+                //MeShopPageTran jaMeShopPageTran = new MeShopPageTran
+                //{
+                //    PageName = pageName,
+                //    PageKeyTranDic = new Dictionary<string, string>(0)
+                //};
+                //MeShopPageTran itMeShopPageTran = new MeShopPageTran
+                //{
+                //    PageName = pageName,
+                //    PageKeyTranDic = new Dictionary<string, string>(0)
+                //};
+                MeShopPageTran ptMeShopPageTran = new MeShopPageTran
                 {
                     PageName = pageName,
                     PageKeyTranDic = new Dictionary<string, string>(0)
                 };
-                MeShopPageTran frMeShopPageTran = new MeShopPageTran
-                {
-                    PageName = pageName,
-                    PageKeyTranDic = new Dictionary<string, string>(0)
-                };
-                MeShopPageTran jaMeShopPageTran = new MeShopPageTran
-                {
-                    PageName = pageName,
-                    PageKeyTranDic = new Dictionary<string, string>(0)
-                };
-                MeShopPageTran itMeShopPageTran = new MeShopPageTran
+                MeShopPageTran esMeShopPageTran = new MeShopPageTran
                 {
                     PageName = pageName,
                     PageKeyTranDic = new Dictionary<string, string>(0)
@@ -163,28 +177,33 @@ namespace WebApplication1.Controllers
                     }
 
                     enMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyEnValue);
-                    deMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
-                    frMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
-                    jaMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
-                    itMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
+                    //deMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
+                    //frMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
+                    //jaMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
+                    //itMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
+                    ptMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
+                    esMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
                 }
 
                 //添加页面对象
                 meShopCultureTranList[0].MeShopPageTranList.Add(enMeShopPageTran);
-                meShopCultureTranList[1].MeShopPageTranList.Add(deMeShopPageTran);
-                meShopCultureTranList[2].MeShopPageTranList.Add(frMeShopPageTran);
-                meShopCultureTranList[3].MeShopPageTranList.Add(jaMeShopPageTran);
-                meShopCultureTranList[4].MeShopPageTranList.Add(itMeShopPageTran);
-
+                //meShopCultureTranList[1].MeShopPageTranList.Add(deMeShopPageTran);
+                //meShopCultureTranList[2].MeShopPageTranList.Add(frMeShopPageTran);
+                //meShopCultureTranList[3].MeShopPageTranList.Add(jaMeShopPageTran);
+                //meShopCultureTranList[4].MeShopPageTranList.Add(itMeShopPageTran);
+                meShopCultureTranList[1].MeShopPageTranList.Add(ptMeShopPageTran);
+                meShopCultureTranList[2].MeShopPageTranList.Add(esMeShopPageTran);
             }
 
 
             //英语多语言数据
             MeShopCultureTran enCultureTran = meShopCultureTranList[0];
-            MeShopCultureTran deCultureTran = meShopCultureTranList[1];
-            MeShopCultureTran frCultureTran = meShopCultureTranList[2];
-            MeShopCultureTran jaCultureTran = meShopCultureTranList[3];
-            MeShopCultureTran itCultureTran = meShopCultureTranList[4];
+            //MeShopCultureTran deCultureTran = meShopCultureTranList[1];
+            //MeShopCultureTran frCultureTran = meShopCultureTranList[2];
+            //MeShopCultureTran jaCultureTran = meShopCultureTranList[3];
+            //MeShopCultureTran itCultureTran = meShopCultureTranList[4];
+            MeShopCultureTran ptCultureTran = meShopCultureTranList[1];
+            MeShopCultureTran esCultureTran = meShopCultureTranList[2];
 
             List<MeshopExcelModel> meshopExcelModelList = null;
 
@@ -202,28 +221,35 @@ namespace WebApplication1.Controllers
                 string pageName = sheet.SheetName.Replace("_", "").Replace(" ", "");
 
                 MeShopPageTran enPageTran = enCultureTran.MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase));
-                MeShopPageTran dePageTran = deCultureTran.MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase));
-                MeShopPageTran frPageTran = frCultureTran.MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase));
-                MeShopPageTran jaPageTran = jaCultureTran.MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase));
-                MeShopPageTran itPageTran = itCultureTran.MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase));
+                //MeShopPageTran dePageTran = deCultureTran.MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase));
+                //MeShopPageTran frPageTran = frCultureTran.MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase));
+                //MeShopPageTran jaPageTran = jaCultureTran.MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase));
+                //MeShopPageTran itPageTran = itCultureTran.MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase));
+                MeShopPageTran ptPageTran = ptCultureTran.MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase));
+                MeShopPageTran esPageTran = esCultureTran.MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase));
 
-                if (enPageTran == null || dePageTran == null || frPageTran == null || jaPageTran == null || itPageTran == null)
+                //if (enPageTran == null || dePageTran == null || frPageTran == null || jaPageTran == null || itPageTran == null)
+                if (ptPageTran == null || esPageTran == null)
                 {
-                    checkErrorResult.AppendLine($"未能从json找到页面Key,detail:pageName={pageName}");
+                    checkErrorResult.AppendLine($"未能从json找到页面Key,detail:pageName={sheet.SheetName}");
                 }
                 else
                 {
                     MeShopPageTran enPageTran1 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
-                    MeShopPageTran dePageTran2 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
-                    MeShopPageTran frPageTran3 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
-                    MeShopPageTran jaPageTran4 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
-                    MeShopPageTran itPageTran5 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
+                    //MeShopPageTran dePageTran2 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
+                    //MeShopPageTran frPageTran3 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
+                    //MeShopPageTran jaPageTran4 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
+                    //MeShopPageTran itPageTran5 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
+                    MeShopPageTran ptPageTran6 = new MeShopPageTran { PageName = ptPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
+                    MeShopPageTran esPageTran7 = new MeShopPageTran { PageName = esPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
 
                     enPageTran1.PageKeyTranDic.Add("_title_", meShopCultureTranList[0].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
-                    dePageTran2.PageKeyTranDic.Add("_title_", meShopCultureTranList[1].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
-                    frPageTran3.PageKeyTranDic.Add("_title_", meShopCultureTranList[2].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
-                    jaPageTran4.PageKeyTranDic.Add("_title_", meShopCultureTranList[3].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
-                    itPageTran5.PageKeyTranDic.Add("_title_", meShopCultureTranList[4].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
+                    //dePageTran2.PageKeyTranDic.Add("_title_", meShopCultureTranList[1].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
+                    //frPageTran3.PageKeyTranDic.Add("_title_", meShopCultureTranList[2].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
+                    //jaPageTran4.PageKeyTranDic.Add("_title_", meShopCultureTranList[3].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
+                    //itPageTran5.PageKeyTranDic.Add("_title_", meShopCultureTranList[4].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
+                    ptPageTran6.PageKeyTranDic.Add("_title_", meShopCultureTranList[1].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
+                    esPageTran7.PageKeyTranDic.Add("_title_", meShopCultureTranList[2].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
 
                     foreach (MeshopExcelModel meshopExcelModel in meshopExcelModelList)
                     {
@@ -234,26 +260,34 @@ namespace WebApplication1.Controllers
                             {
                                 foreach (string enPageKey in enPageKeyList)
                                 {
-                                    dePageTran.PageKeyTranDic[enPageKey] = meshopExcelModel.De;
-                                    frPageTran.PageKeyTranDic[enPageKey] = meshopExcelModel.Fr;
-                                    jaPageTran.PageKeyTranDic[enPageKey] = meshopExcelModel.Ja;
-                                    itPageTran.PageKeyTranDic[enPageKey] = meshopExcelModel.It;
+                                    //dePageTran.PageKeyTranDic[enPageKey] = meshopExcelModel.De;
+                                    //frPageTran.PageKeyTranDic[enPageKey] = meshopExcelModel.Fr;
+                                    //jaPageTran.PageKeyTranDic[enPageKey] = meshopExcelModel.Ja;
+                                    //itPageTran.PageKeyTranDic[enPageKey] = meshopExcelModel.It;
+                                    ptPageTran.PageKeyTranDic[enPageKey] = meshopExcelModel.Pt;
+                                    esPageTran.PageKeyTranDic[enPageKey] = meshopExcelModel.Es;
 
                                     if (!enPageTran1.PageKeyTranDic.ContainsKey(enPageKey))
                                     {
                                         //1-多语言有效性检查：变量一致性检查
                                         Regex paramRegex = new Regex("[{]{1,}[^{}]+[}]{1,}", RegexOptions.IgnoreCase);
                                         string enPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.En ?? ""));
-                                        string dePraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.De ?? ""));
-                                        string frPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Fr ?? ""));
-                                        string jaPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Ja ?? ""));
-                                        string itPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.It ?? ""));
-                                        if (enPraramStr != dePraramStr
-                                            || enPraramStr != frPraramStr
-                                            || enPraramStr != jaPraramStr
-                                            || enPraramStr != itPraramStr)
+                                        //string dePraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.De ?? ""));
+                                        //string frPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Fr ?? ""));
+                                        //string jaPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Ja ?? ""));
+                                        //string itPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.It ?? ""));
+                                        string ptPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Pt ?? ""));
+                                        string esPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Es ?? ""));
+                                        if (
+                                        //       enPraramStr != dePraramStr
+                                        //    || enPraramStr != frPraramStr
+                                        //    || enPraramStr != jaPraramStr
+                                        //    || enPraramStr != itPraramStr
+                                            enPraramStr != ptPraramStr
+                                            || enPraramStr != esPraramStr)
                                         {
-                                            checkErrorResult.AppendLine($"翻译变量被修改,detail:pageName={pageName},{enPraramStr}_{dePraramStr}_{frPraramStr}_{jaPraramStr}_{itPraramStr}");
+                                            //checkErrorResult.AppendLine($"翻译变量被修改,detail:pageName={pageName},{enPraramStr}_{dePraramStr}_{frPraramStr}_{jaPraramStr}_{itPraramStr}_{ptPraramStr}_{esPraramStr}");
+                                            checkErrorResult.AppendLine($"翻译变量被修改,detail:pageName={sheet.SheetName},{enPraramStr}_{ptPraramStr}_{esPraramStr}");
                                             continue;
                                         }
 
@@ -264,35 +298,40 @@ namespace WebApplication1.Controllers
                                         foreach (var checkItem in validCheckDic)
                                         {
                                             Regex checkRegex = checkItem.Value;
-                                            string cultureJoinStr = meshopExcelModel.En + meshopExcelModel.De + meshopExcelModel.Fr + meshopExcelModel.Ja + meshopExcelModel.It;
+                                            //string cultureJoinStr = meshopExcelModel.En + meshopExcelModel.De + meshopExcelModel.Fr + meshopExcelModel.Ja + meshopExcelModel.It + meshopExcelModel.Pt + meshopExcelModel.Es;
+                                            string cultureJoinStr = meshopExcelModel.En + meshopExcelModel.Pt + meshopExcelModel.Es;
                                             if (checkRegex.IsMatch(cultureJoinStr))
                                             {
-                                                checkErrorResult.AppendLine($"换行符错误,details:pageName={pageName},enPageKey={enPageKey},En={meshopExcelModel.En}");
+                                                checkErrorResult.AppendLine($"换行符错误,details:pageName={sheet.SheetName},enPageKey={enPageKey},En={meshopExcelModel.En}");
                                                 continue;
                                             }
                                         }
 
                                         enPageTran1.PageKeyTranDic.Add(enPageKey, meshopExcelModel.En);
-                                        dePageTran2.PageKeyTranDic.Add(enPageKey, meshopExcelModel.De);
-                                        frPageTran3.PageKeyTranDic.Add(enPageKey, meshopExcelModel.Fr);
-                                        jaPageTran4.PageKeyTranDic.Add(enPageKey, meshopExcelModel.Ja);
-                                        itPageTran5.PageKeyTranDic.Add(enPageKey, meshopExcelModel.It);
+                                        //dePageTran2.PageKeyTranDic.Add(enPageKey, meshopExcelModel.De);
+                                        //frPageTran3.PageKeyTranDic.Add(enPageKey, meshopExcelModel.Fr);
+                                        //jaPageTran4.PageKeyTranDic.Add(enPageKey, meshopExcelModel.Ja);
+                                        //itPageTran5.PageKeyTranDic.Add(enPageKey, meshopExcelModel.It);
+                                        ptPageTran6.PageKeyTranDic.Add(enPageKey, meshopExcelModel.Pt);
+                                        esPageTran7.PageKeyTranDic.Add(enPageKey, meshopExcelModel.Es);
                                     }
                                 }
                             }
                             else
                             {
-                                checkErrorResult.AppendLine($"无法根据英文找到对应key,detail:{pageName}_{meshopExcelModel.En}");
+                                checkErrorResult.AppendLine($"无法根据英文找到对应key,detail:{sheet.SheetName}_{meshopExcelModel.En}");
                                 continue;
                             }
                         }
                     }
 
                     newMeShopCultureTranList[0].MeShopPageTranList.Add(enPageTran1);
-                    newMeShopCultureTranList[1].MeShopPageTranList.Add(dePageTran2);
-                    newMeShopCultureTranList[2].MeShopPageTranList.Add(frPageTran3);
-                    newMeShopCultureTranList[3].MeShopPageTranList.Add(jaPageTran4);
-                    newMeShopCultureTranList[4].MeShopPageTranList.Add(itPageTran5);
+                    //newMeShopCultureTranList[1].MeShopPageTranList.Add(dePageTran2);
+                    //newMeShopCultureTranList[2].MeShopPageTranList.Add(frPageTran3);
+                    //newMeShopCultureTranList[3].MeShopPageTranList.Add(jaPageTran4);
+                    //newMeShopCultureTranList[4].MeShopPageTranList.Add(itPageTran5);
+                    newMeShopCultureTranList[1].MeShopPageTranList.Add(ptPageTran6);
+                    newMeShopCultureTranList[2].MeShopPageTranList.Add(esPageTran7);
                 }
             }
 

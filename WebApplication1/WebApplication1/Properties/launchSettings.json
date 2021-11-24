@@ -20,7 +20,7 @@
     "WebApplication1": {
       "commandName": "Project",
       "launchBrowser": true,
-      "launchUrl": "http://localhost:5000/api/test/BuildExcelByEnJson",
+      "launchUrl": "http://localhost:5000/api/test/BuildCultureEXCELToJson",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
