@@ -379,7 +379,7 @@
       "shop_our_products": "Browse our products",
       "no_country": "country is not supported",
       "no_zip": "zip cannot be blank",
-      "zip_error": "zip is not valid for{{zip}}",
+      "zip_error": "zip is not valid for {{zip}}",
       "free": "Free",
       "please_select": "Please Select",
       "remove": "Remove",
