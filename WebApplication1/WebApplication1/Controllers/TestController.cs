@@ -93,7 +93,7 @@ namespace WebApplication1.Controllers
         [HttpGet]
         public IActionResult BuildCultureEXCELToJson()
         {
-            string templateName = "Template1007";
+            string templateName = "Template100501";
 
             string contentRootPath = this.WebHostEnvironment.ContentRootPath;
 

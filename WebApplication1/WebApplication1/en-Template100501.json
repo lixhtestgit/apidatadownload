@@ -1,5 +1,5 @@
 {
-  "MyData_Template1007": {
+  "MyData_Template100501": {
     "header": {
       "_title_": "头部",
       "account": "Account",
@@ -37,7 +37,11 @@
       "currency_rate_tip": "All orders are processed in {{default_currency}}. You will checkout using {{default_currency}} according to the current exchange rate.",
       "card_null": "Your shopping cart is empty",
       "bundlesales": "Commodity Combination Offer",
-      "first_order_discount": "Off On First Order"
+      "first_order_discount": "Off On First Order",
+      "message_tip": "Tips",
+      "message_tip_text": "Please log in and check the letter in the station",
+      "go_login": "Go login",
+      "cancel": "cancel"
     },
     "footer": {
       "_title_": "底部",
@@ -126,7 +130,9 @@
       "bundle_product_viewdetails": "see details",
       "bundleTogetherDiscount": "Buy together for more discount",
       "sales_volume": "Sales",
-      "firstOrderReduced": "Off On First Order"
+      "firstOrderReduced": "Off On First Order",
+      "product_discount": "you save ",
+      "checkout_width_tip": "100% Secure Checkout With"
     },
     "collection_page": {
       "_title_": "集合页",
@@ -379,7 +385,7 @@
       "shop_our_products": "Browse our products",
       "no_country": "country is not supported",
       "no_zip": "zip cannot be blank",
-      "zip_error": "zip is not valid for {{zip}}",
+      "zip_error": "zip is not valid for{{zip}}",
       "free": "Free",
       "please_select": "Please Select",
       "remove": "Remove",
@@ -537,6 +543,7 @@
       "pay_error_tip": "There was a problem processing the payment. Try refreshing this page or check your internet connection",
       "choose_method": "Choose a payment method",
       "credit_card": "Credit card",
+      "local_payment": "Local payment",
       "paypal_tip": "After clicking 'PayPal', you will be redirected to PayPal to complete your purchase securely",
       "shipping": "Shipping",
       "show_order_summary": "Show order summary",
@@ -619,7 +626,7 @@
     "topic_page": {
       "_title_": "专题模板页",
       "see_more": "SEE MORE",
-      "receive": "RECEIVE",
+      "RECEIVE": "RECEIVE",
       "expired": "Expired",
       "receive_success": "Received Successfully"
     },
