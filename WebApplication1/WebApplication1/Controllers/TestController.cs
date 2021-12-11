@@ -1,15 +1,19 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using WebApplication1.Model;
 
 namespace WebApplication1.Controllers
@@ -37,31 +41,38 @@ namespace WebApplication1.Controllers
         /// <returns></returns>
         [Route("BuildEnJsonToExcel")]
         [HttpGet]
-        public IActionResult BuildEnJsonToExcel()
+        public async Task<IActionResult> BuildEnJsonToExcel()
         {
-            string templateName = "Template1007";
+            string templateName = "Template100501";
 
-            string contentRootPath = this.WebHostEnvironment.ContentRootPath;
+            IFileProvider fileProvider = this.WebHostEnvironment.ContentRootFileProvider;
+            IFileInfo fileInfo = fileProvider.GetFileInfo($"en-{templateName}.json");
 
-            var myDataSectionList = this.Configuration.GetSection($"MyData_{templateName}").GetChildren();
+            string fileContent = null;
+            using (StreamReader readSteam = new StreamReader(fileInfo.CreateReadStream()))
+            {
+                fileContent = await readSteam.ReadToEndAsync();
+            }
+            JObject templateFileJObj = JObject.Parse(fileContent);
+            List<JProperty> pageJPropertyList = templateFileJObj.Children<JProperty>().ToList();
 
-            if (myDataSectionList.Count() == 0)
+            if (pageJPropertyList.Count() == 0)
             {
                 throw new Exception($"未找到MyData_{templateName}的配置数据");
             }
 
             Dictionary<string, List<MeshopExcelModel>> pageCultureListDic = new Dictionary<string, List<MeshopExcelModel>>(0);
 
-            foreach (IConfigurationSection item in myDataSectionList)
+            foreach (JProperty pageJProperty in pageJPropertyList)
             {
-                string pageName = item.Key;
+                string pageName = pageJProperty.Name;
                 List<MeshopExcelModel> pageList = new List<MeshopExcelModel>(0);
 
                 //添加页面语言对象
-                foreach (var pageItemSection in item.GetChildren())
+                foreach (JProperty pageContentJProperty in pageJProperty.Value.Children<JProperty>())
                 {
-                    string pageItemKey = pageItemSection.Key;
-                    string pageKeyEnValue = pageItemSection.Value;
+                    string pageItemKey = pageContentJProperty.Name;
+                    string pageKeyEnValue = pageContentJProperty.Value.ToString();
                     if (!pageItemKey.Equals("_title_", StringComparison.OrdinalIgnoreCase))
                     {
                         pageList.Add(new MeshopExcelModel
@@ -91,13 +102,19 @@ namespace WebApplication1.Controllers
         /// <returns></returns>
         [Route("BuildCultureEXCELToJson")]
         [HttpGet]
-        public IActionResult BuildCultureEXCELToJson()
+        public async Task<IActionResult> BuildCultureEXCELToJson()
         {
             string templateName = "Template100501";
 
-            string contentRootPath = this.WebHostEnvironment.ContentRootPath;
+            IFileProvider fileProvider = this.WebHostEnvironment.ContentRootFileProvider;
+            IFileInfo fileInfo = fileProvider.GetFileInfo($"en-{templateName}.json");
 
-            string testFilePath = null;
+            string fileContent = null;
+            using (StreamReader readSteam = new StreamReader(fileInfo.CreateReadStream()))
+            {
+                fileContent = await readSteam.ReadToEndAsync();
+            }
+            JObject templateFileJObj = JObject.Parse(fileContent);
 
             List<MeShopCultureTran> meShopCultureTranList = new List<MeShopCultureTran>(5);
             meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "en", MeShopPageTranList = new List<MeShopPageTran>(0) });
@@ -108,25 +125,16 @@ namespace WebApplication1.Controllers
             meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "pt", MeShopPageTranList = new List<MeShopPageTran>(0) });
             meShopCultureTranList.Add(new MeShopCultureTran { CultureName = "es", MeShopPageTranList = new List<MeShopPageTran>(0) });
 
-            List<MeShopCultureTran> newMeShopCultureTranList = new List<MeShopCultureTran>(5);
-            newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "en", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            //newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "de", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            //newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "fr", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            //newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "ja", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            //newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "it", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "pt", MeShopPageTranList = new List<MeShopPageTran>(0) });
-            newMeShopCultureTranList.Add(new MeShopCultureTran { CultureName = "es", MeShopPageTranList = new List<MeShopPageTran>(0) });
+            List<JProperty> pageJPropertyList = templateFileJObj.Children<JProperty>().ToList();
 
-            var myDataSectionList = this.Configuration.GetSection($"MyData_{templateName}").GetChildren();
-
-            if (myDataSectionList.Count() == 0)
+            if (pageJPropertyList.Count() == 0)
             {
                 throw new Exception($"未找到MyData_{templateName}的配置数据");
             }
 
-            foreach (IConfigurationSection item in myDataSectionList)
+            foreach (JProperty pageJProperty in pageJPropertyList)
             {
-                string pageName = item.Key;
+                string pageName = pageJProperty.Name;
 
                 //创建页面对象
                 MeShopPageTran enMeShopPageTran = new MeShopPageTran
@@ -150,7 +158,8 @@ namespace WebApplication1.Controllers
                 //    PageKeyTranDic = new Dictionary<string, string>(0)
                 //};
                 //MeShopPageTran itMeShopPageTran = new MeShopPageTran
-                //{
+                //{-		pageJToken.Values("header")	{Newtonsoft.Json.Linq.JEnumerable<Newtonsoft.Json.Linq.JToken>}	Newtonsoft.Json.Linq.IJEnumerable<Newtonsoft.Json.Linq.JToken> {Newtonsoft.Json.Linq.JEnumerable<Newtonsoft.Json.Linq.JToken>}
+
                 //    PageName = pageName,
                 //    PageKeyTranDic = new Dictionary<string, string>(0)
                 //};
@@ -166,23 +175,23 @@ namespace WebApplication1.Controllers
                 };
 
                 //添加页面语言对象
-                foreach (var pageSection in item.GetChildren())
+                foreach (JProperty pageContentJProperty in pageJProperty.Value.Children<JProperty>())
                 {
-                    string pageKey = pageSection.Key;
-                    string pageKeyEnValue = pageSection.Value;
+                    string pageContentKey = pageContentJProperty.Name;
+                    string pageKeyEnValue = pageContentJProperty.Value.ToString();
                     string pageKeyCultureValue = "";
-                    if (pageKey.Equals("_title_", StringComparison.OrdinalIgnoreCase))
+                    if (pageContentKey.Equals("_title_", StringComparison.OrdinalIgnoreCase))
                     {
                         pageKeyCultureValue = pageKeyEnValue;
                     }
 
-                    enMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyEnValue);
+                    enMeShopPageTran.PageKeyTranDic.Add(pageContentKey, pageKeyEnValue);
                     //deMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
                     //frMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
                     //jaMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
                     //itMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
-                    ptMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
-                    esMeShopPageTran.PageKeyTranDic.Add(pageKey, pageKeyCultureValue);
+                    ptMeShopPageTran.PageKeyTranDic.Add(pageContentKey, pageKeyCultureValue);
+                    esMeShopPageTran.PageKeyTranDic.Add(pageContentKey, pageKeyCultureValue);
                 }
 
                 //添加页面对象
@@ -208,7 +217,8 @@ namespace WebApplication1.Controllers
             List<MeshopExcelModel> meshopExcelModelList = null;
 
             //测试一：收集单元格数据为对象
-            testFilePath = $@"{contentRootPath}\示例测试目录\Meshop-多语言翻译-{templateName}.xlsx";
+            string contentRootPath = this.WebHostEnvironment.ContentRootPath;
+            string testFilePath = $@"{contentRootPath}\示例测试目录\Meshop-多语言翻译-{templateName}.xlsx";
             IWorkbook workbook = this.ExcelHelper.CreateWorkbook(testFilePath);
             List<ISheet> sheetList = this.ExcelHelper.GetSheetList(workbook);
 
@@ -235,22 +245,6 @@ namespace WebApplication1.Controllers
                 }
                 else
                 {
-                    MeShopPageTran enPageTran1 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
-                    //MeShopPageTran dePageTran2 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
-                    //MeShopPageTran frPageTran3 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
-                    //MeShopPageTran jaPageTran4 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
-                    //MeShopPageTran itPageTran5 = new MeShopPageTran { PageName = enPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
-                    MeShopPageTran ptPageTran6 = new MeShopPageTran { PageName = ptPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
-                    MeShopPageTran esPageTran7 = new MeShopPageTran { PageName = esPageTran.PageName, PageKeyTranDic = new Dictionary<string, string>(50) };
-
-                    enPageTran1.PageKeyTranDic.Add("_title_", meShopCultureTranList[0].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
-                    //dePageTran2.PageKeyTranDic.Add("_title_", meShopCultureTranList[1].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
-                    //frPageTran3.PageKeyTranDic.Add("_title_", meShopCultureTranList[2].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
-                    //jaPageTran4.PageKeyTranDic.Add("_title_", meShopCultureTranList[3].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
-                    //itPageTran5.PageKeyTranDic.Add("_title_", meShopCultureTranList[4].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
-                    ptPageTran6.PageKeyTranDic.Add("_title_", meShopCultureTranList[1].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
-                    esPageTran7.PageKeyTranDic.Add("_title_", meShopCultureTranList[2].MeShopPageTranList.Find(m => m.PageName.Replace("_", "").Replace(" ", "").Equals(pageName, StringComparison.OrdinalIgnoreCase)).PageKeyTranDic["_title_"]);
-
                     foreach (MeshopExcelModel meshopExcelModel in meshopExcelModelList)
                     {
                         if (!string.IsNullOrEmpty(meshopExcelModel.En))
@@ -267,53 +261,42 @@ namespace WebApplication1.Controllers
                                     ptPageTran.PageKeyTranDic[enPageKey] = meshopExcelModel.Pt;
                                     esPageTran.PageKeyTranDic[enPageKey] = meshopExcelModel.Es;
 
-                                    if (!enPageTran1.PageKeyTranDic.ContainsKey(enPageKey))
-                                    {
-                                        //1-多语言有效性检查：变量一致性检查
-                                        Regex paramRegex = new Regex("[{]{1,}[^{}]+[}]{1,}", RegexOptions.IgnoreCase);
-                                        string enPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.En ?? ""));
-                                        //string dePraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.De ?? ""));
-                                        //string frPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Fr ?? ""));
-                                        //string jaPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Ja ?? ""));
-                                        //string itPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.It ?? ""));
-                                        string ptPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Pt ?? ""));
-                                        string esPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Es ?? ""));
-                                        if (
+                                    //1-多语言有效性检查：变量一致性检查
+                                    Regex paramRegex = new Regex("[{]{1,}[^{}]+[}]{1,}", RegexOptions.IgnoreCase);
+                                    string enPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.En ?? ""));
+                                    //string dePraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.De ?? ""));
+                                    //string frPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Fr ?? ""));
+                                    //string jaPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Ja ?? ""));
+                                    //string itPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.It ?? ""));
+                                    string ptPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Pt ?? ""));
+                                    string esPraramStr = string.Join("", paramRegex.Matches(meshopExcelModel.Es ?? ""));
+                                    if (
                                         //       enPraramStr != dePraramStr
                                         //    || enPraramStr != frPraramStr
                                         //    || enPraramStr != jaPraramStr
                                         //    || enPraramStr != itPraramStr
-                                            enPraramStr != ptPraramStr
-                                            || enPraramStr != esPraramStr)
+                                        enPraramStr != ptPraramStr
+                                        || enPraramStr != esPraramStr)
+                                    {
+                                        //checkErrorResult.AppendLine($"翻译变量被修改,detail:pageName={pageName},{enPraramStr}_{dePraramStr}_{frPraramStr}_{jaPraramStr}_{itPraramStr}_{ptPraramStr}_{esPraramStr}");
+                                        checkErrorResult.AppendLine($"翻译变量被修改,detail:pageName={sheet.SheetName},{enPraramStr}_{ptPraramStr}_{esPraramStr}");
+                                        continue;
+                                    }
+
+                                    //2-多语言文本有效性检查
+                                    Dictionary<string, Regex> validCheckDic = new Dictionary<string, Regex>();
+                                    validCheckDic.Add("换行符检查", new Regex("[\n]+"));
+
+                                    foreach (var checkItem in validCheckDic)
+                                    {
+                                        Regex checkRegex = checkItem.Value;
+                                        //string cultureJoinStr = meshopExcelModel.En + meshopExcelModel.De + meshopExcelModel.Fr + meshopExcelModel.Ja + meshopExcelModel.It + meshopExcelModel.Pt + meshopExcelModel.Es;
+                                        string cultureJoinStr = meshopExcelModel.En + meshopExcelModel.Pt + meshopExcelModel.Es;
+                                        if (checkRegex.IsMatch(cultureJoinStr))
                                         {
-                                            //checkErrorResult.AppendLine($"翻译变量被修改,detail:pageName={pageName},{enPraramStr}_{dePraramStr}_{frPraramStr}_{jaPraramStr}_{itPraramStr}_{ptPraramStr}_{esPraramStr}");
-                                            checkErrorResult.AppendLine($"翻译变量被修改,detail:pageName={sheet.SheetName},{enPraramStr}_{ptPraramStr}_{esPraramStr}");
+                                            checkErrorResult.AppendLine($"换行符错误,details:pageName={sheet.SheetName},enPageKey={enPageKey},En={meshopExcelModel.En}");
                                             continue;
                                         }
-
-                                        //2-多语言文本有效性检查
-                                        Dictionary<string, Regex> validCheckDic = new Dictionary<string, Regex>();
-                                        validCheckDic.Add("换行符检查", new Regex("[\n]+"));
-
-                                        foreach (var checkItem in validCheckDic)
-                                        {
-                                            Regex checkRegex = checkItem.Value;
-                                            //string cultureJoinStr = meshopExcelModel.En + meshopExcelModel.De + meshopExcelModel.Fr + meshopExcelModel.Ja + meshopExcelModel.It + meshopExcelModel.Pt + meshopExcelModel.Es;
-                                            string cultureJoinStr = meshopExcelModel.En + meshopExcelModel.Pt + meshopExcelModel.Es;
-                                            if (checkRegex.IsMatch(cultureJoinStr))
-                                            {
-                                                checkErrorResult.AppendLine($"换行符错误,details:pageName={sheet.SheetName},enPageKey={enPageKey},En={meshopExcelModel.En}");
-                                                continue;
-                                            }
-                                        }
-
-                                        enPageTran1.PageKeyTranDic.Add(enPageKey, meshopExcelModel.En);
-                                        //dePageTran2.PageKeyTranDic.Add(enPageKey, meshopExcelModel.De);
-                                        //frPageTran3.PageKeyTranDic.Add(enPageKey, meshopExcelModel.Fr);
-                                        //jaPageTran4.PageKeyTranDic.Add(enPageKey, meshopExcelModel.Ja);
-                                        //itPageTran5.PageKeyTranDic.Add(enPageKey, meshopExcelModel.It);
-                                        ptPageTran6.PageKeyTranDic.Add(enPageKey, meshopExcelModel.Pt);
-                                        esPageTran7.PageKeyTranDic.Add(enPageKey, meshopExcelModel.Es);
                                     }
                                 }
                             }
@@ -324,14 +307,6 @@ namespace WebApplication1.Controllers
                             }
                         }
                     }
-
-                    newMeShopCultureTranList[0].MeShopPageTranList.Add(enPageTran1);
-                    //newMeShopCultureTranList[1].MeShopPageTranList.Add(dePageTran2);
-                    //newMeShopCultureTranList[2].MeShopPageTranList.Add(frPageTran3);
-                    //newMeShopCultureTranList[3].MeShopPageTranList.Add(jaPageTran4);
-                    //newMeShopCultureTranList[4].MeShopPageTranList.Add(itPageTran5);
-                    newMeShopCultureTranList[1].MeShopPageTranList.Add(ptPageTran6);
-                    newMeShopCultureTranList[2].MeShopPageTranList.Add(esPageTran7);
                 }
             }
 
@@ -359,36 +334,8 @@ namespace WebApplication1.Controllers
             else
             {
                 //打印正常数据
-                return Content(JsonConvert.SerializeObject(newMeShopCultureTranList), "application/json");
+                return Content(JsonConvert.SerializeObject(meShopCultureTranList), "application/json");
             }
-        }
-
-
-
-        public string BuildToInsertSql(List<MeShopCultureTran> newMeShopCultureTranList)
-        {
-            StringBuilder sqlStringBuilder = new StringBuilder();
-            sqlStringBuilder.Append($"TRUNCATE TABLE system_translate; \r\n");
-            sqlStringBuilder.Append($"INSERT INTO system_translate VALUES \r\n");
-
-            for (int i = 0; i < newMeShopCultureTranList.Count; i++)
-            {
-                MeShopCultureTran item = newMeShopCultureTranList[i];
-
-                string pageTranStr = JsonConvert.SerializeObject(item.ShowSqlMeShopPageTranDic);
-                string sql = $"('{i + 1}', 'v1', '{item.CultureName}', '0', '0', '{pageTranStr}', 'system', '2020-07-22 15:44:41', 'system', '2020-07-22 15:44:46')";
-                if (i < newMeShopCultureTranList.Count - 1)
-                {
-                    sql += ",\r\n";
-                }
-                else
-                {
-                    sql += ";";
-                }
-                sqlStringBuilder.Append(sql);
-            }
-
-            return sqlStringBuilder.ToString();
         }
 
     }
