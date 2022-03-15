@@ -46,7 +46,7 @@ namespace WebApplication1.Controllers
             string templateName = "Template1";
 
             string filePath = @"C:\Users\lixianghong\Desktop\Test.xlsx";
-            List<MeshopExcelModel> dataList = new List<MeshopExcelModel>(1000);
+            List<Order> dataList = new List<Order>(1000);
 
             IWorkbook workbook = null;
             try
@@ -67,7 +67,7 @@ namespace WebApplication1.Controllers
                     throw new Exception($"未找到MyData_{templateName}的配置数据");
                 }
 
-                dataList.AddRange(ExcelHelper.ReadTitleDataList<MeshopExcelModel>(filePath, new ExcelFileDescription()));
+                dataList.AddRange(ExcelHelper.ReadTitleDataList<Order>(filePath, new ExcelFileDescription()));
                 this.Logger.LogInformation($"已导出数据共{dataList.Count}个.");
                 //前368个重新查询，查询时间错误
                 int position = dataList.Count + 1;
@@ -78,7 +78,7 @@ namespace WebApplication1.Controllers
                     orderGuid = pageJProperty.SelectToken("Guid").ToObject<string>();
                     if (!dataList.Exists(m => m.OrderGuid == orderGuid))
                     {
-                        MeshopExcelModel model = new MeshopExcelModel
+                        Order model = new Order
                         {
                             OrderGuid = orderGuid,
                             CreateTime = pageJProperty.SelectToken("CreateTime").ToObject<DateTime>()
@@ -99,7 +99,7 @@ namespace WebApplication1.Controllers
             return Ok();
         }
 
-        private async Task GetOrderPayType(int totalCount, int position, MeshopExcelModel model)
+        private async Task GetOrderPayType(int totalCount, int position, Order model)
         {
             //想要快速查询：需要打开ES搜索页，放置一个定时器定时输入耗时较长的搜索词点击查询按钮，程序方可快速查询数据
             //window.setInterval(function(){document.querySelector("button.euiSuperUpdateButton").click();},2000)
