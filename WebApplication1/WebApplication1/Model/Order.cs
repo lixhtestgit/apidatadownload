@@ -8,7 +8,7 @@ namespace WebApplication1.Model
         [ExcelTitle("弃单号")]
         public string OrderGuid { get; set; }
 
-        [ExcelTitle("创建时间")]
+        [ExcelTitle("创建时间", outputFormat: "yyyy-MM-dd HH:mm:ss")]
         public DateTime CreateTime { get; set; }
 
         [ExcelTitle("客户")]

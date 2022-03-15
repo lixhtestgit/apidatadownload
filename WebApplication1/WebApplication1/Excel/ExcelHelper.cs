@@ -536,8 +536,12 @@ namespace PPPayReportTools.Excel
         private List<T> _GetTList<T>(string filePath, List<ExcelTitleFieldMapper> titleMapperList, ExcelFileDescription excelFileDescription) where T : new()
         {
             List<T> tList = new List<T>(500 * 10000);
-            T t = default(T);
+            if (!File.Exists(filePath))
+            {
+                return tList;
+            }
 
+            T t = default(T);
             using (FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
             {
                 IWorkbook workbook = null;
@@ -640,7 +644,7 @@ namespace PPPayReportTools.Excel
                                         }
                                     }
 
-                                    if (excelTitleFieldMapper.IsCoordinateExpress || cell.CellType == CellType.Formula)
+                                    if (excelTitleFieldMapper.IsCoordinateExpress || (cell != null && cell.CellType == CellType.Formula))
                                     {
                                         //读取含有表达式的单元格值
                                         cellValue = formulaEvaluator.Evaluate(cell).StringValue;
