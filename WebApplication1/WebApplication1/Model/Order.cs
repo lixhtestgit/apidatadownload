@@ -11,10 +11,19 @@ namespace WebApplication1.Model
         [ExcelTitle("创建时间", outputFormat: "yyyy-MM-dd HH:mm:ss")]
         public DateTime CreateTime { get; set; }
 
-        [ExcelTitle("支付方式")]
-        public string PayType { get; set; }
+        [ExcelTitle("支付状态")]
+        public string PayStatus { get; set; }
 
-        [ExcelTitle("相关日志")]
-        public string Content { get; set; }
+        [ExcelTitle("支付方式")]
+        public string ESPayType { get; set; }
+
+        [ExcelTitle("SessionID")]
+        public string SessionIDArrayStr { get; set; }
+
+        [ExcelTitle("创建订单结果日志")]
+        public string ESCreateOrderResultLog { get; set; }
+
+        [ExcelTitle("支付结果日志")]
+        public string ESPayResultLog { get; set; }
     }
 }

@@ -11,7 +11,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using WebApplication1.Enum;
+using WebApplication1.Helper;
 using WebApplication1.Model;
 
 namespace WebApplication1.Controllers
@@ -25,14 +28,22 @@ namespace WebApplication1.Controllers
         public IWebHostEnvironment WebHostEnvironment { get; set; }
         public ILogger Logger { get; set; }
         public IConfiguration Configuration { get; set; }
+        public ESSearchHelper ESSearchHelper { get; set; }
 
-        public OrderController(IHttpClientFactory httpClientFactory, ExcelHelper excelHelper, IWebHostEnvironment webHostEnvironment, ILogger<TestController> logger, IConfiguration configuration)
+        public OrderController(
+            IHttpClientFactory httpClientFactory,
+            ExcelHelper excelHelper,
+            IWebHostEnvironment webHostEnvironment,
+            ILogger<TestController> logger,
+            IConfiguration configuration,
+            ESSearchHelper eSSearchHelper)
         {
             this.PayHttpClient = httpClientFactory.CreateClient();
             this.ExcelHelper = excelHelper;
             this.WebHostEnvironment = webHostEnvironment;
             this.Logger = logger;
             this.Configuration = configuration;
+            this.ESSearchHelper = eSSearchHelper;
         }
 
         /// <summary>
@@ -73,17 +84,20 @@ namespace WebApplication1.Controllers
                 int position = dataList.Count + 1;
                 int totalCount = pageJPropertyList.Count();
                 string orderGuid;
+                int payStatus = 0;
                 foreach (JObject pageJProperty in pageJPropertyList)
                 {
                     orderGuid = pageJProperty.SelectToken("Guid").ToObject<string>();
-                    if (!dataList.Exists(m => m.OrderGuid == orderGuid))
+                    payStatus = pageJProperty.SelectToken("State").ToObject<int>();
+                    if (true || !dataList.Exists(m => m.OrderGuid == orderGuid))
                     {
                         Order model = new Order
                         {
                             OrderGuid = orderGuid,
+                            PayStatus = ((EOrder.State)payStatus).ToString(),
                             CreateTime = pageJProperty.SelectToken("CreateTime").ToObject<DateTime>()
                         };
-                        await this.GetOrderPayType(totalCount, position, model);
+                        await this.UpdateOrderPayData(totalCount, position, model, 3);
                         dataList.Add(model);
                         position++;
 
@@ -96,316 +110,58 @@ namespace WebApplication1.Controllers
             {
                 this.Logger.LogError(e, $"数据收集遇到异常,正在保存数据，请重新收集...");
             }
+
+            this.Logger.LogInformation($"任务结束.");
+
             return Ok();
         }
 
-        private async Task GetOrderPayType(int totalCount, int position, Order model)
+        /// <summary>
+        /// 获取支付相关数据
+        /// </summary>
+        /// <param name="totalCount"></param>
+        /// <param name="position"></param>
+        /// <param name="model"></param>
+        /// <param name="lastDays"></param>
+        /// <returns></returns>
+        private async Task UpdateOrderPayData(int totalCount, int position, Order model, int lastDays)
         {
-            //想要快速查询：需要打开ES搜索页，放置一个定时器定时输入耗时较长的搜索词点击查询按钮，程序方可快速查询数据
-            //window.setInterval(function(){document.querySelector("button.euiSuperUpdateButton").click();},2000)
-            //搜索内容：挑选耗时比较长的搜索词，让ES处于搜索中状态，如："a" and ("/ajax/paydd" or "/ajax/pay")
-            //下面查询语句注意搜索时间段
+            #region 1-获取支付类型
 
-            #region 获取requestID
+            string dataFilter = @"[
+    {
+        ""multi_match"": {
+            ""type"": ""phrase"",
+            ""query"": """ + model.OrderGuid + @""",
+            ""lenient"": true
+        }
+    },
+    {
+        ""bool"": {
+            ""should"": [
+                {
+                    ""multi_match"": {
+                        ""type"": ""phrase"",
+                        ""query"": ""/ajax/paydd"",
+                        ""lenient"": true
+                    }
+                },
+                {
+                    ""multi_match"": {
+                        ""type"": ""phrase"",
+                        ""query"": ""/ajax/pay"",
+                        ""lenient"": true
+                    }
+                }
+            ],
+            ""minimum_should_match"": 1
+        }
+    }
+]";
 
-            var body = @"{
-" + "\n" +
-@"    ""params"": {
-" + "\n" +
-@"        ""ignoreThrottled"": true,
-" + "\n" +
-@"        ""index"": ""logstash-*"",
-" + "\n" +
-@"        ""body"": {
-" + "\n" +
-@"            ""version"": true,
-" + "\n" +
-@"            ""size"": 500,
-" + "\n" +
-@"            ""sort"": [
-" + "\n" +
-@"                {
-" + "\n" +
-@"                    ""@timestamp"": {
-" + "\n" +
-@"                        ""order"": ""desc"",
-" + "\n" +
-@"                        ""unmapped_type"": ""boolean""
-" + "\n" +
-@"                    }
-" + "\n" +
-@"                }
-" + "\n" +
-@"            ],
-" + "\n" +
-@"            ""aggs"": {
-" + "\n" +
-@"                ""2"": {
-" + "\n" +
-@"                    ""date_histogram"": {
-" + "\n" +
-@"                        ""field"": ""@timestamp"",
-" + "\n" +
-@"                        ""fixed_interval"": ""3h"",
-" + "\n" +
-@"                        ""time_zone"": ""Asia/Shanghai"",
-" + "\n" +
-@"                        ""min_doc_count"": 1
-" + "\n" +
-@"                    }
-" + "\n" +
-@"                }
-" + "\n" +
-@"            },
-" + "\n" +
-@"            ""stored_fields"": [
-" + "\n" +
-@"                ""*""
-" + "\n" +
-@"            ],
-" + "\n" +
-@"            ""script_fields"": {},
-" + "\n" +
-@"            ""docvalue_fields"": [
-" + "\n" +
-@"                {
-" + "\n" +
-@"                    ""field"": ""@timestamp"",
-" + "\n" +
-@"                    ""format"": ""date_time""
-" + "\n" +
-@"                },
-" + "\n" +
-@"                {
-" + "\n" +
-@"                    ""field"": ""t.$date"",
-" + "\n" +
-@"                    ""format"": ""date_time""
-" + "\n" +
-@"                },
-" + "\n" +
-@"                {
-" + "\n" +
-@"                    ""field"": ""timestamp"",
-" + "\n" +
-@"                    ""format"": ""date_time""
-" + "\n" +
-@"                }
-" + "\n" +
-@"            ],
-" + "\n" +
-@"            ""_source"": {
-" + "\n" +
-@"                ""excludes"": []
-" + "\n" +
-@"            },
-" + "\n" +
-@"            ""query"": {
-" + "\n" +
-@"                ""bool"": {
-" + "\n" +
-@"                    ""must"": [],
-" + "\n" +
-@"                    ""filter"": [
-" + "\n" +
-@"                        {
-" + "\n" +
-@"                            ""bool"": {
-" + "\n" +
-@"                                ""filter"": [
-" + "\n" +
-@"                                    {
-" + "\n" +
-@"                                        ""multi_match"": {
-" + "\n" +
-@"                                            ""type"": ""phrase"",
-" + "\n" +
-$@"                                            ""query"": ""{model.OrderGuid}"",
-" + "\n" +
-@"                                            ""lenient"": true
-" + "\n" +
-@"                                        }
-" + "\n" +
-@"                                    },
-" + "\n" +
-@"                                    {
-" + "\n" +
-@"                                        ""bool"": {
-" + "\n" +
-@"                                            ""should"": [
-" + "\n" +
-@"                                                {
-" + "\n" +
-@"                                                    ""multi_match"": {
-" + "\n" +
-@"                                                        ""type"": ""phrase"",
-" + "\n" +
-@"                                                        ""query"": ""/ajax/pay"",
-" + "\n" +
-@"                                                        ""lenient"": true
-" + "\n" +
-@"                                                    }
-" + "\n" +
-@"                                                },
-" + "\n" +
-@"                                                {
-" + "\n" +
-@"                                                    ""multi_match"": {
-" + "\n" +
-@"                                                        ""type"": ""phrase"",
-" + "\n" +
-@"                                                        ""query"": ""/ajax/paydd"",
-" + "\n" +
-@"                                                        ""lenient"": true
-" + "\n" +
-@"                                                    }
-" + "\n" +
-@"                                                }
-" + "\n" +
-@"                                            ],
-" + "\n" +
-@"                                            ""minimum_should_match"": 1
-" + "\n" +
-@"                                        }
-" + "\n" +
-@"                                    }
-" + "\n" +
-@"                                ]
-" + "\n" +
-@"                            }
-" + "\n" +
-@"                        },
-" + "\n" +
-@"                        {
-" + "\n" +
-@"                            ""range"": {
-" + "\n" +
-@"                                ""@timestamp"": {
-" + "\n" +
-@"                                    ""gte"": ""2021-12-15T07:35:45.109Z"",
-" + "\n" +
-@"                                    ""lte"": ""2022-03-15T07:35:45.109Z"",
-" + "\n" +
-@"                                    ""format"": ""strict_date_optional_time""
-" + "\n" +
-@"                                }
-" + "\n" +
-@"                            }
-" + "\n" +
-@"                        }
-" + "\n" +
-@"                    ],
-" + "\n" +
-@"                    ""should"": [],
-" + "\n" +
-@"                    ""must_not"": []
-" + "\n" +
-@"                }
-" + "\n" +
-@"            },
-" + "\n" +
-@"            ""highlight"": {
-" + "\n" +
-@"                ""pre_tags"": [
-" + "\n" +
-@"                    ""@kibana-highlighted-field@""
-" + "\n" +
-@"                ],
-" + "\n" +
-@"                ""post_tags"": [
-" + "\n" +
-@"                    ""@/kibana-highlighted-field@""
-" + "\n" +
-@"                ],
-" + "\n" +
-@"                ""fields"": {
-" + "\n" +
-@"                    ""*"": {}
-" + "\n" +
-@"                },
-" + "\n" +
-@"                ""fragment_size"": 2147483647
-" + "\n" +
-@"            }
-" + "\n" +
-@"        },
-" + "\n" +
-@"        ""rest_total_hits_as_int"": true,
-" + "\n" +
-@"        ""ignore_unavailable"": true,
-" + "\n" +
-@"        ""ignore_throttled"": true,
-" + "\n" +
-@"        ""preference"": 1646450551014,
-" + "\n" +
-@"        ""timeout"": ""30000ms""
-" + "\n" +
-@"    }
-" + "\n" +
-@"}";
-            #endregion
-
-            string requestID = null;
-
-            int trySearchIDCount = 1;
-            do
+            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个支付类型数据", dataFilter, lastDays, log =>
             {
-                try
-                {
-                    var responseResult1 = await this.PayHttpClient.Post("https://log.meshopstore.com/internal/search/es", body, headerDict: new Dictionary<string, string>
-                {
-                    {"kbn-version", "7.9.3" }
-                });
-
-                    requestID = JObject.Parse(responseResult1.Item2).SelectToken("id")?.ToObject<string>();
-
-                    this.Logger.LogInformation($"正在查询数据第{position}/{totalCount}个查询ID,尝试第{trySearchIDCount}次查询：{requestID}");
-                    trySearchIDCount++;
-                }
-                catch (Exception)
-                {
-                }
-
-            } while (string.IsNullOrEmpty(requestID));
-
-
-            int trySearchResultCount = 1;
-            body = @"{
-" + "\n" +
-$@"    ""id"":""{requestID}""
-" + "\n" +
-@"}";
-            string responseResult2 = null;
-            bool isRuning = false;
-            do
-            {
-                try
-                {
-                    isRuning = true;
-                    responseResult2 = (await this.PayHttpClient.Post("https://log.meshopstore.com/internal/search/es", body, headerDict: new Dictionary<string, string>
-                    {
-                        {"kbn-version", "7.9.3" }
-                    })).Item2;
-                    isRuning = JObject.Parse(responseResult2).SelectToken("is_running")?.ToObject<bool>() ?? false;
-                }
-                catch (Exception)
-                {
-                    throw;
-                }
-                if (isRuning)
-                {
-                    this.Logger.LogInformation($"正在查询数据第{position}/{totalCount}个查询结果,ES正在运行中,尝试第{trySearchResultCount}次查询：{requestID}");
-                }
-                trySearchResultCount++;
-            } while (string.IsNullOrEmpty(responseResult2) || isRuning);
-            model.Content = responseResult2.Length > 32767 ? responseResult2.Substring(0, 32767) : responseResult2;
-
-            string payType = "无";
-
-            JArray hitJArray = JObject.Parse(responseResult2).SelectToken("rawResponse.hits.hits")?.ToObject<JArray>();
-            foreach (JObject item in hitJArray)
-            {
-                string log = item.SelectToken("_source.log").ToObject<string>();
+                string payType = null;
                 if (log.Contains("/ajax/paydd/FPP", StringComparison.OrdinalIgnoreCase))
                 {
                     payType = "PayPal快捷";
@@ -427,12 +183,160 @@ $@"    ""id"":""{requestID}""
                 {
                     payType = "其他支付方式+" + log;
                 }
-                if (!string.IsNullOrEmpty(payType))
+                return payType;
+            });
+
+            ESLog firstLog = esLogList.FirstOrDefault();
+            model.ESPayType = firstLog?.Type ?? "无";
+
+            #endregion
+
+            #region 调度版本
+            if (model.ESPayType.Contains("PayPal")
+                || model.ESPayType.Contains("PayEase直连"))
+            {
+                #region 2-获取会话ID
+
+                dataFilter = @"[
+                            {
+                                ""multi_match"": {
+                                    ""type"": ""phrase"",
+                                    ""query"": """ + model.OrderGuid + @""",
+                                    ""lenient"": true
+                                }
+                            },
+                            {
+                                ""multi_match"": {
+                                    ""type"": ""best_fields"",
+                                    ""query"": ""token"",
+                                    ""lenient"": true
+                                }
+                            }
+                        ]";
+                List<string> sessionIDList = new List<string>(10);
+
+                esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个SessionID数据", dataFilter, lastDays, log =>
                 {
-                    break;
+                    string sessionID = null;
+                    if (log.Contains("token", StringComparison.OrdinalIgnoreCase))
+                    {
+                        sessionID = new Regex("(?<=\"token\":\")[a-z0-9]+(?=\")").Match(log).Value;
+                        if (!string.IsNullOrEmpty(sessionID) && !sessionIDList.Contains(sessionID))
+                        {
+                            sessionIDList.Add(sessionID);
+                            model.SessionIDArrayStr = string.Join(",", sessionIDList);
+                        }
+                    }
+                    return sessionID;
+                });
+
+                #endregion
+
+                #region 获取回话结果日志
+
+                foreach (var sessionID in sessionIDList)
+                {
+                    dataFilter = @"[
+                                {
+                                    ""multi_match"": {
+                                        ""type"": ""best_fields"",
+                                        ""query"": """ + sessionID + @""",
+                                        ""lenient"": true
+                                    }
+                                }
+                            ]";
+                    esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个创建订单结果数据", dataFilter, lastDays, log =>
+                    {
+                        string validLog = null;
+                        if (log.Contains("CreateOrder_Result", StringComparison.OrdinalIgnoreCase))
+                        {
+                            //获取创建订单结果日志
+                            validLog = log;
+                            model.ESCreateOrderResultLog += validLog + "\n";
+                        }
+                        else
+                        {
+                            //获取支付结果日志
+                            if (model.ESPayType.Contains("PayPal")
+                                && log.Contains("PP_4002_CaptureOrder_Result", StringComparison.OrdinalIgnoreCase))
+                            {
+                                //获取创建订单结果日志
+                                validLog = log;
+                                model.ESPayResultLog += validLog + "\n";
+                            }
+                            else if (model.ESPayType.Contains("PayEase直连")
+                                && log.Contains("PayEaseDirect_v1Controller_ResultPage", StringComparison.OrdinalIgnoreCase))
+                            {
+                                //获取创建订单结果日志
+                                validLog = log;
+                                model.ESPayResultLog += validLog + "\n";
+                            }
+                        }
+                        return validLog;
+                    });
+
                 }
+
+                #endregion
             }
-            model.PayType = payType;
+            #endregion
+            #region 非调度版本查询
+            else
+            {
+                #region 2-获取弃单日志列表
+
+                dataFilter = @"[
+                            {
+                                ""multi_match"": {
+                                    ""type"": ""phrase"",
+                                    ""query"": """ + model.OrderGuid + @""",
+                                    ""lenient"": true
+                                }
+                            }
+                        ]";
+
+                esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个弃单日志数据", dataFilter, lastDays, log =>
+                {
+                    string validLog = null;
+
+                    //首信易三方
+                    if (model.ESPayType.Contains("PayEase三方或者本地化"))
+                    {
+                        if (log.Contains("PayEase_1002_CreateOrder_Result", StringComparison.OrdinalIgnoreCase))
+                        {
+                            //获取创建订单结果日志
+                            validLog = log;
+                            model.ESCreateOrderResultLog += validLog + "\n";
+                        }
+                        if (log.Contains("PayEase_1003_CreateOrder_CallBack_Result", StringComparison.OrdinalIgnoreCase))
+                        {
+                            //获取创建订单结果日志
+                            validLog = log;
+                            model.ESPayResultLog += validLog + "\n";
+                        }
+
+                    }
+                    else if (true)
+                    {
+                        //...
+                    }
+
+                    return validLog;
+                });
+
+                #endregion
+            }
+            #endregion
+
+
+            if (string.IsNullOrEmpty(model.ESCreateOrderResultLog))
+            {
+                model.ESCreateOrderResultLog = "无";
+            }
+            if (string.IsNullOrEmpty(model.ESPayResultLog))
+            {
+                model.ESPayResultLog = "无";
+            }
         }
     }
 }

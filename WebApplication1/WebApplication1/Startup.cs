@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using PPPayReportTools.Excel;
+using WebApplication1.Helper;
 
 namespace WebApplication1
 {
@@ -22,6 +23,7 @@ namespace WebApplication1
             services.AddHttpClient();
             services.AddLogging();
             services.AddSingleton<ExcelHelper>();
+            services.AddSingleton<ESSearchHelper>();
             services.AddControllers();
         }
 
