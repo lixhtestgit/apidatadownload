@@ -94,7 +94,7 @@ namespace WebApplication1.Controllers
                         Order model = new Order
                         {
                             OrderGuid = orderGuid,
-                            PayStatus = ((EOrder.State)payStatus).ToString(),
+                            OrderState = payStatus == 0 ? "未恢复" : "已恢复",
                             CreateTime = pageJProperty.SelectToken("CreateTime").ToObject<DateTime>()
                         };
                         await this.UpdateOrderPayData(totalCount, position, model, 3);

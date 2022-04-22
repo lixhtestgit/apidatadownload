@@ -58,13 +58,13 @@ namespace WebApplication1.Controllers
     {
         ""multi_match"": {
             ""type"": ""phrase"",
-            ""query"": ""MeShopPay无法同步支付结果到网站"",
+            ""query"": ""MeShopPay向网站发送支付结果失败"",
             ""lenient"": true
         }
     }
 ]";
 
-            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"获取Pay通知失败数据", dataFilter, 1, log =>
+            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"获取Pay通知失败数据", dataFilter, 6, log =>
             {
                 return "1";
             });
