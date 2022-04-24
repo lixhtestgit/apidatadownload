@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
@@ -13,7 +14,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using WebApplication1.Enum;
 using WebApplication1.Helper;
 using WebApplication1.Model;
 
@@ -29,6 +29,7 @@ namespace WebApplication1.Controllers
         public ILogger Logger { get; set; }
         public IConfiguration Configuration { get; set; }
         public ESSearchHelper ESSearchHelper { get; set; }
+        public IMemoryCache MemoryCache { get; set; }
 
         public OrderController(
             IHttpClientFactory httpClientFactory,
@@ -36,7 +37,8 @@ namespace WebApplication1.Controllers
             IWebHostEnvironment webHostEnvironment,
             ILogger<TestController> logger,
             IConfiguration configuration,
-            ESSearchHelper eSSearchHelper)
+            ESSearchHelper eSSearchHelper,
+            IMemoryCache memoryCache)
         {
             this.PayHttpClient = httpClientFactory.CreateClient();
             this.ExcelHelper = excelHelper;
@@ -44,6 +46,7 @@ namespace WebApplication1.Controllers
             this.Logger = logger;
             this.Configuration = configuration;
             this.ESSearchHelper = eSSearchHelper;
+            this.MemoryCache = memoryCache;
         }
 
         /// <summary>
@@ -84,20 +87,27 @@ namespace WebApplication1.Controllers
                 int position = dataList.Count + 1;
                 int totalCount = pageJPropertyList.Count();
                 string orderGuid;
-                int payStatus = 0;
                 foreach (JObject pageJProperty in pageJPropertyList)
                 {
                     orderGuid = pageJProperty.SelectToken("Guid").ToObject<string>();
-                    payStatus = pageJProperty.SelectToken("State").ToObject<int>();
-                    if (true || !dataList.Exists(m => m.OrderGuid == orderGuid))
+                    if (true || !dataList.Exists(m => m.CheckoutGuid == orderGuid))
                     {
                         Order model = new Order
                         {
-                            OrderGuid = orderGuid,
-                            OrderState = payStatus == 0 ? "未恢复" : "已恢复",
-                            CreateTime = pageJProperty.SelectToken("CreateTime").ToObject<DateTime>()
+                            CheckoutID = pageJProperty.SelectToken("ID").ToObject<string>(),
+                            CheckoutGuid = pageJProperty.SelectToken("Guid").ToObject<string>(),
+                            OrderState = pageJProperty.SelectToken("State").ToObject<int>() == 0 ? "未恢复" : "已恢复",
+                            Email = pageJProperty.SelectToken("Email").ToObject<string>(),
+                            CreateTime = pageJProperty.SelectToken("CreateTime").ToObject<DateTime>(),
+                            CreateOrderErrorReasonList = new List<string>(0),
+                            PayErrorReasonList = new List<string>(0),
+                            SessionIDList = new List<string>(0),
+                            ESPayTypeList = new List<string>(0),
+                            ESCreateOrderResultLogList = new List<string>(0),
+                            ESPayResultLogList = new List<string>(0)
                         };
-                        await this.UpdateOrderPayData(totalCount, position, model, 3);
+                        await this.UpdateOrderAddress(model);
+                        await this.UpdateOrderPayData(totalCount, position, model, 10);
                         dataList.Add(model);
                         position++;
 
@@ -117,6 +127,72 @@ namespace WebApplication1.Controllers
         }
 
         /// <summary>
+        /// 获取国家名称
+        /// </summary>
+        /// <param name="countryCode"></param>
+        /// <returns></returns>
+        private async Task<string> GetCountryName(string countryCode)
+        {
+            string result = null;
+
+            string getData = await this.MemoryCache.GetOrCreateAsync<string>("AllGeography", async cache =>
+            {
+                string data = (await this.PayHttpClient.Get("https://config.runshopstore.com/api/Geography/GetGeographyAll")).Item2;
+                cache.Value = data;
+                cache.SlidingExpiration = TimeSpan.FromHours(1);
+                return data;
+            });
+
+            JArray geographyJArray = JObject.Parse(getData).SelectToken("data").ToObject<JArray>();
+            foreach (JObject geographyJObj in geographyJArray)
+            {
+                if (string.IsNullOrEmpty(geographyJObj.SelectToken("parent_code").ToObject<string>())
+                    && geographyJObj.SelectToken("code").ToObject<string>() == countryCode)
+                {
+                    result = geographyJObj.SelectToken("name").ToObject<string>();
+                }
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// 更新订单地址数据
+        /// </summary>
+        /// <param name="model"></param>
+        /// <returns></returns>
+        private async Task UpdateOrderAddress(Order model)
+        {
+            string baseRequestUrl = "https://adoebike.meshopstore.com/api/v1/order/GetGiveUpDetailPageData?id={id}";
+            string postUrl = baseRequestUrl.Replace("{id}", model.CheckoutID);
+
+            Dictionary<string, string> heaerDic = new Dictionary<string, string>(3)
+            {
+                { "Authorization","Bearer 4fLiaKgcZIxrYzUU5rTeiKc61DC44qcHFtC6iDFot23lkSV3nqMLIsbaSi6OgkFwq0Z0O/VUnsZqqIJSXud/G2yqOhpj4zq5mX6tvcyV9Pd9uZg4BmOVMu9L1esGycr6kBizEmLMF2N5VhbauUGDQUr0MYMRwnB6wDU1I6dh+W7EANWerQmCZ2rdcp8wFUWiFMVjRKWTWo3ayygA+YxXRWTW1vYwfciWYouNNXGUtmg+SuWAqAW1N6d53s9FsJAlb125mYxFfDn7beDtR0sHY04yTWnzaI6WyhOqBFZBcuQMJ146JM1M5v2Q5ewyOIWzt/IagSPlWlTV0rczsuqTWvOfW8rguTibhwv4ddDTzMITDLhSwA3vHwqRAxVdBY/x9jtKCQKQXeWqUDvU2qBd2exB4ACy0C1eGB4Ut/tLczj2gIZxyr3wA22NsoaZndTEIs+GNikO2QNrGScr54dDuBFMzNsrKoCBBBV/rO2o87DdA4r4hM6kfNBDzrr/0zZOOtPtmlnIS4eWKkV0Xc394eyNGCu/k3u2VpK1hIvo+MuJX/p+wMAith8ZroQS6Rdkt/IagSPlWlTV0rczsuqTWhS+gdVhKo+H8wrTcIG8VB6ryuPv33nMrltUYQHN8FvavZaufgOrixyF3qwFP0P7ltfjrGqiDjtR9Rim+qTnqXC7EBbWKm2wkBNqlLrWoajHymwOVDgsiSut6rT/HKoW/Pqm5womW7Cj1aHcO/EgxvXmG0RvXJzbTBiKIm6QEosMy9CSJF/ocuIe1ubtnT77n3/D2s2AJn0ripuktavlJsfMmfid/Spkp6ka19rc/HUvNltQKuQ9Oo8xeE2qeQ0OrZ+TSjIrQPmg1r+Qkb16KpTAo9gm0B5X+16e0Ijv7UJeSOC4hMVVx9vOgCAqiLMrWIp6DlqF5NYZE/Ha1r845KExzgW89b2GZ59NbKOauMEMaUC8Re3VnordkFe/J4jGWVd10srS+7ASwDEDmnBrH740OTdN62n93zwc35VMCD6DukQ4QJ8uUuCEVE0jhlCrH0hxb7HqfUTD07l09IhkpMZXEQ7Nrqsc8aTjQJorMcLXHh1yoz23EKE0q9KM38XRFHYNM0J3pdCG2QE/st4FOotkf5TonVSpw7gIUg8lZrNxNYAeQ4MPrfHjCDHAWLggIK35eFDAAhUcp+bMoOsFKuIvX5qAlffNA134N3uojMFB+QQOlWP6aHopnZ1AQ3nSB8xelB9gO7aZr4SmoA45VKYRaQdWhSPzjeR41KUZhcVa"},
+                {"access_hash","o/Gy4FobxzC3x7vftVM1Yw==" },
+                {"response_in","62652d36" }
+            };
+
+            var getResult = await this.PayHttpClient.Get(postUrl, heaerDic);
+
+            JObject checkoutJObj = JObject.Parse(getResult.Item2);
+            JArray addressJArray = checkoutJObj.SelectToken("data.AddressList").ToObject<JArray>();
+            int addressType = 0;
+            string countryCode = null;
+            foreach (JObject addressJObj in addressJArray)
+            {
+                addressType = addressJObj.SelectToken("Type").ToObject<int>();
+                countryCode = addressJObj.SelectToken("CountryCode").ToObject<string>();
+                if (addressType == 1)
+                {
+                    model.CountryName = await this.GetCountryName(countryCode);
+
+                    break;
+                }
+            }
+
+        }
+
+        /// <summary>
         /// 获取支付相关数据
         /// </summary>
         /// <param name="totalCount"></param>
@@ -132,7 +208,7 @@ namespace WebApplication1.Controllers
     {
         ""multi_match"": {
             ""type"": ""phrase"",
-            ""query"": """ + model.OrderGuid + @""",
+            ""query"": """ + model.CheckoutGuid + @""",
             ""lenient"": true
         }
     },
@@ -186,8 +262,10 @@ namespace WebApplication1.Controllers
                 return payType;
             });
 
-            ESLog firstLog = esLogList.FirstOrDefault();
-            model.ESPayType = firstLog?.Type ?? "无";
+            if (esLogList.Count > 0)
+            {
+                model.ESPayTypeList.AddRange(esLogList.Select(m => m.Type));
+            }
 
             #endregion
 
@@ -201,7 +279,7 @@ namespace WebApplication1.Controllers
                             {
                                 ""multi_match"": {
                                     ""type"": ""phrase"",
-                                    ""query"": """ + model.OrderGuid + @""",
+                                    ""query"": """ + model.CheckoutGuid + @""",
                                     ""lenient"": true
                                 }
                             },
@@ -213,22 +291,22 @@ namespace WebApplication1.Controllers
                                 }
                             }
                         ]";
-                List<string> sessionIDList = new List<string>(10);
 
+                List<string> sessionIDList = new List<string>(10);
                 esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个SessionID数据", dataFilter, lastDays, log =>
                 {
                     string sessionID = null;
                     if (log.Contains("token", StringComparison.OrdinalIgnoreCase))
                     {
-                        sessionID = new Regex("(?<=\"token\":\")[a-z0-9]+(?=\")").Match(log).Value;
+                        sessionID = new Regex("(?<=\"token\":\")[^\"]+(?=\")").Match(log).Value;
                         if (!string.IsNullOrEmpty(sessionID) && !sessionIDList.Contains(sessionID))
                         {
                             sessionIDList.Add(sessionID);
-                            model.SessionIDArrayStr = string.Join(",", sessionIDList);
                         }
                     }
                     return sessionID;
                 });
+                model.SessionIDList.AddRange(sessionIDList);
 
                 #endregion
 
@@ -248,11 +326,21 @@ namespace WebApplication1.Controllers
                     esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个创建订单结果数据", dataFilter, lastDays, log =>
                     {
                         string validLog = null;
+                        string payError = null;
                         if (log.Contains("CreateOrder_Result", StringComparison.OrdinalIgnoreCase))
                         {
                             //获取创建订单结果日志
                             validLog = log;
-                            model.ESCreateOrderResultLog += validLog + "\n";
+                            model.ESCreateOrderResultLogList.Add(validLog);
+
+                            if (model.ESPayType.Contains("PayPal"))
+                            {
+                                payError = new Regex("(?<=\"issue\":\")[^\"]+(?=\")").Match(log).Value;
+                                if (!string.IsNullOrEmpty(payError))
+                                {
+                                    model.CreateOrderErrorReasonList.Add(payError);
+                                }
+                            }
                         }
                         else
                         {
@@ -262,14 +350,26 @@ namespace WebApplication1.Controllers
                             {
                                 //获取创建订单结果日志
                                 validLog = log;
-                                model.ESPayResultLog += validLog + "\n";
+                                model.ESPayResultLogList.Add(validLog);
+
+                                payError = new Regex("(?<=\"issue\":\")[^\"]+(?=\")").Match(log).Value;
+                                if (!string.IsNullOrEmpty(payError))
+                                {
+                                    model.PayErrorReasonList.Add(payError);
+                                }
                             }
                             else if (model.ESPayType.Contains("PayEase直连")
                                 && log.Contains("PayEaseDirect_v1Controller_ResultPage", StringComparison.OrdinalIgnoreCase))
                             {
                                 //获取创建订单结果日志
                                 validLog = log;
-                                model.ESPayResultLog += validLog + "\n";
+                                model.ESPayResultLogList.Add(validLog);
+
+                                payError = new Regex("(?<=\"orderInfo\":\")[^\"]+(?=\")").Match(log).Value;
+                                if (!string.IsNullOrEmpty(payError))
+                                {
+                                    model.PayErrorReasonList.Add(payError);
+                                }
                             }
                         }
                         return validLog;
@@ -289,7 +389,7 @@ namespace WebApplication1.Controllers
                             {
                                 ""multi_match"": {
                                     ""type"": ""phrase"",
-                                    ""query"": """ + model.OrderGuid + @""",
+                                    ""query"": """ + model.CheckoutGuid + @""",
                                     ""lenient"": true
                                 }
                             }
@@ -298,6 +398,7 @@ namespace WebApplication1.Controllers
                 esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个弃单日志数据", dataFilter, lastDays, log =>
                 {
                     string validLog = null;
+                    string payError = null;
 
                     //首信易三方
                     if (model.ESPayType.Contains("PayEase三方或者本地化"))
@@ -306,13 +407,25 @@ namespace WebApplication1.Controllers
                         {
                             //获取创建订单结果日志
                             validLog = log;
-                            model.ESCreateOrderResultLog += validLog + "\n";
+                            model.ESCreateOrderResultLogList.Add(validLog);
+
+                            payError = new Regex("(?<=\"orderInfo\":\")[^\"]+(?=\")").Match(log).Value;
+                            if (!string.IsNullOrEmpty(payError))
+                            {
+                                model.PayErrorReasonList.Add(payError);
+                            }
                         }
                         if (log.Contains("PayEase_1003_CreateOrder_CallBack_Result", StringComparison.OrdinalIgnoreCase))
                         {
                             //获取创建订单结果日志
                             validLog = log;
-                            model.ESPayResultLog += validLog + "\n";
+                            model.ESPayResultLogList.Add(validLog);
+
+                            payError = new Regex("(?<=\"orderInfo\":\")[^\"]+(?=\")").Match(log).Value;
+                            if (!string.IsNullOrEmpty(payError))
+                            {
+                                model.PayErrorReasonList.Add(payError);
+                            }
                         }
 
                     }
@@ -327,16 +440,6 @@ namespace WebApplication1.Controllers
                 #endregion
             }
             #endregion
-
-
-            if (string.IsNullOrEmpty(model.ESCreateOrderResultLog))
-            {
-                model.ESCreateOrderResultLog = "无";
-            }
-            if (string.IsNullOrEmpty(model.ESPayResultLog))
-            {
-                model.ESPayResultLog = "无";
-            }
         }
     }
 }

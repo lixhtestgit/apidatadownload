@@ -66,6 +66,7 @@ namespace WebApplication1.Helper
             foreach (JObject item in hitJArray)
             {
                 string log = item.SelectToken("_source.log").ToObject<string>();
+                log = log.Replace("\\", "");
                 string type = logTypeFunc(log);
 
                 if (!string.IsNullOrEmpty(type))
