@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace WebApplication1.Model
 {
-    public class Order
+    public class CheckoutOrder
     {
         /// <summary>
         /// 弃单ID
@@ -20,6 +20,18 @@ namespace WebApplication1.Model
 
         [ExcelTitle("国家")]
         public string CountryName { get; set; }
+
+        [ExcelTitle("省州")]
+        public string Province { get; set; }
+
+        [ExcelTitle("城市")]
+        public string City { get; set; }
+
+        [ExcelTitle("详细地址")]
+        public string Address { get; set; }
+
+        [ExcelTitle("邮编")]
+        public string ZIP { get; set; }
 
         [ExcelTitle("创建时间", outputFormat: "yyyy-MM-dd HH:mm:ss")]
         public DateTime CreateTime { get; set; }

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using PPPayReportTools.Excel;
+using WebApplication1.BIZ;
 using WebApplication1.Helper;
 
 namespace WebApplication1
@@ -23,7 +24,9 @@ namespace WebApplication1
             services.AddMemoryCache();
             services.AddHttpClient();
             services.AddLogging();
+            services.AddSingleton<AuthBIZ>();
             services.AddSingleton<ExcelHelper>();
+            services.AddSingleton<CheckoutBIZ>();
             services.AddSingleton<ESSearchHelper>();
             services.AddControllers();
         }

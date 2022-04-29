@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
+using WebApplication1.BIZ;
 using WebApplication1.Helper;
 using WebApplication1.Model;
 
@@ -27,6 +28,7 @@ namespace WebApplication1.Controllers
         public IConfiguration Configuration { get; set; }
         public ESSearchHelper ESSearchHelper { get; set; }
         public IMemoryCache MemoryCache { get; set; }
+        public AuthBIZ AuthBIZ { get; set; }
 
         public OrderShipController(
             IHttpClientFactory httpClientFactory,
@@ -35,7 +37,8 @@ namespace WebApplication1.Controllers
             ILogger<OrderShipController> logger,
             IConfiguration configuration,
             ESSearchHelper eSSearchHelper,
-            IMemoryCache memoryCache)
+            IMemoryCache memoryCache,
+            AuthBIZ authBIZ)
         {
             this.PayHttpClient = httpClientFactory.CreateClient();
             this.ExcelHelper = excelHelper;
@@ -44,6 +47,7 @@ namespace WebApplication1.Controllers
             this.Configuration = configuration;
             this.ESSearchHelper = eSSearchHelper;
             this.MemoryCache = memoryCache;
+            this.AuthBIZ = authBIZ;
         }
 
         /// <summary>
@@ -66,15 +70,8 @@ namespace WebApplication1.Controllers
 
         private async Task<List<OrderShip>> GetOrderShip()
         {
-            ShopAuth shopAuth = await this.GetShopAuth("namejiu", "chenfei@meshop.net", "JISHUchenfei0411");
-
             string shipOrderUrl = "https://namejiu.meshopstore.com/api/v1/order/getorderlist";
-            Dictionary<string, string> headDic = new Dictionary<string, string>
-            {
-                {"Authorization",$"Bearer {shopAuth.access_token}"},
-                {"access_hash",shopAuth.access_hash },
-                {"response_in",shopAuth.response_in }
-            };
+            Dictionary<string, string> headDic = await this.AuthBIZ.GetShopAuthDic("namejiu.meshopstore.com", "chenfei@meshop.net", "JISHUchenfei0411");
             string shipOrderPostData = JsonConvert.SerializeObject(new
             {
                 ShipState = new { value = new int[] { 1, 2 } },
@@ -82,7 +79,7 @@ namespace WebApplication1.Controllers
             });
             var shipOrderResult = await this.PayHttpClient.Post(shipOrderUrl, shipOrderPostData, headDic);
 
-            JArray shipOrderJArray = JObject.Parse(shipOrderResult.Item2).SelectToken("data.Results").ToObject<JArray>()??new JArray();
+            JArray shipOrderJArray = JObject.Parse(shipOrderResult.Item2).SelectToken("data.Results").ToObject<JArray>() ?? new JArray();
             List<OrderShip> orderShipList = new List<OrderShip>(shipOrderJArray.Count);
             string orderDetailBaseUrl = "https://namejiu.meshopstore.com/api/v1/order/GetOrderDetailPageData?orderID={orderID}";
             string orderDetailUrl = null;
@@ -102,20 +99,6 @@ namespace WebApplication1.Controllers
             }
 
             return orderShipList;
-        }
-
-        private async Task<ShopAuth> GetShopAuth(string shopUrl, string email, string password)
-        {
-            string ssoLoginUrl = "https://sso.meshopstore.com/Auth/Login";
-            Dictionary<string, string> formDic = new Dictionary<string, string>
-            {
-                {"email",email },
-                {"password",password },
-                {"shopUrl", shopUrl}
-            };
-            var authResult = await this.PayHttpClient.Post(ssoLoginUrl, formDic, null);
-
-            return JsonConvert.DeserializeObject<ShopAuth>(authResult.Item2);
         }
     }
 }
