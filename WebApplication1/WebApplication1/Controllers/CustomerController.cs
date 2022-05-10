@@ -69,7 +69,7 @@ namespace WebApplication1.Controllers
             int fileMaxPageCount = 0;
             foreach (var customerListUrlItem in customerListUrlDic)
             {
-                fileName = $@"C:\Users\lixianghong\Desktop\BoBoDownLoad\{customerListUrlItem.Key}.xls";
+                fileName = $@"E:\公司小项目\弃单支付方式查询\WebApplication1\WebApplication1\DownLoad\{customerListUrlItem.Key}.xls";
 
                 if (!System.IO.File.Exists(fileName) && !System.IO.File.Exists(fileName.Replace(".xls", ".xlsx")))
                 {
@@ -99,7 +99,8 @@ namespace WebApplication1.Controllers
                             fileName = fileName.Replace(".xls", ".xlsx");
                         }
 
-                        allDataList.AddRange(await this.GetDataList($"{customerListUrlItem.Key}", dataListUrl, 1, fileMaxPageCount, CustomerController.PageSize, fileTotalCount));
+                        int fileMinPageCount = (allDataList.Count / CustomerController.PageSize) + 1;
+                        allDataList.AddRange(await this.GetDataList($"{customerListUrlItem.Key}", dataListUrl, fileMinPageCount, fileMaxPageCount, CustomerController.PageSize, fileTotalCount));
 
                         //数据去重
                         HashSet<string> customerIDHashSet = new HashSet<string>(fileTotalCount);
@@ -139,51 +140,56 @@ namespace WebApplication1.Controllers
             List<Customer> dataList = new List<Customer>(100);
             int page = minPage;
 
-            Regex phoneRegex = new Regex("(?<=\")\\d{9,13}(?=\")");
-
-            do
+            try
             {
-                this.Logger.LogInformation($"{name}正在查询{page}/{maxPage}页数据...");
-                var rr = await this.PayHttpClient.Post(listUrl, new Dictionary<string, string>
-                {
-                    {"_search","false" },
-                    {"nd","1651849194124" },
-                    {"rows",pageSize.ToString() },
-                    {"page",page.ToString() },
-                    {"sidx","RepeatDate" },
-                    {"sord","desc" }
-                }, CustomerController.HeadDic);
-
-                List<Customer> dataJArray = JObject.Parse(rr.Item2).SelectToken("rows").ToObject<List<Customer>>();
-                int cusIndex = 1;
-
-                List<Task> getPhoneTaskList = new List<Task>(1000);
-                foreach (Customer cus in dataJArray)
-                {
-                    this.Logger.LogInformation($"{name}正在查询{page}/{maxPage}页第{cusIndex + (page - 1) * pageSize}/{totalCount}个_手机号数据...");
-                    dataList.Add(cus);
-
-                    getPhoneTaskList.Add(this.UpdateCustomerPhone(cus));
-
-                    cusIndex++;
-                }
-
-                bool taskIsComplate = true;
                 do
                 {
-                    taskIsComplate = true;
-                    foreach (var item in getPhoneTaskList)
+                    this.Logger.LogInformation($"{name}正在查询{page}/{maxPage}页数据...");
+                    var rr = await this.PayHttpClient.Post(listUrl, new Dictionary<string, string>
                     {
-                        if (item.IsCompleted == false)
-                        {
-                            taskIsComplate = false;
-                            break;
-                        }
-                    }
-                } while (taskIsComplate == false);
+                        {"_search","false" },
+                        {"nd","1651849194124" },
+                        {"rows",pageSize.ToString() },
+                        {"page",page.ToString() },
+                        {"sidx","RepeatDate" },
+                        {"sord","desc" }
+                    }, CustomerController.HeadDic);
 
-                page++;
-            } while (page <= maxPage);
+                    List<Customer> dataJArray = JObject.Parse(rr.Item2).SelectToken("rows").ToObject<List<Customer>>();
+                    int cusIndex = 1;
+
+                    List<Task> getPhoneTaskList = new List<Task>(1000);
+                    foreach (Customer cus in dataJArray)
+                    {
+                        this.Logger.LogInformation($"{name}正在查询{page}/{maxPage}页第{cusIndex + (page - 1) * pageSize}/{totalCount}个_手机号数据...");
+                        dataList.Add(cus);
+
+                        getPhoneTaskList.Add(this.UpdateCustomerPhone(cus));
+
+                        cusIndex++;
+                    }
+
+                    bool taskIsComplate = true;
+                    do
+                    {
+                        taskIsComplate = true;
+                        foreach (var item in getPhoneTaskList)
+                        {
+                            if (item.IsCompleted == false)
+                            {
+                                taskIsComplate = false;
+                                break;
+                            }
+                        }
+                    } while (taskIsComplate == false);
+
+                    page++;
+                } while (page <= maxPage);
+            }
+            catch (Exception e)
+            {
+                this.Logger.LogError(e, "出现错误，临时返回已下载数据...");
+            }
 
             return dataList;
         }
@@ -192,7 +198,7 @@ namespace WebApplication1.Controllers
         {
             if (string.IsNullOrEmpty(cus.Phone))
             {
-                Regex phoneRegex = new Regex("(?<=\")\\d{9,13}(?=\")");
+                Regex phoneRegex = new Regex("(?<=\")\\d{9,16}(?=\")");
                 string customerDetailUrl = CustomerController.CustomerDetailBaseUrl.Replace("{CustomerID}", cus.CustomerID).Replace("{RealName}", cus.RealName).Replace("{Tel}", cus.Tel);
                 customerDetailUrl = customerDetailUrl.Replace("{CustomerID}", cus.CustomerID).Replace("{RealName}", cus.RealName).Replace("{Tel}", cus.Tel);
                 var getResult = await this.PayHttpClient.Get(customerDetailUrl);
