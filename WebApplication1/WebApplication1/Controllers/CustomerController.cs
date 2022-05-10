@@ -11,7 +11,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using WebApplication1.Model;
+using WebApplication1.Model.Customer;
 
 namespace WebApplication1.Controllers
 {
@@ -26,17 +26,13 @@ namespace WebApplication1.Controllers
         public ExcelHelper ExcelHelper { get; set; }
         public ILogger Logger { get; set; }
 
-        public static string ExistExcelFilePath = @"C:\Users\lixianghong\Desktop\20220508053232.xlsx";
-        public static string CustomerDetailUrl = "http://newims.lekaowang.cn/Site/Sale/ModifyPublicList.aspx?CustomerID={CustomerID}&RealName={RealName}&Tel={Tel}";
-        public static string CustomerListUrl = "http://newims.lekaowang.cn/InterfaceLibrary/Sale/Handler_List.ashx?FunName=GetPublicList&Conditions=AllCondition&SearchField=Tel&Method=%E6%8E%A8%E5%B9%BF%E9%A1%B5&ExtendSubject=%E4%B8%AD%E7%BA%A7%E4%BC%9A%E8%AE%A1&CustomerType=%E6%99%AE%E9%80%9A%E6%95%B0%E6%8D%AE";
+        public static string CustomerDetailBaseUrl = "http://newims.lekaowang.cn/Site/Sale/ModifyPublicList.aspx?CustomerID={CustomerID}&RealName={RealName}&Tel={Tel}";
+        public static string CustomerListBaseUrl = "http://newims.lekaowang.cn/InterfaceLibrary/Sale/Handler_List.ashx?FunName=GetPublicList&Conditions=AllCondition&SearchField=Tel&Method={Method}&ExtendSubject={ExtendSubject}&CustomerType=普通数据";
         public static int PageSize = 1000;
-        public static int TotalCount = 0;
         public static Dictionary<string, string> HeadDic = new Dictionary<string, string>
         {
-            { "Cookie","LKNewCRMUserEmail=wenjie.cui1@sinodq.net;aliyungf_tc=fe985142363e8f52f1167d51d36c95829d55bc0ed1e2c724ff7a59e8c2d4ef2c;CheckCode=96964;ASP.NET_SessionId=qpy0vvhzr5t4kjlxsame4qgs"}
+            { "Cookie","LKNewCRMUserEmail=wenjie.cui1@sinodq.net; aliyungf_tc=fe985142363e8f52f1167d51d36c95829d55bc0ed1e2c724ff7a59e8c2d4ef2c; ASP.NET_SessionId=qpy0vvhzr5t4kjlxsame4qgs; CheckCode=30553"}
         };
-        public static List<Customer> DataList { get; set; }
-        public static List<Customer> SourceDataList { get; set; }
 
         public CustomerController(
             IHttpClientFactory httpClientFactory,
@@ -50,113 +46,97 @@ namespace WebApplication1.Controllers
 
         [Route("")]
         [HttpGet]
-        public IActionResult ESSearchOrderPayType()
+        public async Task<IActionResult> DownLoad()
         {
-            CustomerController.DataList = ExcelHelper.ReadTitleDataList<Customer>(CustomerController.ExistExcelFilePath, new ExcelFileDescription());
-            CustomerController.SourceDataList = new List<Customer>(300000);
-            IWorkbook workbook = null;
+            string[] methodArray = new string[] { "SEO", "百度短信", "报名入口", "大唐数据", "公众号", "京东", "老客户转介绍", "乐语", "其他", "数据库", "淘宝", "推广页", "无", "信息流", "注册用户", "400", "百度信息流", "今日头条", "现场面审", "畅想云端数据", "乐语录入", "柯达数据", "电信数据", "用友题库", "用友视频", "广点通信息流", "快手信息流", "推广APP", "用友banner", "公开课", "安徽渠道公众号", "微信二维码", "小程序", "乐考校园", "微博粉丝通", "抖音", "模考大赛", "易聊" };
+            string[] extendSubjectArray = new string[] { "无", "初级会计", "初级会计1", "中级会计", "经济师1", "注册安全工程师", "CPA", "管理会计", "税务师", "初级经济师", "中级经济师", "高级经济师", "软考", "FRR", "基金", "银行", "注册会计师", "证券", "期货", "初级银行", "CFA", "中级银行", "一级建造师", "二级建造师", "二级建造师1", "消防工程师", "教师资格证", "注册建造师", "执业药师", "执业医师", "心理咨询师", "公务员", "健康管理师", "婚姻家庭咨询师", "远程教育", "薪税师", "碳排放管理师" };
 
-            var getPageResult = this.PayHttpClient.Post(CustomerController.CustomerListUrl, new Dictionary<string, string>
+            Dictionary<string, string> customerListUrlDic = new Dictionary<string, string>(methodArray.Length * extendSubjectArray.Length);
+            foreach (var method in methodArray)
             {
-                {"_search","false" },
-                {"nd","1651849194124" },
-                {"page", "1"},
-                {"rows",CustomerController.PageSize.ToString() },
-                {"sidx","RepeatDate" },
-                {"sord","desc" }
-            }, CustomerController.HeadDic).Result;
-
-            CustomerController.TotalCount = JObject.Parse(getPageResult.Item2).SelectToken("records").ToObject<int>();
-            int maxPageCount = JObject.Parse(getPageResult.Item2).SelectToken("total").ToObject<int>();
-
-            HashSet<string> customerIDHashSet = new HashSet<string>(CustomerController.TotalCount);
-            List<Customer> removeCFList = new List<Customer>(CustomerController.TotalCount);
-            foreach (var item in CustomerController.DataList)
-            {
-                if (customerIDHashSet.Contains(item.CustomerID) == false)
+                foreach (var extendSubject in extendSubjectArray)
                 {
-                    customerIDHashSet.Add(item.CustomerID);
-                    removeCFList.Add(item);
+                    if (method != "推广页" || extendSubject != "中级会计")
+                    {
+                        customerListUrlDic.Add($"{method}+{extendSubject}", CustomerController.CustomerListBaseUrl.Replace("{Method}", method).Replace("{ExtendSubject}", extendSubject));
+                    }
                 }
             }
-            CustomerController.DataList = removeCFList;
+            IWorkbook workbook = null;
+            string fileName = null;
+            string dataListUrl = null;
+            int fileTotalCount = 0;
+            int fileMaxPageCount = 0;
+            foreach (var customerListUrlItem in customerListUrlDic)
+            {
+                fileName = $@"C:\Users\lixianghong\Desktop\BoBoDownLoad\{customerListUrlItem.Key}.xls";
 
-            #region 多线程
+                if (!System.IO.File.Exists(fileName) && !System.IO.File.Exists(fileName.Replace(".xls", ".xlsx")))
+                {
+                    dataListUrl = customerListUrlItem.Value;
+                    List<Customer> allDataList = ExcelHelper.ReadTitleDataList<Customer>(fileName, new ExcelFileDescription());
+                    try
+                    {
+                        var getPageResult = await this.PayHttpClient.Post(dataListUrl, new Dictionary<string, string>
+                        {
+                            {"_search","false" },
+                            {"nd","1651849194124" },
+                            {"page", "1"},
+                            {"rows",CustomerController.PageSize.ToString() },
+                            {"sidx","RepeatDate" },
+                            {"sord","desc" }
+                        }, CustomerController.HeadDic);
 
-            //int theadCount = 50;
-            //int oneTheadPageCount = maxPageCount / theadCount;
-            //List<Task> allTask = new List<Task>(theadCount);
+                        fileTotalCount = JObject.Parse(getPageResult.Item2).SelectToken("records").ToObject<int>();
+                        fileMaxPageCount = JObject.Parse(getPageResult.Item2).SelectToken("total").ToObject<int>();
 
-            //for (int i = 1; i <= theadCount; i++)
-            //{
-            //    int beginPage = (i - 1) * oneTheadPageCount + 1;
-            //    int endPage = i * oneTheadPageCount;
-            //    if (i == theadCount)
-            //    {
-            //        endPage = maxPageCount;
-            //    }
-            //    allTask.Add(this.GetDataList($"线程{i}", beginPage, endPage, Order1Controller.PageSize));
-            //}
+                        if (fileTotalCount <= 0)
+                        {
+                            continue;
+                        }
+                        else if (fileTotalCount > 65000)
+                        {
+                            fileName = fileName.Replace(".xls", ".xlsx");
+                        }
 
-            //bool allTaskIsComplate = true;
-            //do
-            //{
-            //    allTaskIsComplate = true;
-            //    foreach (Task item in allTask)
-            //    {
-            //        if (item.IsCompleted == false)
-            //        {
-            //            allTaskIsComplate = false;
-            //        }
-            //    }
-            //} while (allTaskIsComplate == false);
+                        allDataList.AddRange(await this.GetDataList($"{customerListUrlItem.Key}", dataListUrl, 1, fileMaxPageCount, CustomerController.PageSize, fileTotalCount));
 
-            #endregion
+                        //数据去重
+                        HashSet<string> customerIDHashSet = new HashSet<string>(fileTotalCount);
+                        List<Customer> removeCFList = new List<Customer>(fileTotalCount);
+                        foreach (var item in allDataList)
+                        {
+                            if (customerIDHashSet.Contains(item.CustomerID) == false)
+                            {
+                                customerIDHashSet.Add(item.CustomerID);
+                                removeCFList.Add(item);
+                            }
+                        }
+                        allDataList = removeCFList;
 
-            #region 单线程
+                        //数据排序
+                        allDataList = allDataList.OrderByDescending(m => m.RepeatDate).ToList();
 
-            this.GetDataList("线程1", 1, maxPageCount, CustomerController.PageSize).Wait();
-
-            #endregion
-
-            string filePath = $@"C:\Users\lixianghong\Desktop\{DateTime.Now.ToString("yyyyMMddHHmmss")}.xlsx";
-
-            CustomerController.DataList = CustomerController.DataList.OrderByDescending(m => m.RepeatDate).ToList();
-
-            workbook = ExcelHelper.CreateOrUpdateWorkbook(CustomerController.DataList);
-            ExcelHelper.SaveWorkbookToFile(workbook, filePath);
-
-            workbook = ExcelHelper.CreateOrUpdateWorkbook(CustomerController.SourceDataList);
-            ExcelHelper.SaveWorkbookToFile(workbook, $@"C:\Users\lixianghong\Desktop\未去重_{DateTime.Now.ToString("yyyyMMddHHmmss")}.xlsx");
+                        workbook = ExcelHelper.CreateOrUpdateWorkbook(allDataList);
+                        ExcelHelper.SaveWorkbookToFile(workbook, fileName);
+                    }
+                    catch (Exception)
+                    {
+                        fileName += "_报错";
+                        workbook = ExcelHelper.CreateOrUpdateWorkbook(allDataList);
+                        ExcelHelper.SaveWorkbookToFile(workbook, fileName);
+                    }
+                }
+            }
 
             this.Logger.LogInformation($"任务结束.");
 
             return Ok();
         }
 
-        [Route("UpdateCustomerPhone")]
-        [HttpGet]
-        public async Task UpdateCustomerPhone()
+        public async Task<List<Customer>> GetDataList(string name, string listUrl, int minPage, int maxPage, int pageSize, int totalCount)
         {
-            List<Customer> dataList = ExcelHelper.ReadTitleDataList<Customer>(CustomerController.ExistExcelFilePath, new ExcelFileDescription());
-            List<Customer> emptyPhoneList = dataList.FindAll(m => string.IsNullOrEmpty(m.Phone));
-
-            Regex phoneRegex = new Regex("(?<=\")\\d{9,13}(?=\")");
-            string customerDetailUrl = CustomerController.CustomerDetailUrl;
-            foreach (Customer cus in emptyPhoneList)
-            {
-                customerDetailUrl = customerDetailUrl.Replace("{CustomerID}", cus.CustomerID).Replace("{RealName}", cus.RealName).Replace("{Tel}", cus.Tel);
-                var getResult = await this.PayHttpClient.Get(customerDetailUrl);
-                cus.Phone = phoneRegex.Match(getResult.Item2).Value;
-            }
-            IWorkbook workbook = ExcelHelper.CreateOrUpdateWorkbook(dataList);
-            ExcelHelper.SaveWorkbookToFile(workbook, $@"C:\Users\lixianghong\Desktop\{DateTime.Now.ToString("yyyyMMddHHmmss")}.xlsx");
-
-            this.Logger.LogInformation($"任务结束.");
-        }
-
-        public async Task GetDataList(string name, int minPage, int maxPage, int pageSize)
-        {
+            List<Customer> dataList = new List<Customer>(100);
             int page = minPage;
 
             Regex phoneRegex = new Regex("(?<=\")\\d{9,13}(?=\")");
@@ -164,7 +144,7 @@ namespace WebApplication1.Controllers
             do
             {
                 this.Logger.LogInformation($"{name}正在查询{page}/{maxPage}页数据...");
-                var rr = await this.PayHttpClient.Post(CustomerController.CustomerListUrl, new Dictionary<string, string>
+                var rr = await this.PayHttpClient.Post(listUrl, new Dictionary<string, string>
                 {
                     {"_search","false" },
                     {"nd","1651849194124" },
@@ -172,42 +152,53 @@ namespace WebApplication1.Controllers
                     {"page",page.ToString() },
                     {"sidx","RepeatDate" },
                     {"sord","desc" }
-                }, new Dictionary<string, string>
-                {
-                    { "Cookie","LKNewCRMUserEmail=wenjie.cui1@sinodq.net;aliyungf_tc=fe985142363e8f52f1167d51d36c95829d55bc0ed1e2c724ff7a59e8c2d4ef2c;CheckCode=96964;ASP.NET_SessionId=qpy0vvhzr5t4kjlxsame4qgs"}
-                });
+                }, CustomerController.HeadDic);
 
                 List<Customer> dataJArray = JObject.Parse(rr.Item2).SelectToken("rows").ToObject<List<Customer>>();
                 int cusIndex = 1;
-                Customer data = null;
+
+                List<Task> getPhoneTaskList = new List<Task>(1000);
                 foreach (Customer cus in dataJArray)
                 {
-                    this.Logger.LogInformation($"{name}正在查询{page}/{maxPage}页第{cusIndex + (page - 1) * pageSize}/{CustomerController.TotalCount}个_手机号数据...");
-                    data = CustomerController.DataList.FirstOrDefault(m => m.CustomerID == cus.CustomerID);
-                    if (data != null)
-                    {
-                        cus.Phone = data.Phone;
-                    }
+                    this.Logger.LogInformation($"{name}正在查询{page}/{maxPage}页第{cusIndex + (page - 1) * pageSize}/{totalCount}个_手机号数据...");
+                    dataList.Add(cus);
 
-                    if (string.IsNullOrEmpty(cus.Phone))
-                    {
-                        string customerDetailUrl = CustomerController.CustomerDetailUrl.Replace("{CustomerID}", cus.CustomerID).Replace("{RealName}", cus.RealName).Replace("{Tel}", cus.Tel);
-                        var getResult = await this.PayHttpClient.Get(customerDetailUrl);
-                        cus.Phone = phoneRegex.Match(getResult.Item2).Value;
-                    }
-
-                    if (data == null)
-                    {
-                        //去重列表添加
-                        CustomerController.DataList.Add(cus);
-                    }
-                    //原始列表添加
-                    CustomerController.SourceDataList.Add(cus);
+                    getPhoneTaskList.Add(this.UpdateCustomerPhone(cus));
 
                     cusIndex++;
                 }
+
+                bool taskIsComplate = true;
+                do
+                {
+                    taskIsComplate = true;
+                    foreach (var item in getPhoneTaskList)
+                    {
+                        if (item.IsCompleted == false)
+                        {
+                            taskIsComplate = false;
+                            break;
+                        }
+                    }
+                } while (taskIsComplate == false);
+
                 page++;
             } while (page <= maxPage);
+
+            return dataList;
         }
+
+        public async Task UpdateCustomerPhone(Customer cus)
+        {
+            if (string.IsNullOrEmpty(cus.Phone))
+            {
+                Regex phoneRegex = new Regex("(?<=\")\\d{9,13}(?=\")");
+                string customerDetailUrl = CustomerController.CustomerDetailBaseUrl.Replace("{CustomerID}", cus.CustomerID).Replace("{RealName}", cus.RealName).Replace("{Tel}", cus.Tel);
+                customerDetailUrl = customerDetailUrl.Replace("{CustomerID}", cus.CustomerID).Replace("{RealName}", cus.RealName).Replace("{Tel}", cus.Tel);
+                var getResult = await this.PayHttpClient.Get(customerDetailUrl);
+                cus.Phone = phoneRegex.Match(getResult.Item2).Value;
+            }
+        }
+
     }
 }

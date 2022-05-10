@@ -1,6 +1,6 @@
 ﻿using PPPayReportTools.Excel;
 
-namespace WebApplication1.Model
+namespace WebApplication1.Model.Customer
 {
     public class Customer
     {
@@ -33,7 +33,7 @@ namespace WebApplication1.Model
         {
             get
             {
-                if (this.ConnectionStatus == 1)
+                if (ConnectionStatus == 1)
                 {
                     return "未跟进";
                 }
@@ -41,10 +41,10 @@ namespace WebApplication1.Model
             }
             set
             {
-                this.ConnectionStatus = 0;
+                ConnectionStatus = 0;
                 if (value == "未跟进")
                 {
-                    this.ConnectionStatus = 1;
+                    ConnectionStatus = 1;
                 }
             }
         }
@@ -57,11 +57,11 @@ namespace WebApplication1.Model
         {
             get
             {
-                return this._customerType;
+                return _customerType;
             }
             set
             {
-                this._customerType = "普通数据";
+                _customerType = "普通数据";
             }
         }
 

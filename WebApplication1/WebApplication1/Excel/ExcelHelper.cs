@@ -334,7 +334,7 @@ namespace PPPayReportTools.Excel
             workbook.Write(ms);
             byte[] myByteArray = ms.GetBuffer();
 
-            string fileDirectoryPath = filePath.Split('\\')[0];
+            string fileDirectoryPath = filePath.Substring(0, filePath.LastIndexOf("\\") + 1);
             if (!Directory.Exists(fileDirectoryPath))
             {
                 Directory.CreateDirectory(fileDirectoryPath);
