@@ -31,7 +31,7 @@ namespace WebApplication1.Controllers
         public static int PageSize = 1000;
         public static Dictionary<string, string> HeadDic = new Dictionary<string, string>
         {
-            { "Cookie","LKNewCRMUserEmail=wenjie.cui1@sinodq.net; aliyungf_tc=fe985142363e8f52f1167d51d36c95829d55bc0ed1e2c724ff7a59e8c2d4ef2c; ASP.NET_SessionId=qpy0vvhzr5t4kjlxsame4qgs; CheckCode=30553"}
+            { "Cookie","LKNewCRMUserEmail=wenjie.cui1@sinodq.net; aliyungf_tc=fe985142363e8f52f1167d51d36c95829d55bc0ed1e2c724ff7a59e8c2d4ef2c; ASP.NET_SessionId=qpy0vvhzr5t4kjlxsame4qgs; CheckCode=52731"}
         };
 
         public CustomerController(
@@ -62,6 +62,14 @@ namespace WebApplication1.Controllers
                     }
                 }
             }
+
+#if DEBUG
+
+            //customerListUrlDic = new Dictionary<string, string> { { $"推广页+高级经济师", CustomerController.CustomerListBaseUrl.Replace("{Method}", "推广页").Replace("{ExtendSubject}", "高级经济师") } };
+
+#endif
+
+
             IWorkbook workbook = null;
             string fileName = null;
             string dataListUrl = null;
@@ -71,10 +79,12 @@ namespace WebApplication1.Controllers
             {
                 fileName = $@"E:\公司小项目\弃单支付方式查询\WebApplication1\WebApplication1\DownLoad\{customerListUrlItem.Key}.xls";
 
-                if (!System.IO.File.Exists(fileName) && !System.IO.File.Exists(fileName.Replace(".xls", ".xlsx")))
+                if (!System.IO.File.Exists(fileName)
+                    && !System.IO.File.Exists(fileName.Replace(".xls", ".xlsx"))
+                    && !System.IO.File.Exists(fileName + "_空数据"))
                 {
                     dataListUrl = customerListUrlItem.Value;
-                    List<Customer> allDataList = ExcelHelper.ReadTitleDataList<Customer>(fileName, new ExcelFileDescription());
+                    List<Customer> allDataList = ExcelHelper.ReadTitleDataList<Customer>(fileName + "_未完成", new ExcelFileDescription());
                     try
                     {
                         var getPageResult = await this.PayHttpClient.Post(dataListUrl, new Dictionary<string, string>
@@ -92,6 +102,10 @@ namespace WebApplication1.Controllers
 
                         if (fileTotalCount <= 0)
                         {
+                            fileName += "_空数据";
+                            workbook = ExcelHelper.CreateOrUpdateWorkbook(allDataList);
+                            ExcelHelper.SaveWorkbookToFile(workbook, fileName);
+
                             continue;
                         }
                         else if (fileTotalCount > 65000)
@@ -100,7 +114,7 @@ namespace WebApplication1.Controllers
                         }
 
                         int fileMinPageCount = (allDataList.Count / CustomerController.PageSize) + 1;
-                        allDataList.AddRange(await this.GetDataList($"{customerListUrlItem.Key}", dataListUrl, fileMinPageCount, fileMaxPageCount, CustomerController.PageSize, fileTotalCount));
+                        allDataList.AddRange(this.GetDataList($"{customerListUrlItem.Key}", dataListUrl, fileMinPageCount, fileMaxPageCount, CustomerController.PageSize, fileTotalCount));
 
                         //数据去重
                         HashSet<string> customerIDHashSet = new HashSet<string>(fileTotalCount);
@@ -121,9 +135,9 @@ namespace WebApplication1.Controllers
                         workbook = ExcelHelper.CreateOrUpdateWorkbook(allDataList);
                         ExcelHelper.SaveWorkbookToFile(workbook, fileName);
                     }
-                    catch (Exception)
+                    catch (Exception e)
                     {
-                        fileName += "_报错";
+                        fileName += "_未完成";
                         workbook = ExcelHelper.CreateOrUpdateWorkbook(allDataList);
                         ExcelHelper.SaveWorkbookToFile(workbook, fileName);
                     }
@@ -135,34 +149,37 @@ namespace WebApplication1.Controllers
             return Ok();
         }
 
-        public async Task<List<Customer>> GetDataList(string name, string listUrl, int minPage, int maxPage, int pageSize, int totalCount)
+        public List<Customer> GetDataList(string name, string listUrl, int minPage, int maxPage, int pageSize, int totalCount)
         {
-            List<Customer> dataList = new List<Customer>(100);
-            int page = minPage;
-
+            Dictionary<int, List<Customer>> dataListPageDic = new Dictionary<int, List<Customer>>(1000);
             try
             {
+                Task.Factory.StartNew(() =>
+                {
+                    for (int i = minPage; i <= maxPage; i++)
+                    {
+                        this.Logger.LogInformation($"{name}正在查询{i}/{maxPage}页数据...");
+                        dataListPageDic.Add(i, this.GetPageCustomerList(listUrl, pageSize, i).Result);
+                    }
+                });
+
+                int page = minPage;
                 do
                 {
-                    this.Logger.LogInformation($"{name}正在查询{page}/{maxPage}页数据...");
-                    var rr = await this.PayHttpClient.Post(listUrl, new Dictionary<string, string>
+                    List<Customer> pageList = new List<Customer>(pageSize);
+                    do
                     {
-                        {"_search","false" },
-                        {"nd","1651849194124" },
-                        {"rows",pageSize.ToString() },
-                        {"page",page.ToString() },
-                        {"sidx","RepeatDate" },
-                        {"sord","desc" }
-                    }, CustomerController.HeadDic);
+                        if (dataListPageDic.ContainsKey(page))
+                        {
+                            pageList = dataListPageDic[page];
+                        }
+                    } while (pageList.Count <= 0);
 
-                    List<Customer> dataJArray = JObject.Parse(rr.Item2).SelectToken("rows").ToObject<List<Customer>>();
                     int cusIndex = 1;
-
                     List<Task> getPhoneTaskList = new List<Task>(1000);
-                    foreach (Customer cus in dataJArray)
+                    foreach (Customer cus in pageList)
                     {
                         this.Logger.LogInformation($"{name}正在查询{page}/{maxPage}页第{cusIndex + (page - 1) * pageSize}/{totalCount}个_手机号数据...");
-                        dataList.Add(cus);
 
                         getPhoneTaskList.Add(this.UpdateCustomerPhone(cus));
 
@@ -191,7 +208,29 @@ namespace WebApplication1.Controllers
                 this.Logger.LogError(e, "出现错误，临时返回已下载数据...");
             }
 
+            List<Customer> dataList = new List<Customer>(totalCount);
+            foreach (var item in dataListPageDic)
+            {
+                dataList.AddRange(item.Value);
+            }
+
             return dataList;
+        }
+
+        public async Task<List<Customer>> GetPageCustomerList(string listUrl, int pageSize, int page)
+        {
+            var currentPageList = await this.PayHttpClient.Post(listUrl, new Dictionary<string, string>
+            {
+                {"_search","false" },
+                {"nd","1651849194124" },
+                {"rows",pageSize.ToString() },
+                {"page",page.ToString() },
+                {"sidx","RepeatDate" },
+                {"sord","desc" }
+            }, CustomerController.HeadDic);
+
+            List<Customer> dataJArray = JObject.Parse(currentPageList.Item2).SelectToken("rows").ToObject<List<Customer>>();
+            return dataJArray;
         }
 
         public async Task UpdateCustomerPhone(Customer cus)

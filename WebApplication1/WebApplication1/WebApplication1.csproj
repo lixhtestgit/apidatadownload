@@ -5,6 +5,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="DownLoad\**" />
+    <Content Remove="DownLoad\**" />
+    <EmbeddedResource Remove="DownLoad\**" />
+    <None Remove="DownLoad\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Remove="test.xlsx" />
   </ItemGroup>
 
@@ -12,10 +19,6 @@
     <PackageReference Include="Microsoft.VisualStudio.Web.CodeGeneration.Design" Version="3.1.1" />
     <PackageReference Include="NPOI" Version="2.4.1" />
     <PackageReference Include="RestSharp" Version="107.3.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="DownLoad\" />
   </ItemGroup>
 
 
