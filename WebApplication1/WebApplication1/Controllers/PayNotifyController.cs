@@ -1,21 +1,15 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
-using NPOI.SS.UserModel;
+using Newtonsoft.Json;
 using PPPayReportTools.Excel;
-using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using WebApplication1.Enum;
 using WebApplication1.Helper;
-using WebApplication1.Model;
+using WebApplication1.Model.PayNotify;
 
 namespace WebApplication1.Controllers
 {
@@ -47,7 +41,7 @@ namespace WebApplication1.Controllers
         }
 
         /// <summary>
-        /// ES搜索订单支付方式
+        /// ES搜索订单支付方式推送
         /// </summary>
         /// <returns></returns>
         [Route("")]
@@ -89,6 +83,51 @@ namespace WebApplication1.Controllers
                 } while (isSend == false);
 
                 position++;
+            }
+
+            this.Logger.LogInformation($"任务结束.");
+
+            return Ok();
+        }
+
+        /// <summary>
+        /// 支付公司导出订单异步同步推送
+        /// </summary>
+        /// <returns></returns>
+        [Route("PayCompanyOrderSync")]
+        [HttpGet]
+        public async Task<IActionResult> PayCompanyOrderSync()
+        {
+            string contentRootPath = this.WebHostEnvironment.ContentRootPath;
+            string testFilePath = $@"{contentRootPath}\示例测试目录\cashfree.xlsx";
+            List<CashfreeOrder> orderList = this.ExcelHelper.ReadTitleDataList<CashfreeOrder>(testFilePath, new ExcelFileDescription(0));
+
+            int totalCount = orderList.Count;
+            this.Logger.LogInformation($"获取到同步失败数据共{totalCount}个");
+            string notifyUrl = null;
+            int position = 0;
+            bool isSync = false;
+            foreach (CashfreeOrder order in orderList)
+            {
+                position++;
+                notifyUrl = $"https://pay.leannestore.com/Callback/Cashfree/Notification/{order.SessionID}";
+                do
+                {
+                    isSync = false;
+                    try
+                    {
+                        var postResult = await this.PayHttpClient.Post(notifyUrl, new Dictionary<string, string>
+                        {
+                            {"orderId", order.SessionID},
+                            {"txStatus", "SUCCESS"}
+                        }, null);
+                        isSync = postResult.Item1 == System.Net.HttpStatusCode.OK;
+                    }
+                    catch
+                    {
+                    }
+                } while (isSync == false);
+                this.Logger.LogInformation($"正在同步{position}/{totalCount}个异步通知消息到网站:{isSync},detail:{{notifyUrl={notifyUrl}}}");
             }
 
             this.Logger.LogInformation($"任务结束.");
