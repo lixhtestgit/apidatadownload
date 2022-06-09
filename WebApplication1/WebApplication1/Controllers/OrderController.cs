@@ -62,10 +62,11 @@ namespace WebApplication1.Controllers
                 dataList.AddRange(hadExportList);
                 this.Logger.LogInformation($"已导出数据共{hadExportList.Count}个.");
 
-                DateTime beginDate = Convert.ToDateTime("2021-09-11");
-                DateTime endDate = DateTime.Now;
-                List<CheckoutOrder> noPayList = await this.CheckoutBIZ.GetList("adoebike.meshopstore.com", "info@aodishi.net", "Adoebike2021", beginDate, endDate, 0);
+                DateTime beginDate = Convert.ToDateTime("2022-05-30");
+                DateTime endDate = Convert.ToDateTime("2022-06-03");
+                List<CheckoutOrder> noPayList = await this.CheckoutBIZ.GetList("kousee.meshopstore.com", "chenfei@meshop.net", "Chenfei@123", beginDate, endDate, 0);
 
+                #region 查询支付方式
                 //前368个重新查询，查询时间错误
                 int position = dataList.Count + 1;
                 int totalCount = noPayList.Count;
@@ -75,18 +76,24 @@ namespace WebApplication1.Controllers
                 {
                     if (!dataList.Exists(m => m.CheckoutGuid == checkoutOrder.CheckoutGuid))
                     {
-                        if (checkoutOrder.CreateTime > esMinDate)
+                        //查询支付方式
+                        if (false)
                         {
-                            await this.UpdateOrderPayData(totalCount, position, checkoutOrder, days);
-                        }
-                        else
-                        {
-                            this.Logger.LogInformation($"第{position}/{totalCount}个支付类型数据ES日志已清理,无法查询...");
+                            if (checkoutOrder.CreateTime > esMinDate)
+                            {
+                                await this.UpdateOrderPayData(totalCount, position, checkoutOrder, days);
+                            }
+                            else
+                            {
+                                this.Logger.LogInformation($"第{position}/{totalCount}个支付类型数据ES日志已清理,无法查询...");
+                            }
                         }
                         dataList.Add(checkoutOrder);
                         position++;
                     }
                 }
+
+                #endregion
 
                 workbook = ExcelHelper.CreateOrUpdateWorkbook(dataList);
                 ExcelHelper.SaveWorkbookToFile(workbook, filePath);

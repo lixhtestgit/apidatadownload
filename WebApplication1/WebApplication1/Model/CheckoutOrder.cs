@@ -36,6 +36,24 @@ namespace WebApplication1.Model
         [ExcelTitle("创建时间", outputFormat: "yyyy-MM-dd HH:mm:ss")]
         public DateTime CreateTime { get; set; }
 
+        [ExcelTitle("电话")]
+        public string Phone { get; set; }
+
+        [ExcelTitle("产品地址")]
+        public string ProductUrl
+        {
+            get
+            {
+                if (this.ProductUrlList == null || this.ProductUrlList.Count == 0)
+                {
+                    return "无";
+                }
+                return string.Join("\n", this.ProductUrlList.Distinct());
+            }
+        }
+
+        public List<string> ProductUrlList { get; set; }
+
         [ExcelTitle("恢复状态")]
         public string OrderState { get; set; }
 

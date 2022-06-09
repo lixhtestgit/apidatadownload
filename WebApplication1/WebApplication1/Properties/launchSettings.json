@@ -4,7 +4,7 @@
     "WebApplication1": {
       "commandName": "Project",
       "launchBrowser": true,
-      "launchUrl": "http://localhost:5599/api/Customer/",
+      "launchUrl": "http://localhost:5599/api/Order/",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },

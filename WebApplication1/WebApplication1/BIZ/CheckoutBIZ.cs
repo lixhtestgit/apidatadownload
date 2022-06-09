@@ -88,6 +88,7 @@ namespace WebApplication1.BIZ
                     OrderState = checkoutOrderJObj.SelectToken("State").ToObject<int>() == 0 ? "未恢复" : "已恢复",
                     Email = checkoutOrderJObj.SelectToken("Email").ToObject<string>(),
                     CreateTime = checkoutOrderJObj.SelectToken("CreateTime").ToObject<DateTime>(),
+                    ProductUrlList = new List<string>(2),
                     CreateOrderErrorReasonList = new List<string>(0),
                     PayErrorReasonList = new List<string>(0),
                     SessionIDList = new List<string>(0),
@@ -98,7 +99,8 @@ namespace WebApplication1.BIZ
                     Province = "无",
                     City = "无",
                     Address = "无",
-                    ZIP = "无"
+                    ZIP = "无",
+                    Phone = "无"
                 });
             }
 
@@ -119,22 +121,38 @@ namespace WebApplication1.BIZ
                 var getResult = this.PayHttpClient.Get(postUrl, headDic).Result;
 
                 JObject checkoutJObj = JObject.Parse(getResult.Item2);
-                JArray addressJArray = checkoutJObj.SelectToken("data.AddressList").ToObject<JArray>();
-
-                foreach (JObject addressJObj in addressJArray)
+                
+                //获取地址相关数据
+                if (true)
                 {
-                    int addressType = addressJObj.SelectToken("Type").ToObject<int>();
-                    string countryCode = addressJObj.SelectToken("CountryCode").ToObject<string>();
-                    if (addressType == 1)
+                    JArray addressJArray = checkoutJObj.SelectToken("data.AddressList").ToObject<JArray>();
+                    foreach (JObject addressJObj in addressJArray)
                     {
-                        model.CountryName = this.GetCountryName(countryCode).Result;
-                        model.Province = addressJObj.SelectToken("Province").ToObject<string>();
-                        model.City = addressJObj.SelectToken("City").ToObject<string>();
-                        model.Address = addressJObj.SelectToken("Address1").ToObject<string>() + " " + addressJObj.SelectToken("Address2").ToObject<string>();
-                        model.ZIP = addressJObj.SelectToken("ZIP").ToObject<string>();
-                        break;
+                        int addressType = addressJObj.SelectToken("Type").ToObject<int>();
+                        string countryCode = addressJObj.SelectToken("CountryCode").ToObject<string>();
+                        if (addressType == 1)
+                        {
+                            model.CountryName = this.GetCountryName(countryCode).Result;
+                            model.Province = addressJObj.SelectToken("Province").ToObject<string>();
+                            model.City = addressJObj.SelectToken("City").ToObject<string>();
+                            model.Address = addressJObj.SelectToken("Address1").ToObject<string>() + " " + addressJObj.SelectToken("Address2").ToObject<string>();
+                            model.ZIP = addressJObj.SelectToken("ZIP").ToObject<string>();
+                            model.Phone = addressJObj.SelectToken("Phone").ToObject<string>();
+                            break;
+                        }
                     }
                 }
+
+                //获取产品数据
+                if (true)
+                {
+                    JArray productJArray = checkoutJObj.SelectToken("data.ItemList").ToObject<JArray>();
+                    foreach (JObject productJObj in productJArray)
+                    {
+                        model.ProductUrlList.Add($"https://{shopUrl}{productJObj.SelectToken("Href").ToObject<string>()}");
+                    }
+                }
+
                 position++;
             });
 
