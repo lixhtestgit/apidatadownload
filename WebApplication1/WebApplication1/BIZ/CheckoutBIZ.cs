@@ -86,8 +86,12 @@ namespace WebApplication1.BIZ
                     CheckoutID = checkoutOrderJObj.SelectToken("ID").ToObject<string>(),
                     CheckoutGuid = checkoutOrderJObj.SelectToken("Guid").ToObject<string>(),
                     OrderState = checkoutOrderJObj.SelectToken("State").ToObject<int>() == 0 ? "未恢复" : "已恢复",
+                    UserName = checkoutOrderJObj.SelectToken("UserName").ToObject<string>(),
                     Email = checkoutOrderJObj.SelectToken("Email").ToObject<string>(),
+                    ChoiseCurrency = checkoutOrderJObj.SelectToken("ChoiseCurrency").ToObject<string>(),
+                    CurrencyTotalPayPrice = checkoutOrderJObj.SelectToken("CurrencyTotalPayPrice").ToObject<decimal>(),
                     CreateTime = checkoutOrderJObj.SelectToken("CreateTime").ToObject<DateTime>(),
+                    ProductPriceList = new List<string>(0),
                     ProductUrlList = new List<string>(2),
                     CreateOrderErrorReasonList = new List<string>(0),
                     PayErrorReasonList = new List<string>(0),
@@ -121,7 +125,7 @@ namespace WebApplication1.BIZ
                 var getResult = this.PayHttpClient.Get(postUrl, headDic).Result;
 
                 JObject checkoutJObj = JObject.Parse(getResult.Item2);
-                
+
                 //获取地址相关数据
                 if (true)
                 {
@@ -149,7 +153,16 @@ namespace WebApplication1.BIZ
                     JArray productJArray = checkoutJObj.SelectToken("data.ItemList").ToObject<JArray>();
                     foreach (JObject productJObj in productJArray)
                     {
-                        model.ProductUrlList.Add($"https://{shopUrl}{productJObj.SelectToken("Href").ToObject<string>()}");
+                        string productHref = productJObj.SelectToken("Href").ToObject<string>();
+                        if (string.IsNullOrEmpty(productHref))
+                        {
+                            string productSpuRequestUrl = $"https://{shopUrl}/api/v1/productmanage/product?spuId={productJObj.SelectToken("SPUID")}";
+                            var productSpuGetResult = this.PayHttpClient.Get(productSpuRequestUrl, headDic).Result;
+                            JObject productSpuJObj = JObject.Parse(productSpuGetResult.Item2);
+                            productHref= productSpuJObj.SelectToken("data.Product.Url").ToString();
+                        }
+                        model.ProductUrlList.Add($"https://{shopUrl}{productHref}");
+                        model.ProductPriceList.Add($"{productJObj.SelectToken("Title")}:{productJObj.SelectToken("Price")}");
                     }
                 }
 

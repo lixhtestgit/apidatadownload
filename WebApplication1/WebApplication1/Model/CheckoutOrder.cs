@@ -15,6 +15,9 @@ namespace WebApplication1.Model
         [ExcelTitle("弃单号")]
         public string CheckoutGuid { get; set; }
 
+        [ExcelTitle("姓名")]
+        public string UserName { get; set; }
+
         [ExcelTitle("邮箱")]
         public string Email { get; set; }
 
@@ -38,6 +41,26 @@ namespace WebApplication1.Model
 
         [ExcelTitle("电话")]
         public string Phone { get; set; }
+
+        [ExcelTitle("币种")]
+        public string ChoiseCurrency { get; set; }
+
+        [ExcelTitle("金额")]
+        public decimal CurrencyTotalPayPrice { get; set; }
+
+        [ExcelTitle("产品金额")]
+        public string ProductPrice
+        {
+            get
+            {
+                if (this.ProductPriceList == null || this.ProductPriceList.Count == 0)
+                {
+                    return "无";
+                }
+                return string.Join("\n", this.ProductPriceList.Distinct());
+            }
+        }
+        public List<string> ProductPriceList { get; set; }
 
         [ExcelTitle("产品地址")]
         public string ProductUrl
