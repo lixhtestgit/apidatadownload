@@ -65,9 +65,9 @@ namespace WebApplication1.Controllers
                 dataList.AddRange(hadExportList);
                 this.Logger.LogInformation($"已导出数据共{hadExportList.Count}个.");
 
-                DateTime beginDate = Convert.ToDateTime("2022-01-06");
-                DateTime endDate = Convert.ToDateTime("2022-05-23");
-                List<CheckoutOrder> noPayList = await this.CheckoutBIZ.GetList("hifuture.meshopstore.com", "contact.hifuture@gmail.com", "Laoge123", beginDate, endDate, 0);
+                DateTime beginDate = Convert.ToDateTime("2022-05-15");
+                DateTime endDate = Convert.ToDateTime("2022-06-17");
+                List<CheckoutOrder> noPayList = await this.CheckoutBIZ.GetList("beddinginn.reportide.com", "zhuying@homeblife.com", "Beddinginn2022!", beginDate, endDate, 0);
 
                 #region 查询支付方式
                 //前368个重新查询，查询时间错误
