@@ -62,26 +62,28 @@ namespace WebApplication1.Controllers
                 dataList.AddRange(hadExportList);
                 this.Logger.LogInformation($"已导出数据共{hadExportList.Count}个.");
 
-                DateTime beginDate = Convert.ToDateTime("2022-05-30");
-                DateTime endDate = Convert.ToDateTime("2022-06-03");
-                List<CheckoutOrder> noPayList = await this.CheckoutBIZ.GetList("kousee.meshopstore.com", "chenfei@meshop.net", "Chenfei@123", beginDate, endDate, 0);
+                string shopDomain = "beddinginn.reportide.com";
+                DateTime beginDate = Convert.ToDateTime("2022-06-01");
+                DateTime endDate = Convert.ToDateTime("2022-06-02");
+                List<CheckoutOrder> noPayList = await this.CheckoutBIZ.GetList(shopDomain, "zhuying@homeblife.com", "Beddinginn2022!", beginDate, endDate, 0);
+                string shopRootDomain = shopDomain.Substring(shopDomain.IndexOf('.') + 1, shopDomain.Length - (shopDomain.IndexOf('.') + 1));
 
                 #region 查询支付方式
                 //前368个重新查询，查询时间错误
                 int position = dataList.Count + 1;
                 int totalCount = noPayList.Count;
-                int days = (int)(DateTime.Now - beginDate).TotalDays + 3;
-                DateTime esMinDate = Convert.ToDateTime("2022-04-01").AddHours(-8);
+                int days = (int)(DateTime.Now - beginDate).TotalDays + 7;
+                DateTime esMinDate = beginDate.AddDays(-7).AddHours(-8);
                 foreach (CheckoutOrder checkoutOrder in noPayList)
                 {
                     if (!dataList.Exists(m => m.CheckoutGuid == checkoutOrder.CheckoutGuid))
                     {
                         //查询支付方式
-                        if (false)
+                        if (true)
                         {
                             if (checkoutOrder.CreateTime > esMinDate)
                             {
-                                await this.UpdateOrderPayData(totalCount, position, checkoutOrder, days);
+                                await this.UpdateOrderPayData(totalCount, position, shopRootDomain, checkoutOrder, days);
                             }
                             else
                             {
@@ -116,10 +118,11 @@ namespace WebApplication1.Controllers
         /// </summary>
         /// <param name="totalCount"></param>
         /// <param name="position"></param>
+        /// <param name="esRootDomain"></param>
         /// <param name="model"></param>
         /// <param name="lastDays"></param>
         /// <returns></returns>
-        private async Task UpdateOrderPayData(int totalCount, int position, CheckoutOrder model, int lastDays)
+        private async Task UpdateOrderPayData(int totalCount, int position, string esRootDomain, CheckoutOrder model, int lastDays)
         {
             #region 1-获取支付类型
 
@@ -154,32 +157,36 @@ namespace WebApplication1.Controllers
     }
 ]";
 
-            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个支付类型数据", dataFilter, lastDays, log =>
-            {
-                string payType = null;
-                if (log.Contains("/ajax/paydd/FPP", StringComparison.OrdinalIgnoreCase))
-                {
-                    payType = "PayPal快捷";
-                }
-                else if (log.Contains("/ajax/paydd/PP", StringComparison.OrdinalIgnoreCase))
-                {
-                    payType = "PayPal";
-                }
-                else if (log.Contains("/ajax/paydd/PayEaseDirect", StringComparison.OrdinalIgnoreCase))
-                {
-                    payType = "PayEase直连";
-                }
-                else if (log.Contains("/ajax/pay/PayEase", StringComparison.OrdinalIgnoreCase))
-                {
-                    payType = "PayEase三方或者本地化";
-                }
-                else if (log.Contains("/ajax/paydd/", StringComparison.OrdinalIgnoreCase)
-                    || log.Contains("/ajax/pay/", StringComparison.OrdinalIgnoreCase))
-                {
-                    payType = "其他支付方式+" + log;
-                }
-                return payType;
-            });
+            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个支付类型数据", esRootDomain, dataFilter, lastDays, log =>
+           {
+               string payType = null;
+               if (log.Contains("/ajax/paydd/FPP", StringComparison.OrdinalIgnoreCase))
+               {
+                   payType = "PayPal快捷";
+               }
+               else if (log.Contains("/ajax/paydd/PP", StringComparison.OrdinalIgnoreCase))
+               {
+                   payType = "PayPal";
+               }
+               else if (log.Contains("/ajax/paydd/PayEaseDirect", StringComparison.OrdinalIgnoreCase))
+               {
+                   payType = "PayEase直连";
+               }
+               else if (log.Contains("/ajax/pay/PayEase", StringComparison.OrdinalIgnoreCase))
+               {
+                   payType = "PayEase三方或者本地化";
+               }
+               else if (log.Contains("/ajax/pay/PacyPay", StringComparison.OrdinalIgnoreCase))
+               {
+                   payType = "PacyPay直连";
+               }
+               else if (log.Contains("/ajax/paydd/", StringComparison.OrdinalIgnoreCase)
+                   || log.Contains("/ajax/pay/", StringComparison.OrdinalIgnoreCase))
+               {
+                   payType = "其他支付方式+" + log;
+               }
+               return payType;
+           });
 
             if (esLogList.Count > 0)
             {
@@ -212,7 +219,7 @@ namespace WebApplication1.Controllers
                         ]";
 
                 List<string> sessionIDList = new List<string>(10);
-                esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个SessionID数据", dataFilter, lastDays, log =>
+                esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个SessionID数据", esRootDomain, dataFilter, lastDays, log =>
                 {
                     string sessionID = null;
                     if (log.Contains("token", StringComparison.OrdinalIgnoreCase))
@@ -242,7 +249,7 @@ namespace WebApplication1.Controllers
                                     }
                                 }
                             ]";
-                    esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个创建订单结果数据", dataFilter, lastDays, log =>
+                    esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个创建订单结果数据", esRootDomain, dataFilter, lastDays, log =>
                     {
                         string validLog = null;
                         string payError = null;
@@ -314,7 +321,7 @@ namespace WebApplication1.Controllers
                             }
                         ]";
 
-                esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个弃单日志数据", dataFilter, lastDays, log =>
+                esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个弃单日志数据", esRootDomain, dataFilter, lastDays, log =>
                 {
                     string validLog = null;
                     string payError = null;
@@ -348,7 +355,22 @@ namespace WebApplication1.Controllers
                         }
 
                     }
-                    else if (true)
+                    else if (model.ESPayType.Contains("PacyPay直连"))
+                    {
+                        if (log.Contains("PacyPay_1002_CreateOrder_Result", StringComparison.OrdinalIgnoreCase))
+                        {
+                            //获取创建订单结果日志
+                            validLog = log;
+                            model.ESCreateOrderResultLogList.Add(validLog);
+
+                            payError = new Regex("(?<=@orderInfo:)[^@]+(?=@)").Match(log).Value;
+                            if (!string.IsNullOrEmpty(payError))
+                            {
+                                model.PayErrorReasonList.Add(payError);
+                            }
+                        }
+                    }
+                    else
                     {
                         //...
                     }

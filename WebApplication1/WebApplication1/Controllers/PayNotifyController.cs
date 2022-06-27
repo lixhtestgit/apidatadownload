@@ -64,10 +64,10 @@ namespace WebApplication1.Controllers
     }
 ]";
 
-            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"获取Pay通知失败数据", dataFilter, 6, log =>
-            {
-                return "1";
-            });
+            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"获取Pay通知失败数据", "meshopstore.com", dataFilter, 6, log =>
+             {
+                 return "1";
+             });
 
             int totalCount = esLogList.Count;
             this.Logger.LogInformation($"获取到同步失败数据共{totalCount}个");

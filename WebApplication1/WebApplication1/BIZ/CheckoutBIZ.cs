@@ -123,7 +123,7 @@ namespace WebApplication1.BIZ
                 JObject checkoutJObj = JObject.Parse(getResult.Item2);
                 
                 //获取地址相关数据
-                if (true)
+                if (false)
                 {
                     JArray addressJArray = checkoutJObj.SelectToken("data.AddressList").ToObject<JArray>();
                     foreach (JObject addressJObj in addressJArray)
@@ -144,7 +144,7 @@ namespace WebApplication1.BIZ
                 }
 
                 //获取产品数据
-                if (true)
+                if (false)
                 {
                     JArray productJArray = checkoutJObj.SelectToken("data.ItemList").ToObject<JArray>();
                     foreach (JObject productJObj in productJArray)
