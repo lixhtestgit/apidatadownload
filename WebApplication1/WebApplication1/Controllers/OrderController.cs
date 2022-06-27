@@ -20,6 +20,9 @@ using WebApplication1.Model;
 
 namespace WebApplication1.Controllers
 {
+    /// <summary>
+    /// 获取店铺弃单数据并获取对应支付方式日志
+    /// </summary>
     [Route("api/Order")]
     [ApiController]
     public class OrderController : ControllerBase
@@ -64,7 +67,7 @@ namespace WebApplication1.Controllers
 
                 string shopDomain = "beddinginn.reportide.com";
                 DateTime beginDate = Convert.ToDateTime("2022-06-01");
-                DateTime endDate = Convert.ToDateTime("2022-06-02");
+                DateTime endDate = Convert.ToDateTime("2022-06-27");
                 List<CheckoutOrder> noPayList = await this.CheckoutBIZ.GetList(shopDomain, "zhuying@homeblife.com", "Beddinginn2022!", beginDate, endDate, 0);
                 string shopRootDomain = shopDomain.Substring(shopDomain.IndexOf('.') + 1, shopDomain.Length - (shopDomain.IndexOf('.') + 1));
 
