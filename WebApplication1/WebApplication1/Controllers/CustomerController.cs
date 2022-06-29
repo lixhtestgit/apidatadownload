@@ -49,7 +49,8 @@ namespace WebApplication1.Controllers
         public async Task<IActionResult> DownLoad()
         {
             string[] methodArray = new string[] { "SEO", "百度短信", "报名入口", "大唐数据", "公众号", "京东", "老客户转介绍", "乐语", "其他", "数据库", "淘宝", "推广页", "无", "信息流", "注册用户", "400", "百度信息流", "今日头条", "现场面审", "畅想云端数据", "乐语录入", "柯达数据", "电信数据", "用友题库", "用友视频", "广点通信息流", "快手信息流", "推广APP", "用友banner", "公开课", "安徽渠道公众号", "微信二维码", "小程序", "乐考校园", "微博粉丝通", "抖音", "模考大赛", "易聊" };
-            string[] extendSubjectArray = new string[] { "无", "初级会计", "初级会计1", "中级会计", "经济师1", "注册安全工程师", "CPA", "管理会计", "税务师", "初级经济师", "中级经济师", "高级经济师", "软考", "FRR", "基金", "银行", "注册会计师", "证券", "期货", "初级银行", "CFA", "中级银行", "一级建造师", "二级建造师", "二级建造师1", "消防工程师", "教师资格证", "注册建造师", "执业药师", "执业医师", "心理咨询师", "公务员", "健康管理师", "婚姻家庭咨询师", "远程教育", "薪税师", "碳排放管理师" };
+            //string[] extendSubjectArray = new string[] { "无", "初级会计", "初级会计1", "中级会计", "经济师1", "注册安全工程师", "CPA", "管理会计", "税务师", "初级经济师", "中级经济师", "高级经济师", "软考", "FRR", "基金", "银行", "注册会计师", "证券", "期货", "初级银行", "CFA", "中级银行", "一级建造师", "二级建造师", "二级建造师1", "消防工程师", "教师资格证", "注册建造师", "执业药师", "执业医师", "心理咨询师", "公务员", "健康管理师", "婚姻家庭咨询师", "远程教育", "薪税师", "碳排放管理师" };
+            string[] extendSubjectArray = new string[] { "中级经济师" };
 
             Dictionary<string, string> customerListUrlDic = new Dictionary<string, string>(methodArray.Length * extendSubjectArray.Length);
             foreach (var method in methodArray)
