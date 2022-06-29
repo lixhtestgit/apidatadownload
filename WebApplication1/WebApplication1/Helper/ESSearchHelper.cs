@@ -18,7 +18,7 @@ namespace WebApplication1.Helper
             this.Logger = logger;
         }
 
-        public async Task<List<ESLog>> GetESLogList(string logFlag, string dataFilter, int beginDays, Func<string, string> logTypeFunc)
+        public async Task<List<ESLog>> GetESLogList(string logFlag, string esRootDomain, string dataFilter, int beginDays, Func<string, string> logTypeFunc)
         {
             List<ESLog> logList = new List<ESLog>(100);
 
@@ -56,7 +56,7 @@ namespace WebApplication1.Helper
 
             this.Logger.LogInformation($"{logFlag}正在获取查询结果...");
 
-            string postUrl = "https://log.meshopstore.com/api/console/proxy?path=logstash-%2A%2F_search&method=GET";
+            string postUrl = $"https://log.{esRootDomain}/api/console/proxy?path=logstash-%2A%2F_search&method=GET";
             Dictionary<string, string> postHeaderDic = new Dictionary<string, string>
             {
                 {"kbn-xsrf", "true" }
