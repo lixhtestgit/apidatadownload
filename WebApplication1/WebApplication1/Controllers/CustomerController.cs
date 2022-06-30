@@ -31,7 +31,7 @@ namespace WebApplication1.Controllers
         public static int PageSize = 1000;
         public static Dictionary<string, string> HeadDic = new Dictionary<string, string>
         {
-            { "Cookie","LKNewCRMUserEmail=wenjie.cui1@sinodq.net; aliyungf_tc=fe985142363e8f52f1167d51d36c95829d55bc0ed1e2c724ff7a59e8c2d4ef2c; ASP.NET_SessionId=qpy0vvhzr5t4kjlxsame4qgs; CheckCode=52731"}
+            { "Cookie","aliyungf_tc=f007b064d7c6cf44f257c30542d03ba4d71d0aabb08059157ce9dee8fac960f9; ASP.NET_SessionId=10pcluagzfrz0la1xkpv5j2f; LKNewCRMUserEmail=tinglan.cui@sinodq.net; CheckCode=41519"}
         };
 
         public CustomerController(
