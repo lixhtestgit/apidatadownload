@@ -339,8 +339,6 @@ namespace PPPayReportTools.Excel
             {
                 Directory.CreateDirectory(fileDirectoryPath);
             }
-            string fileName = filePath.Replace(fileDirectoryPath, "");
-
             if (File.Exists(filePath))
             {
                 File.Delete(filePath);
