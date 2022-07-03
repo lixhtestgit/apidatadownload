@@ -99,35 +99,64 @@ namespace WebApplication1.Controllers
         public async Task<IActionResult> PayCompanyOrderSync()
         {
             string contentRootPath = this.WebHostEnvironment.ContentRootPath;
-            string testFilePath = $@"{contentRootPath}\示例测试目录\cashfree.xlsx";
-            List<CashfreeOrder> orderList = this.ExcelHelper.ReadTitleDataList<CashfreeOrder>(testFilePath, new ExcelFileDescription(0));
+            string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\paytm-订单.xlsx";
+            List<PayCompanyOrder> orderList = this.ExcelHelper.ReadTitleDataList<PayCompanyOrder>(testFilePath, new ExcelFileDescription(0));
 
             int totalCount = orderList.Count;
             this.Logger.LogInformation($"获取到同步失败数据共{totalCount}个");
             string notifyUrl = null;
             int position = 0;
             bool isSync = false;
-            foreach (CashfreeOrder order in orderList)
+            string payCompany = "Paytm";
+            int orderSyncCount = 0;
+            List<string> syncFailedList = new List<string>(10);
+            foreach (PayCompanyOrder order in orderList)
             {
                 position++;
-                notifyUrl = $"https://pay.leannestore.com/Callback/Cashfree/Notification/{order.SessionID}";
+                orderSyncCount = 0;
+                order.SessionID = order.SessionID.Replace("'", "");
+                notifyUrl = $"https://pay.meshopstore.com/Callback/Paytm/Notification/{order.SessionID}";
                 do
                 {
                     isSync = false;
                     try
                     {
-                        var postResult = await this.PayHttpClient.Post(notifyUrl, new Dictionary<string, string>
+                        if (order.SessionID.Length == 32)
                         {
-                            {"orderId", order.SessionID},
-                            {"txStatus", "SUCCESS"}
-                        }, null);
-                        isSync = postResult.Item1 == System.Net.HttpStatusCode.OK;
+                            if (payCompany == "Cashfree")
+                            {
+                                var postResult = await this.PayHttpClient.Post(notifyUrl, new Dictionary<string, string>
+                                {
+                                    {"orderId", order.SessionID},
+                                    {"txStatus", "SUCCESS"}
+                                }, null);
+                                isSync = postResult.Item1 == System.Net.HttpStatusCode.OK;
+                            }
+                            else if (payCompany == "Paytm")
+                            {
+                                var postResult = await this.PayHttpClient.Post(notifyUrl, new Dictionary<string, string>
+                                {
+                                    {"ORDERID", order.SessionID}
+                                }, null);
+                                isSync = postResult.Item1 == System.Net.HttpStatusCode.OK;
+                            }
+                        }
                     }
                     catch
                     {
                     }
-                } while (isSync == false);
+                    orderSyncCount++;
+                } while (isSync == false && orderSyncCount <= 3);
+                if (isSync == false)
+                {
+                    syncFailedList.Add(order.SessionID);
+                }
                 this.Logger.LogInformation($"正在同步{position}/{totalCount}个异步通知消息到网站:{isSync},detail:{{notifyUrl={notifyUrl}}}");
+            }
+
+            if (syncFailedList.Count > 0)
+            {
+                this.Logger.LogError($"同步失败会话列表：{JsonConvert.SerializeObject(syncFailedList)}");
             }
 
             this.Logger.LogInformation($"任务结束.");
