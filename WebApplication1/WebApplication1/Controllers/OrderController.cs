@@ -66,15 +66,15 @@ namespace WebApplication1.Controllers
                 dataList.AddRange(hadExportList);
                 this.Logger.LogInformation($"已导出数据共{hadExportList.Count}个.");
 
-                string shopDomain = "beddinginn.reportide.com";
-                DateTime beginDate = Convert.ToDateTime("2022-07-03");
-                DateTime endDate = Convert.ToDateTime("2022-07-06");
-                List<CheckoutOrder> noPayList = await this.CheckoutBIZ.GetList(shopDomain, "zhuying@homeblife.com", "Beddinginn2022!", beginDate, endDate, 0);
+                string shopDomain = "ikebshop.meshopstore.com";
+                DateTime beginDate = Convert.ToDateTime("2022-07-13 02:00:00");
+                DateTime endDate = Convert.ToDateTime("2022-07-13 09:00:00");
+                List<CheckoutOrder> noPayList = await this.CheckoutBIZ.GetList(shopDomain, "lixianghong@meshop.net", "Aa123456", beginDate, endDate, 0);
                 string shopRootDomain = shopDomain.Substring(shopDomain.IndexOf('.') + 1, shopDomain.Length - (shopDomain.IndexOf('.') + 1));
 
                 #region A-通过ES更新查询支付方式
 
-                if (false)
+                if (true)
                 {
                     //前368个重新查询，查询时间错误
                     int position = dataList.Count + 1;
@@ -104,14 +104,18 @@ namespace WebApplication1.Controllers
 
                 #region 通过日志文件查询支付数据
 
-                if (true)
+                if (false)
                 {
                     noPayList.RemoveAll(m => hadExportList.Exists(em => em.CheckoutGuid == m.CheckoutGuid));
                     this.UpdateOrderPayDataByFile(@"C:\Users\lixianghong\Desktop\pay.log", noPayList);
-                    dataList.AddRange(noPayList);
                 }
 
                 #endregion
+
+                if (dataList.Count == 0)
+                {
+                    dataList.AddRange(noPayList);
+                }
 
                 workbook = ExcelHelper.CreateOrUpdateWorkbook(dataList);
                 ExcelHelper.SaveWorkbookToFile(workbook, filePath);
@@ -196,6 +200,10 @@ namespace WebApplication1.Controllers
                 {
                     payType = "PacyPay直连";
                 }
+                else if (log.Contains("/ajax/paydd/Paytm", StringComparison.OrdinalIgnoreCase))
+                {
+                    payType = "Paytm";
+                }
                 else if (log.Contains("/ajax/paydd/", StringComparison.OrdinalIgnoreCase)
                     || log.Contains("/ajax/pay/", StringComparison.OrdinalIgnoreCase))
                 {
@@ -213,7 +221,8 @@ namespace WebApplication1.Controllers
 
             #region 调度版本
             if (model.ESPayType.Contains("PayPal")
-                || model.ESPayType.Contains("PayEase直连"))
+                || model.ESPayType.Contains("PayEase直连")
+                || model.ESPayType.Contains("Paytm"))
             {
                 #region 2-获取会话ID
 
@@ -279,10 +288,18 @@ namespace WebApplication1.Controllers
                             if (model.ESPayType.Contains("PayPal"))
                             {
                                 payError = new Regex("(?<=\"issue\":\")[^\"]+(?=\")").Match(log).Value;
-                                if (!string.IsNullOrEmpty(payError))
-                                {
-                                    model.CreateOrderResultList.Add("失败：" + payError);
-                                }
+                            }
+                            else if (model.ESPayType.Contains("Paytm") && !validLog.Contains("Success"))
+                            {
+                                payError = new Regex("(?<=\"resultMsg\":\")[^\"]+(?=\")").Match(log).Value;
+                            }
+                            if (!string.IsNullOrEmpty(payError))
+                            {
+                                model.CreateOrderResultList.Add("失败：" + payError);
+                            }
+                            else
+                            {
+                                model.CreateOrderResultList.Add("成功");
                             }
                         }
                         else
@@ -296,10 +313,6 @@ namespace WebApplication1.Controllers
                                 model.ESPayResultLogList.Add(validLog);
 
                                 payError = new Regex("(?<=\"issue\":\")[^\"]+(?=\")").Match(log).Value;
-                                if (!string.IsNullOrEmpty(payError))
-                                {
-                                    model.PayResultList.Add("失败：" + payError);
-                                }
                             }
                             else if (model.ESPayType.Contains("PayEase直连")
                                 && log.Contains("PayEaseDirect_v1Controller_ResultPage", StringComparison.OrdinalIgnoreCase))
@@ -309,10 +322,27 @@ namespace WebApplication1.Controllers
                                 model.ESPayResultLogList.Add(validLog);
 
                                 payError = new Regex("(?<=\"orderInfo\":\")[^\"]+(?=\")").Match(log).Value;
-                                if (!string.IsNullOrEmpty(payError))
+                            }
+                            else if (model.ESPayType.Contains("Paytm")
+                                && log.Contains("Paytm_2002_GetOrder_Result", StringComparison.OrdinalIgnoreCase))
+                            {
+                                //获取创建订单结果日志
+                                validLog = log;
+                                model.ESPayResultLogList.Add(validLog);
+
+                                if (!validLog.Contains("PENDING")
+                                    && !validLog.Contains("TXN_SUCCESS"))
                                 {
-                                    model.PayResultList.Add("失败：" + payError);
+                                    payError = new Regex("(?<=\"resultMsg\":\")[^\"]+(?=\")").Match(log).Value;
                                 }
+                            }
+                            if (!string.IsNullOrEmpty(payError))
+                            {
+                                model.PayResultList.Add("失败：" + payError);
+                            }
+                            else
+                            {
+                                model.PayResultList.Add("成功");
                             }
                         }
                         return validLog;

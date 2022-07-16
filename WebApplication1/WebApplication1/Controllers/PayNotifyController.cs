@@ -99,7 +99,7 @@ namespace WebApplication1.Controllers
         public async Task<IActionResult> PayCompanyOrderSync()
         {
             string contentRootPath = this.WebHostEnvironment.ContentRootPath;
-            string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\paytm-订单.xlsx";
+            string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\paytm-订单2.xlsx";
             List<PayCompanyOrder> orderList = this.ExcelHelper.ReadTitleDataList<PayCompanyOrder>(testFilePath, new ExcelFileDescription(0));
 
             int totalCount = orderList.Count;
