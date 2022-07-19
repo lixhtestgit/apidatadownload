@@ -99,7 +99,7 @@ namespace WebApplication1.Controllers
         public async Task<IActionResult> PayCompanyOrderSync()
         {
             string contentRootPath = this.WebHostEnvironment.ContentRootPath;
-            string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\paytm-订单2.xlsx";
+            string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\xendit.xlsx";
             List<PayCompanyOrder> orderList = this.ExcelHelper.ReadTitleDataList<PayCompanyOrder>(testFilePath, new ExcelFileDescription(0));
 
             int totalCount = orderList.Count;
@@ -107,7 +107,8 @@ namespace WebApplication1.Controllers
             string notifyUrl = null;
             int position = 0;
             bool isSync = false;
-            string payCompany = "Paytm";
+            string payCompany = "Xendit";
+            string payHost = "pay.runyipay.com";
             int orderSyncCount = 0;
             List<string> syncFailedList = new List<string>(10);
             foreach (PayCompanyOrder order in orderList)
@@ -115,7 +116,7 @@ namespace WebApplication1.Controllers
                 position++;
                 orderSyncCount = 0;
                 order.SessionID = order.SessionID.Replace("'", "");
-                notifyUrl = $"https://pay.meshopstore.com/Callback/Paytm/Notification/{order.SessionID}";
+                notifyUrl = $"https://{payHost}/Callback/{payCompany}/Notification/{order.SessionID}";
                 do
                 {
                     isSync = false;
@@ -138,6 +139,16 @@ namespace WebApplication1.Controllers
                                 {
                                     {"ORDERID", order.SessionID}
                                 }, null);
+                                isSync = postResult.Item1 == System.Net.HttpStatusCode.OK;
+                            }
+                            else if (payCompany == "Xendit")
+                            {
+                                var postResult = await this.PayHttpClient.Post(notifyUrl, JsonConvert.SerializeObject(new
+                                {
+                                    id = order.XenditInvoiceID,
+                                    external_id = order.SessionID,
+                                    status = "SETTLED"
+                                }), null);
                                 isSync = postResult.Item1 == System.Net.HttpStatusCode.OK;
                             }
                         }

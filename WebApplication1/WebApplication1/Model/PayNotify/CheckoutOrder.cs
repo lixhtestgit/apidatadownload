@@ -9,5 +9,11 @@ namespace WebApplication1.Model.PayNotify
         /// </summary>
         [ExcelTitle("Order_ID")]
         public string SessionID { get; set; }
+
+        /// <summary>
+        /// Xendit订单标识
+        /// </summary>
+        [ExcelTitle("Invoice_ID")]
+        public string XenditInvoiceID { get; set; }
     }
 }
