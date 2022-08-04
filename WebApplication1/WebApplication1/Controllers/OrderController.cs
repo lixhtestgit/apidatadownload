@@ -4,6 +4,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
@@ -66,10 +67,11 @@ namespace WebApplication1.Controllers
                 dataList.AddRange(hadExportList);
                 this.Logger.LogInformation($"已导出数据共{hadExportList.Count}个.");
 
-                string shopDomain = "ikebshop.meshopstore.com";
-                DateTime beginDate = Convert.ToDateTime("2022-07-13 02:00:00");
-                DateTime endDate = Convert.ToDateTime("2022-07-13 09:00:00");
-                List<CheckoutOrder> noPayList = await this.CheckoutBIZ.GetList(shopDomain, "lixianghong@meshop.net", "Aa123456", beginDate, endDate, 0);
+                string shopDomain = "beddinginn.reportide.com";
+                DateTime beginDate = Convert.ToDateTime("2021-01-27 02:00:00");
+                DateTime endDate = Convert.ToDateTime("2022-07-28 09:00:00");
+                List<CheckoutOrder> noPayList = await this.CheckoutBIZ.GetList(shopDomain, "zhuying@homeblife.com", "Beddinginn2022!", beginDate, endDate, 0);
+
                 string shopRootDomain = shopDomain.Substring(shopDomain.IndexOf('.') + 1, shopDomain.Length - (shopDomain.IndexOf('.') + 1));
 
                 #region A-通过ES更新查询支付方式
@@ -132,6 +134,56 @@ namespace WebApplication1.Controllers
 
             return Ok();
         }
+
+        /// <summary>
+        /// ES搜索WP异步通知
+        /// </summary>
+        /// <returns></returns>
+        [Route("ESWP")]
+        [HttpGet]
+        public async Task<IActionResult> ESWP()
+        {
+            string dataFilter = @"[
+    {
+        ""multi_match"": {
+            ""type"": ""phrase"",
+            ""query"": ""soundo-shop"",
+            ""lenient"": true
+        }
+    },
+    {
+        ""multi_match"": {
+            ""type"": ""phrase"",
+            ""query"": ""1_收到异步通知"",
+            ""lenient"": true
+        }
+    }
+]";
+
+            List<string> validList = new List<string>(100);
+
+            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"WP日志", "meshopstore.com", dataFilter, 2, log =>
+            {
+                string payType = null;
+                if (log.Contains("worldpay", StringComparison.OrdinalIgnoreCase))
+                {
+                    payType = "worldpay";
+
+                    log = log.Replace("\\\"", "\"");
+                    string logDate = Convert.ToDateTime(log.Substring(0, 19)).AddHours(8).ToString("yyyy-MM-dd HH:mm:ss");
+                    string orderCode = new Regex("(?<=orderCode=\")[^\"]+(?=\")").Match(log).Value;
+                    string lastEvent = new Regex("(?<=<lastEvent>)[^<]+(?=<)").Match(log).Value;
+                    string returnCode = new Regex("(?<=ISO8583ReturnCode.+description=\")[^\"]+(?=\")").Match(log).Value;
+                    validList.Add($"{orderCode}_{logDate}_{lastEvent}_{returnCode}");
+                }
+                return payType;
+            });
+            validList.Sort();
+            string wpValidLogStr = string.Join("\r\n", validList);
+
+            return Ok();
+        }
+
 
         /// <summary>
         /// 获取支付相关数据

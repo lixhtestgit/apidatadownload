@@ -50,131 +50,144 @@ namespace WebApplication1.BIZ
             DateTime endDate,
             params int[] checkOutSateArray)
         {
-
-            #region 1-获取弃单列表
-            string checkoutListUrl = $"https://{shopUrl}/api/v1/order/getgiveuplist";
-            Dictionary<string, string> headDic = await this.AuthBIZ.GetShopAuthDic(shopUrl, email, password);
-
-            dynamic filter = null;
-            if (checkOutSateArray.Length == 1)
+            try
             {
-                filter = new
+                #region 1-获取弃单列表
+                string checkoutListUrl = $"https://{shopUrl}/api/v1/order/getgiveuplist";
+                Dictionary<string, string> headDic = await this.AuthBIZ.GetShopAuthDic(shopUrl, email, password);
+
+                dynamic filter = null;
+                if (checkOutSateArray.Length == 1)
                 {
-                    CreateTime = new { StartValue = beginDate.AddHours(-8).ToString("yyyy-MM-dd HH:mm:ss"), EndValue = endDate.AddHours(-8).ToString("yyyy-MM-dd HH:mm:ss") },
-                    State = new { Value = checkOutSateArray[0] },
-                    pager = new { PageNumber = 1, PageSize = 20000 }
-                };
-            }
-            else
-            {
-                filter = new
-                {
-                    CreateTime = new { StartValue = beginDate.AddHours(-8).ToString("yyyy-MM-dd HH:mm:ss"), EndValue = endDate.AddHours(-8).ToString("yyyy-MM-dd HH:mm:ss") },
-                    pager = new { PageNumber = 1, PageSize = 20000 }
-                };
-            }
-            string shipOrderPostData = JsonConvert.SerializeObject(filter);
-            var shipOrderResult = await this.PayHttpClient.Post(checkoutListUrl, shipOrderPostData, headDic);
-
-            JArray checkoutOrderJArray = JObject.Parse(shipOrderResult.Item2).SelectToken("data.Results").ToObject<JArray>() ?? new JArray();
-            List<CheckoutOrder> checkoutOrderList = new List<CheckoutOrder>(checkoutOrderJArray.Count);
-
-            foreach (JObject checkoutOrderJObj in checkoutOrderJArray)
-            {
-                checkoutOrderList.Add(new CheckoutOrder
-                {
-                    CheckoutID = checkoutOrderJObj.SelectToken("ID").ToObject<string>(),
-                    CheckoutGuid = checkoutOrderJObj.SelectToken("Guid").ToObject<string>(),
-                    OrderState = checkoutOrderJObj.SelectToken("State").ToObject<int>() == 0 ? "未恢复" : "已恢复",
-                    UserName = checkoutOrderJObj.SelectToken("UserName").ToObject<string>(),
-                    Email = checkoutOrderJObj.SelectToken("Email").ToObject<string>(),
-                    ChoiseCurrency = checkoutOrderJObj.SelectToken("ChoiseCurrency").ToObject<string>(),
-                    CurrencyTotalPayPrice = checkoutOrderJObj.SelectToken("CurrencyTotalPayPrice").ToObject<decimal>(),
-                    CreateTime = checkoutOrderJObj.SelectToken("CreateTime").ToObject<DateTime>(),
-                    ProductPriceList = new List<string>(0),
-                    ProductUrlList = new List<string>(2),
-                    CreateOrderResultList = new List<string>(0),
-                    PayResultList = new List<string>(0),
-                    SessionIDList = new List<string>(0),
-                    ESPayTypeList = new List<string>(0),
-                    ESCreateOrderResultLogList = new List<string>(0),
-                    ESPayResultLogList = new List<string>(0),
-                    CountryName = "无",
-                    Province = "无",
-                    City = "无",
-                    Address = "无",
-                    ZIP = "无",
-                    Phone = "无"
-                });
-            }
-
-            int totalCount = checkoutOrderList.Count;
-            this.Logger.LogInformation($"共获取未恢复弃单数据{totalCount}个.");
-
-            #endregion
-
-            #region 2-获取弃单详细信息
-
-            int position = 1;
-            string baseRequestUrl = $"https://{shopUrl}/api/v1/order/GetGiveUpDetailPageData?id={{id}}";
-            checkoutOrderList.ForEach(model =>
-            {
-                this.Logger.LogInformation($"第{position}/{totalCount}个弃单详细数据正在查询...");
-
-                if (false)
-                {
-                    string postUrl = baseRequestUrl.Replace("{id}", model.CheckoutID);
-                    var getResult = this.PayHttpClient.Get(postUrl, headDic).Result;
-
-                    JObject checkoutJObj = JObject.Parse(getResult.Item2);
-
-                    //获取地址相关数据
-                    if (false)
+                    filter = new
                     {
-                        JArray addressJArray = checkoutJObj.SelectToken("data.AddressList").ToObject<JArray>();
-                        foreach (JObject addressJObj in addressJArray)
-                        {
-                            int addressType = addressJObj.SelectToken("Type").ToObject<int>();
-                            string countryCode = addressJObj.SelectToken("CountryCode").ToObject<string>();
-                            if (addressType == 1)
-                            {
-                                model.CountryName = this.GetCountryName(countryCode).Result;
-                                model.Province = addressJObj.SelectToken("Province").ToObject<string>();
-                                model.City = addressJObj.SelectToken("City").ToObject<string>();
-                                model.Address = addressJObj.SelectToken("Address1").ToObject<string>() + " " + addressJObj.SelectToken("Address2").ToObject<string>();
-                                model.ZIP = addressJObj.SelectToken("ZIP").ToObject<string>();
-                                model.Phone = addressJObj.SelectToken("Phone").ToObject<string>();
-                                break;
-                            }
-                        }
-                    }
-
-                    //获取产品数据
-                    if (false)
+                        CreateTime = new { StartValue = beginDate.AddHours(-8).ToString("yyyy-MM-dd HH:mm:ss"), EndValue = endDate.AddHours(-8).ToString("yyyy-MM-dd HH:mm:ss") },
+                        State = new { Value = checkOutSateArray[0] },
+                        pager = new { PageNumber = 1, PageSize = 20000 }
+                    };
+                }
+                else
+                {
+                    filter = new
                     {
-                        JArray productJArray = checkoutJObj.SelectToken("data.ItemList").ToObject<JArray>();
-                        foreach (JObject productJObj in productJArray)
-                        {
-                            string productHref = productJObj.SelectToken("Href").ToObject<string>();
-                            if (string.IsNullOrEmpty(productHref))
-                            {
-                                string productSpuRequestUrl = $"https://{shopUrl}/api/v1/productmanage/product?spuId={productJObj.SelectToken("SPUID")}";
-                                var productSpuGetResult = this.PayHttpClient.Get(productSpuRequestUrl, headDic).Result;
-                                JObject productSpuJObj = JObject.Parse(productSpuGetResult.Item2);
-                                productHref = productSpuJObj.SelectToken("data.Product.Url").ToString();
-                            }
-                            model.ProductUrlList.Add($"https://{shopUrl}{productHref}");
-                            model.ProductPriceList.Add($"{productJObj.SelectToken("Title")}:{productJObj.SelectToken("Price")}");
-                        }
-                    }
+                        CreateTime = new { StartValue = beginDate.AddHours(-8).ToString("yyyy-MM-dd HH:mm:ss"), EndValue = endDate.AddHours(-8).ToString("yyyy-MM-dd HH:mm:ss") },
+                        pager = new { PageNumber = 1, PageSize = 20000 }
+                    };
+                }
+                string shipOrderPostData = JsonConvert.SerializeObject(filter);
+                var shipOrderResult = await this.PayHttpClient.Post(checkoutListUrl, shipOrderPostData, headDic);
+
+                JArray checkoutOrderJArray = JObject.Parse(shipOrderResult.Item2).SelectToken("data.Results").ToObject<JArray>() ?? new JArray();
+                List<CheckoutOrder> checkoutOrderList = new List<CheckoutOrder>(checkoutOrderJArray.Count);
+
+                foreach (JObject checkoutOrderJObj in checkoutOrderJArray)
+                {
+                    checkoutOrderList.Add(new CheckoutOrder
+                    {
+                        CheckoutID = checkoutOrderJObj.SelectToken("ID").ToObject<string>(),
+                        CheckoutGuid = checkoutOrderJObj.SelectToken("Guid").ToObject<string>(),
+                        OrderState = checkoutOrderJObj.SelectToken("State").ToObject<int>() == 0 ? "未恢复" : "已恢复",
+                        UserName = checkoutOrderJObj.SelectToken("UserName").ToObject<string>(),
+                        Email = checkoutOrderJObj.SelectToken("Email").ToObject<string>(),
+                        ChoiseCurrency = checkoutOrderJObj.SelectToken("ChoiseCurrency").ToObject<string>(),
+                        CurrencyTotalPayPrice = checkoutOrderJObj.SelectToken("CurrencyTotalPayPrice").ToObject<decimal>(),
+                        CreateTime = checkoutOrderJObj.SelectToken("CreateTime").ToObject<DateTime>(),
+                        ProductPriceList = new List<string>(0),
+                        ProductUrlList = new List<string>(2),
+                        CreateOrderResultList = new List<string>(0),
+                        PayResultList = new List<string>(0),
+                        SessionIDList = new List<string>(0),
+                        ESPayTypeList = new List<string>(0),
+                        ESCreateOrderResultLogList = new List<string>(0),
+                        ESPayResultLogList = new List<string>(0),
+                        CountryName = "无",
+                        Province = "无",
+                        City = "无",
+                        Address = "无",
+                        ZIP = "无",
+                        Phone = "无"
+                    });
                 }
 
-                position++;
-            });
+                int totalCount = checkoutOrderList.Count;
+                this.Logger.LogInformation($"共获取未恢复弃单数据{totalCount}个.");
 
-            #endregion
+                #endregion
 
-            return checkoutOrderList;
+                #region 2-获取弃单详细信息
+
+                int position = 1;
+                string baseRequestUrl = $"https://{shopUrl}/api/v1/order/GetGiveUpDetailPageData?id={{id}}";
+                checkoutOrderList.ForEach(model =>
+                {
+                    this.Logger.LogInformation($"第{position}/{totalCount}个弃单详细数据正在查询...");
+
+                    if (true)
+                    {
+                        string postUrl = baseRequestUrl.Replace("{id}", model.CheckoutID);
+                        var getResult = this.PayHttpClient.Get(postUrl, headDic).Result;
+
+                        if (getResult.Item1 == System.Net.HttpStatusCode.OK)
+                        {
+                            JObject checkoutJObj = JObject.Parse(getResult.Item2);
+
+                            if (checkoutJObj.SelectToken("code").ToObject<int>() == 0)
+                            {
+                                //获取地址相关数据
+                                if (true)
+                                {
+                                    JArray addressJArray = checkoutJObj.SelectToken("data.AddressList").ToObject<JArray>();
+                                    foreach (JObject addressJObj in addressJArray)
+                                    {
+                                        int addressType = addressJObj.SelectToken("Type").ToObject<int>();
+                                        string countryCode = addressJObj.SelectToken("CountryCode").ToObject<string>();
+                                        if (addressType == 1)
+                                        {
+                                            model.CountryName = this.GetCountryName(countryCode).Result;
+                                            model.Province = addressJObj.SelectToken("Province").ToObject<string>();
+                                            model.City = addressJObj.SelectToken("City").ToObject<string>();
+                                            model.Address = addressJObj.SelectToken("Address1").ToObject<string>() + " " + addressJObj.SelectToken("Address2").ToObject<string>();
+                                            model.ZIP = addressJObj.SelectToken("ZIP").ToObject<string>();
+                                            model.Phone = addressJObj.SelectToken("Phone").ToObject<string>();
+                                            break;
+                                        }
+                                    }
+                                }
+
+                                //获取产品数据
+                                if (true)
+                                {
+                                    JArray productJArray = checkoutJObj.SelectToken("data.ItemList").ToObject<JArray>();
+                                    foreach (JObject productJObj in productJArray)
+                                    {
+                                        string productHref = productJObj.SelectToken("Href").ToObject<string>();
+                                        if (string.IsNullOrEmpty(productHref))
+                                        {
+                                            string productSpuRequestUrl = $"https://{shopUrl}/api/v1/productmanage/product?spuId={productJObj.SelectToken("SPUID")}";
+                                            var productSpuGetResult = this.PayHttpClient.Get(productSpuRequestUrl, headDic).Result;
+                                            JObject productSpuJObj = JObject.Parse(productSpuGetResult.Item2);
+                                            productHref = productSpuJObj.SelectToken("data.Product.Url").ToString();
+                                        }
+                                        model.ProductUrlList.Add($"https://{shopUrl}{productHref}");
+                                        model.ProductPriceList.Add($"{productJObj.SelectToken("Title")}:{productJObj.SelectToken("Price")}");
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    position++;
+                });
+
+                #endregion
+
+                return checkoutOrderList;
+            }
+            catch (Exception e)
+            {
+                this.Logger.LogError(e, "出错了");
+                throw;
+            }
         }
 
 
