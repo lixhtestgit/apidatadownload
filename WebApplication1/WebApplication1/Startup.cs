@@ -5,11 +5,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using PPPayReportTools.Excel;
 using WebApplication1.BIZ;
+using WebApplication1.DB.Base;
 using WebApplication1.Helper;
 
 namespace WebApplication1
 {
-    public class Startup
+    public partial class Startup
     {
         public Startup(IConfiguration configuration)
         {
@@ -24,6 +25,7 @@ namespace WebApplication1
             services.AddMemoryCache();
             services.AddHttpClient();
             services.AddLogging();
+            services.AddSingleton<BaseRepository>();
             services.AddSingleton<AuthBIZ>();
             services.AddSingleton<ExcelHelper>();
             services.AddSingleton<CheckoutBIZ>();

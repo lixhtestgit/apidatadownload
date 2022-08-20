@@ -644,27 +644,28 @@ namespace PPPayReportTools.Excel
                                             }
                                         }
 
-                                        if (excelTitleFieldMapper.IsCoordinateExpress || (cell != null && cell.CellType == CellType.Formula))
+                                        if (!string.IsNullOrEmpty(cellValue))
                                         {
-                                            //读取含有表达式的单元格值
-                                            cellValue = formulaEvaluator.Evaluate(cell).StringValue;
-                                            propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
-                                        }
-                                        else if (propertyInfo.PropertyType.IsEnum)
-                                        {
-                                            object enumObj = propertyInfo.PropertyType.InvokeMember(cellValue, BindingFlags.GetField, null, null, null);
-                                            propertyInfo.SetValue(t, Convert.ChangeType(enumObj, propertyInfo.PropertyType));
-                                        }
-                                        else
-                                        {
-                                            propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
+                                            if (excelTitleFieldMapper.IsCoordinateExpress || (cell != null && cell.CellType == CellType.Formula))
+                                            {
+                                                //读取含有表达式的单元格值
+                                                cellValue = formulaEvaluator.Evaluate(cell).StringValue;
+                                                propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
+                                            }
+                                            else if (propertyInfo.PropertyType.IsEnum)
+                                            {
+                                                object enumObj = propertyInfo.PropertyType.InvokeMember(cellValue, BindingFlags.GetField, null, null, null);
+                                                propertyInfo.SetValue(t, Convert.ChangeType(enumObj, propertyInfo.PropertyType));
+                                            }
+                                            else
+                                            {
+                                                propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
+                                            }
                                         }
                                     }
                                     catch (Exception e)
                                     {
-                                        this.Logger.LogDebug($"文件_{filePath}读取{currentRowIndex + 1}行内容失败！");
-                                        t = default(T);
-                                        break;
+                                        this.Logger.LogError(e, $"文件_{filePath}读取{currentRowIndex + 1}行内容失败！");
                                     }
                                 }
                             }
@@ -1005,7 +1006,10 @@ namespace PPPayReportTools.Excel
                         }
                         else if (cellValue is DateTime)
                         {
-                            cell.SetCellValue((DateTime)cellValue);
+                            if ((DateTime)cellValue > DateTime.MinValue)
+                            {
+                                cell.SetCellValue((DateTime)cellValue);
+                            }
                         }
                         else if (cellValue is bool)
                         {
