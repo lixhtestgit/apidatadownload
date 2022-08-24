@@ -629,7 +629,6 @@ namespace PPPayReportTools.Excel
                                 excelTitleFieldMapper = titleIndexItem.Value;
 
                                 //没有数据的单元格默认为null
-                                string cellValue = cell?.ToString() ?? "";
                                 propertyInfo = excelTitleFieldMapper.PropertyInfo;
                                 if (propertyInfo != null && propertyInfo.CanWrite)
                                 {
@@ -637,29 +636,40 @@ namespace PPPayReportTools.Excel
                                     {
                                         if (excelTitleFieldMapper.IsCheckContentEmpty)
                                         {
-                                            if (string.IsNullOrEmpty(cellValue))
+                                            if (string.IsNullOrEmpty(cell?.ToString()))
                                             {
                                                 t = default(T);
                                                 break;
                                             }
                                         }
 
-                                        if (!string.IsNullOrEmpty(cellValue))
+                                        if (cell != null && !string.IsNullOrEmpty(cell.ToString()))
                                         {
-                                            if (excelTitleFieldMapper.IsCoordinateExpress || (cell != null && cell.CellType == CellType.Formula))
+                                            if (excelTitleFieldMapper.IsCoordinateExpress || cell.CellType == CellType.Formula)
                                             {
                                                 //读取含有表达式的单元格值
-                                                cellValue = formulaEvaluator.Evaluate(cell).StringValue;
+                                                string cellValue = formulaEvaluator.Evaluate(cell).StringValue;
                                                 propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
                                             }
                                             else if (propertyInfo.PropertyType.IsEnum)
                                             {
-                                                object enumObj = propertyInfo.PropertyType.InvokeMember(cellValue, BindingFlags.GetField, null, null, null);
+                                                object enumObj = propertyInfo.PropertyType.InvokeMember(cell.ToString(), BindingFlags.GetField, null, null, null);
                                                 propertyInfo.SetValue(t, Convert.ChangeType(enumObj, propertyInfo.PropertyType));
+                                            }
+                                            else if (propertyInfo.PropertyType == typeof(DateTime))
+                                            {
+                                                try
+                                                {
+                                                    propertyInfo.SetValue(t, Convert.ChangeType(cell.DateCellValue, propertyInfo.PropertyType));
+                                                }
+                                                catch (Exception)
+                                                {
+                                                    propertyInfo.SetValue(t, Convert.ChangeType(cell.ToString(), propertyInfo.PropertyType));
+                                                }
                                             }
                                             else
                                             {
-                                                propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
+                                                propertyInfo.SetValue(t, Convert.ChangeType(cell.ToString(), propertyInfo.PropertyType));
                                             }
                                         }
                                     }

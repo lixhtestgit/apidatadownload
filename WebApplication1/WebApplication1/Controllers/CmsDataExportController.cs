@@ -16,6 +16,7 @@ using WebApplication1.DB.Extend;
 using WebApplication1.DB.Repository;
 using WebApplication1.Enum;
 using WebApplication1.Model;
+using WebApplication1.Model.CmsData;
 
 namespace WebApplication1.Controllers
 {
@@ -25,7 +26,7 @@ namespace WebApplication1.Controllers
     {
         private BaseRepository _baseRepository;
         private TB_UsersRepository _usersRepository;
-        private TB_OrderRepository _orderRepository;
+        private TJ_TB_OrderRepository _tjOrderRepository;
         private TB_OrderBillRepository _orderBillRepository;
         private TB_UserSendAddressOrderRepository _userSendAddressOrderRepository;
         private ExcelHelper _excelHelper;
@@ -34,7 +35,7 @@ namespace WebApplication1.Controllers
         public CmsDataExportController(
             BaseRepository baseRepository,
             TB_UsersRepository usersRepository,
-            TB_OrderRepository orderRepository,
+            TJ_TB_OrderRepository orderRepository,
             TB_OrderBillRepository orderBillRepository,
             TB_UserSendAddressOrderRepository userSendAddressOrderRepository,
             ExcelHelper excelHelper,
@@ -42,7 +43,7 @@ namespace WebApplication1.Controllers
         {
             this._baseRepository = baseRepository;
             this._usersRepository = usersRepository;
-            this._orderRepository = orderRepository;
+            this._tjOrderRepository = orderRepository;
             this._orderBillRepository = orderBillRepository;
             this._userSendAddressOrderRepository = userSendAddressOrderRepository;
             this._excelHelper = excelHelper;
@@ -129,6 +130,33 @@ namespace WebApplication1.Controllers
             this._logger.LogInformation("合并完成！");
         }
 
+        #region 临时方法
+        [Route("RemoveXuanData")]
+        [HttpGet]
+        public void RemoveXuanData()
+        {
+            List<TJ_CmsOrder> allDataList = this._excelHelper.ReadTitleDataList<TJ_CmsOrder>(@"C:\Users\lixianghong\Desktop\CMS刷数据\林总\瑞铭公司补站点_1_去除筛选项.xlsx", new ExcelFileDescription());
+            string newFile = @"C:\Users\lixianghong\Desktop\CMS刷数据\林总\瑞铭公司补站点_2_去除轩总站点.xlsx";
+
+            string[] xzSiteArray = new string[] { "SPF4185", "SPF4221", "SPF4222", "SPL6874", "SPL6876", "SPL6880", "SPL6881" };
+            string[] tjSiteArray = new string[] { "www.beddinginn.com", "www.oroyalcars.com" };
+
+            foreach (TJ_CmsOrder cmsOrder in allDataList)
+            {
+                if (xzSiteArray.Contains(cmsOrder.SiteName.Trim()))
+                {
+                    cmsOrder.Remark = "欢总";
+                }
+                else if (tjSiteArray.Contains(cmsOrder.SiteName.Trim()))
+                {
+                    cmsOrder.Remark = "宋姐";
+                }
+            }
+            IWorkbook workbook = this._excelHelper.CreateOrUpdateWorkbook(allDataList);
+            this._excelHelper.SaveWorkbookToFile(workbook, newFile);
+        }
+
+        #endregion
 
         [Route("CopyDataToSite")]
         [HttpGet]
@@ -150,27 +178,27 @@ namespace WebApplication1.Controllers
                 {7224,2 }
             };
 
-            string idSql = @$"SELECT o.ID,o.SiteID,u.Email UserEmail 
-                        FROM dbo.TB_Order o
-                        INNER JOIN dbo.TB_Users u ON u.ID=o.UserID AND u.SiteID=o.SiteID
-                        WHERE o.AddTime>='2022-01-23 07:01:58.000' AND o.AddTime<'2022-02-01'
-                        AND o.SiteID NOT IN (6546,6691,6738,6903,6938,6983,7027,7203,7204,7207,7211,7224)";
-            List<object> awaitOrderJObjList = this._baseRepository.QueryAsync<object>(EDBConnectionType.SqlServer, idSql).Result;
+            string tjOrderSql = @$"SELECT u.Email UserEmail,
+                            (SELECT SUM(ob.BuyCount) FROM dbo.TB_OrderBill ob WHERE ob.SiteID=o.SiteID AND ob.OrderID=o.ID) ProductCount,
+                            a.CountryID,
+                            o.* FROM dbo.TB_Order o
+                            LEFT JOIN dbo.TB_Site s ON s.ID=o.SiteID
+                            LEFT JOIN dbo.TB_Users AS u ON o.UserID = U.ID AND o.SiteID = u.SiteID
+                            LEFT JOIN dbo.TB_UserSendAddressOrder AS a WITH (NOLOCK) ON o.SiteID = a.SiteID AND a.OrderID = o.ID AND a.AddressID = o.Address1
+                            WHERE o.AddTime>'2022-01-01' AND o.AddTime<'2022-07-01' AND o.SiteID NOT IN (0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143)
+                            Order By o.AddTime";
+            List<TJ_TB_Order> awaitOrderJObjList = this._baseRepository.QueryAsync<TJ_TB_Order>(EDBConnectionType.SqlServer, tjOrderSql).Result;
 
             Random random = new Random();
             int orderObjPosition = 0;
             int orderObjTotalCount = awaitOrderJObjList.Count;
 
-            Func<object, Task> syncOrderFunc = async (orderObj) =>
+            Func<TJ_TB_Order, Task> syncOrderFunc = async (orderObj) =>
             {
                 try
                 {
                     orderObjPosition++;
                     this._logger.LogInformation($"正在同步1月第{orderObjPosition}/{orderObjTotalCount}个订单...");
-                    JObject orderJObj = JObject.FromObject(orderObj);
-                    int siteID = orderJObj.SelectToken("SiteID").ToObject<int>();
-                    int orderID = orderJObj.SelectToken("ID").ToObject<int>();
-                    string userEmail = orderJObj.SelectToken("UserEmail").ToObject<string>();
 
                     int fpSiteID = 0;
                     int randomI = random.Next(1, 101);
@@ -183,115 +211,26 @@ namespace WebApplication1.Controllers
                             break;
                         }
                     }
-                    //添加用户
-                    int fpUserID = 0;
-
-                    TB_Users lsUser = await this._usersRepository.GetModelByEmail(siteID, userEmail);
-                    fpUserID = lsUser.ID;
-
-                    TB_Users fpUser = lsUser.Clone();
-                    fpUser.ID = fpUserID;
-                    fpUser.SiteID = fpSiteID;
-                    if (fpUser.RegIP.IsNullOrEmpty())
-                    {
-                        fpUser.RegIP = "127.0.0.1";
-                    }
-                    if (fpUser.Password.IsNullOrEmpty())
-                    {
-                        fpUser.Password = "127.0.0.1";
-                    }
-                    fpUser.InviteCode = "linshi_lixh";
-
-                    try
-                    {
-                        await this._usersRepository.Insert(EDBConnectionType.SqlServer, fpUser);
-                    }
-                    catch (Exception)
-                    {
-                        int insertResult = 0;
-                        do
-                        {
-                            try
-                            {
-                                fpUserID = await this._usersRepository.GetMaxID(fpSiteID) + 1;
-                                fpUser.ID = fpUserID;
-                                insertResult = await this._usersRepository.Insert(EDBConnectionType.SqlServer, fpUser);
-                            }
-                            catch (Exception)
-                            {
-                            }
-                        } while (insertResult == 0);
-                    }
 
                     //添加订单
-                    int fpOrderID = 0;
-                    TB_Order lsOrder = await this._orderRepository.GetModelByID(siteID, orderID);
-                    fpOrderID = lsOrder.ID;
-                    TB_Order fpOrder = lsOrder.Clone();
-                    fpOrder.ID = fpOrderID;
-                    fpOrder.SiteID = fpSiteID;
-                    fpOrder.UserID = fpUserID;
-                    fpOrder.tag = "linshi_lixh";
-                    try
-                    {
-                        await this._orderRepository.Insert(EDBConnectionType.SqlServer, fpOrder);
-                    }
-                    catch (Exception)
-                    {
-                        int insertResult = 0;
-                        do
-                        {
-                            try
-                            {
-                                fpOrderID = await this._orderRepository.GetMaxID(fpSiteID) + 1;
-                                fpOrder.ID = fpOrderID;
-                                insertResult = await this._orderRepository.Insert(EDBConnectionType.SqlServer, fpOrder);
-                            }
-                            catch (Exception)
-                            {
-                            }
-                        } while (insertResult == 0);
-                    }
+                    orderObj.OriginID = orderObj.ID;
+                    orderObj.OriginSiteID = orderObj.SiteID;
+                    orderObj.SiteID = fpSiteID;
 
-                    //添加子单
-                    List<TB_OrderBill> lsOrderBillList = await this._orderBillRepository.GetModelByOrderID(siteID, orderID);
-                    foreach (TB_OrderBill lsOrderBill in lsOrderBillList)
+                    int insertResult = 0;
+                    int fpOrderID = 0;
+                    do
                     {
-                        TB_OrderBill fpOrderBill = lsOrderBill.Clone();
-                        fpOrderBill.OrderID = fpOrderID;
-                        fpOrderBill.SiteID = fpSiteID;
-                        fpOrderBill.Remark = "linshi_lixh";
                         try
                         {
-                            await this._orderBillRepository.Insert(EDBConnectionType.SqlServer, fpOrderBill);
+                            fpOrderID = await this._tjOrderRepository.GetMaxID(fpSiteID) + 1;
+                            orderObj.ID = fpOrderID;
+                            insertResult = await this._tjOrderRepository.Insert(EDBConnectionType.SqlServer, orderObj);
                         }
                         catch (Exception)
                         {
-                            int insertResult = 0;
-                            do
-                            {
-                                try
-                                {
-                                    fpOrderBill.ID = await this._orderBillRepository.GetMaxID(fpSiteID) + 1;
-                                    insertResult = await this._orderBillRepository.Insert(EDBConnectionType.SqlServer, fpOrderBill);
-                                }
-                                catch (Exception)
-                                {
-                                }
-                            } while (insertResult == 0);
                         }
-                    }
-
-                    //添加订单地址
-                    List<TB_UserSendAddressOrder> lsOrderAddressList = await this._userSendAddressOrderRepository.GetModelByOrderID(siteID, orderID);
-                    foreach (TB_UserSendAddressOrder lsOrderAddress in lsOrderAddressList)
-                    {
-                        TB_UserSendAddressOrder fpOrderAddress = lsOrderAddress.Clone();
-                        fpOrderAddress.OrderID = fpOrderID;
-                        fpOrderAddress.SiteID = fpSiteID;
-                        fpOrderAddress.AddRessUserName = "linshi_lixh";
-                        await this._userSendAddressOrderRepository.Insert(EDBConnectionType.SqlServer, fpOrderAddress);
-                    }
+                    } while (insertResult == 0);
                 }
                 catch (Exception e)
                 {
