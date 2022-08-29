@@ -130,53 +130,12 @@ namespace WebApplication1.Controllers
             this._logger.LogInformation("合并完成！");
         }
 
-        #region 临时方法
-        [Route("RemoveXuanData")]
-        [HttpGet]
-        public void RemoveXuanData()
-        {
-            List<TJ_CmsOrder> allDataList = this._excelHelper.ReadTitleDataList<TJ_CmsOrder>(@"C:\Users\lixianghong\Desktop\CMS刷数据\林总\瑞铭公司补站点_1_去除筛选项.xlsx", new ExcelFileDescription());
-            string newFile = @"C:\Users\lixianghong\Desktop\CMS刷数据\林总\瑞铭公司补站点_2_去除轩总站点.xlsx";
-
-            string[] xzSiteArray = new string[] { "SPF4185", "SPF4221", "SPF4222", "SPL6874", "SPL6876", "SPL6880", "SPL6881" };
-            string[] tjSiteArray = new string[] { "www.beddinginn.com", "www.oroyalcars.com" };
-
-            foreach (TJ_CmsOrder cmsOrder in allDataList)
-            {
-                if (xzSiteArray.Contains(cmsOrder.SiteName.Trim()))
-                {
-                    cmsOrder.Remark = "欢总";
-                }
-                else if (tjSiteArray.Contains(cmsOrder.SiteName.Trim()))
-                {
-                    cmsOrder.Remark = "宋姐";
-                }
-            }
-            IWorkbook workbook = this._excelHelper.CreateOrUpdateWorkbook(allDataList);
-            this._excelHelper.SaveWorkbookToFile(workbook, newFile);
-        }
-
-        #endregion
-
         [Route("CopyDataToSite")]
         [HttpGet]
         public void CopyDataToSite()
         {
-            Dictionary<int, int> siteZB = new Dictionary<int, int>
-            {
-                {6546,23 },
-                {6938,23 },
-                {6903,17 },
-                {6691,17 },
-                {7027,6 },
-                {7207,2 },
-                {7211,2 },
-                {6738,2 },
-                {6983,2 },
-                {7204,2 },
-                {7203,2 },
-                {7224,2 }
-            };
+            //需求1：排除指定站点（0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143）平均分配到对应10个站点中；
+            //需求2：将www.beddinginn.com,www.oroyalcars.com(19,1363)将原始订单数据直接搬迁到独立表
 
             string tjOrderSql = @$"SELECT u.Email UserEmail,
                             (SELECT SUM(ob.BuyCount) FROM dbo.TB_OrderBill ob WHERE ob.SiteID=o.SiteID AND ob.OrderID=o.ID) ProductCount,
@@ -185,7 +144,7 @@ namespace WebApplication1.Controllers
                             LEFT JOIN dbo.TB_Site s ON s.ID=o.SiteID
                             LEFT JOIN dbo.TB_Users AS u ON o.UserID = U.ID AND o.SiteID = u.SiteID
                             LEFT JOIN dbo.TB_UserSendAddressOrder AS a WITH (NOLOCK) ON o.SiteID = a.SiteID AND a.OrderID = o.ID AND a.AddressID = o.Address1
-                            WHERE o.AddTime>'2022-01-01' AND o.AddTime<'2022-07-01' AND o.SiteID NOT IN (0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143)
+                            WHERE o.AddTime>'2022-07-01' AND o.AddTime<'2022-08-01' AND o.SiteID NOT IN (0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143)
                             Order By o.AddTime";
             List<TJ_TB_Order> awaitOrderJObjList = this._baseRepository.QueryAsync<TJ_TB_Order>(EDBConnectionType.SqlServer, tjOrderSql).Result;
 
@@ -193,8 +152,25 @@ namespace WebApplication1.Controllers
             int orderObjPosition = 0;
             int orderObjTotalCount = awaitOrderJObjList.Count;
 
-            Func<TJ_TB_Order, Task> syncOrderFunc = async (orderObj) =>
+            //同步原始订单到新站点
+            Func<TJ_TB_Order, Task> syncOrderToNewSiteFunc = async (orderObj) =>
             {
+                Dictionary<int, int> siteZB = new Dictionary<int, int>
+                {
+                    {6546,23 },
+                    {6938,23 },
+                    {6903,17 },
+                    {6691,17 },
+                    {7027,6 },
+                    {7207,2 },
+                    {7211,2 },
+                    {6738,2 },
+                    {6983,2 },
+                    {7204,2 },
+                    {7203,2 },
+                    {7224,2 }
+                };
+
                 try
                 {
                     orderObjPosition++;
@@ -238,6 +214,36 @@ namespace WebApplication1.Controllers
                 }
             };
 
+            //同步原始订单到原站点
+            Func<TJ_TB_Order, Task> syncOrderFunc = async (orderObj) =>
+            {
+                try
+                {
+                    orderObjPosition++;
+                    this._logger.LogInformation($"正在同步第{orderObjPosition}/{orderObjTotalCount}个订单...");
+
+                    //添加订单
+                    orderObj.OriginID = orderObj.ID;
+                    orderObj.OriginSiteID = orderObj.SiteID;
+
+                    int insertResult = 0;
+                    do
+                    {
+                        try
+                        {
+                            insertResult = await this._tjOrderRepository.Insert(EDBConnectionType.SqlServer, orderObj);
+                        }
+                        catch (Exception)
+                        {
+                        }
+                    } while (insertResult == 0);
+                }
+                catch (Exception e)
+                {
+                    throw;
+                }
+            };
+
             int waitObjIndex = 0;
             List<Task> syncTaskList = new List<Task>(10);
             bool allIsSync = true;
@@ -246,7 +252,7 @@ namespace WebApplication1.Controllers
                 allIsSync = true;
                 if (syncTaskList.Count < 10 && waitObjIndex <= awaitOrderJObjList.Count - 1)
                 {
-                    Task syncTask = syncOrderFunc(awaitOrderJObjList[waitObjIndex]);
+                    Task syncTask = syncOrderToNewSiteFunc(awaitOrderJObjList[waitObjIndex]);
                     syncTaskList.Add(syncTask);
                     waitObjIndex++;
                 }
