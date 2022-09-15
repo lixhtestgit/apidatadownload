@@ -2,7 +2,9 @@
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace WebApplication1.Helper
@@ -18,6 +20,15 @@ namespace WebApplication1.Helper
             this.Logger = logger;
         }
 
+        /// <summary>
+        /// 从ES中获取日志
+        /// </summary>
+        /// <param name="logFlag"></param>
+        /// <param name="esRootDomain"></param>
+        /// <param name="dataFilter"></param>
+        /// <param name="beginDays"></param>
+        /// <param name="logTypeFunc"></param>
+        /// <returns></returns>
         public async Task<List<ESLog>> GetESLogList(string logFlag, string esRootDomain, string dataFilter, int beginDays, Func<string, string> logTypeFunc)
         {
             List<ESLog> logList = new List<ESLog>(100);
@@ -77,6 +88,42 @@ namespace WebApplication1.Helper
                         Log = log,
                         ESResponse = responseResult2.Length > 32767 ? responseResult2.Substring(0, 32767) : responseResult2
                     });
+                }
+            }
+
+            return logList;
+        }
+
+        /// <summary>
+        /// 从文件中获取日志
+        /// </summary>
+        /// <param name="logFlag"></param>
+        /// <param name="filePath"></param>
+        /// <param name="logTypeFunc"></param>
+        /// <returns></returns>
+        public List<ESLog> GetLogListByFile(string logFlag,string filePath, Func<string, string> logTypeFunc)
+        {
+            List<ESLog> logList = new List<ESLog>(100);
+
+            this.Logger.LogInformation($"{logFlag}正在获取查询结果...");
+
+            string lineText = null;
+            using (StreamReader streamReader = new StreamReader(filePath, Encoding.UTF8))
+            {
+                while ((lineText = streamReader.ReadLine()) != null)
+                {
+                    lineText = lineText.Replace("\\", "");
+                    string type = logTypeFunc(lineText);
+
+                    if (!string.IsNullOrEmpty(type))
+                    {
+                        logList.Add(new ESLog
+                        {
+                            Type = type,
+                            Log = lineText,
+                            ESResponse = lineText.Length > 32767 ? lineText.Substring(0, 32767) : lineText
+                        });
+                    }
                 }
             }
 

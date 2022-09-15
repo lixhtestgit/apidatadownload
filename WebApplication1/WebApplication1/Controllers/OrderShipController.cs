@@ -17,6 +17,9 @@ using WebApplication1.Model;
 
 namespace WebApplication1.Controllers
 {
+    /// <summary>
+    /// 订单发货数据导出控制器
+    /// </summary>
     [Route("api/OrderShip")]
     [ApiController]
     public class OrderShipController : ControllerBase

@@ -629,40 +629,54 @@ namespace PPPayReportTools.Excel
                                 excelTitleFieldMapper = titleIndexItem.Value;
 
                                 //没有数据的单元格默认为null
-                                string cellValue = cell?.ToString() ?? "";
                                 propertyInfo = excelTitleFieldMapper.PropertyInfo;
-                                try
+                                if (propertyInfo != null && propertyInfo.CanWrite)
                                 {
-                                    if (excelTitleFieldMapper.IsCheckContentEmpty)
+                                    try
                                     {
-                                        if (string.IsNullOrEmpty(cellValue))
+                                        if (excelTitleFieldMapper.IsCheckContentEmpty)
                                         {
-                                            t = default(T);
-                                            break;
+                                            if (string.IsNullOrEmpty(cell?.ToString()))
+                                            {
+                                                t = default(T);
+                                                break;
+                                            }
+                                        }
+
+                                        if (cell != null && !string.IsNullOrEmpty(cell.ToString()))
+                                        {
+                                            if (excelTitleFieldMapper.IsCoordinateExpress || cell.CellType == CellType.Formula)
+                                            {
+                                                //读取含有表达式的单元格值
+                                                string cellValue = formulaEvaluator.Evaluate(cell).StringValue;
+                                                propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
+                                            }
+                                            else if (propertyInfo.PropertyType.IsEnum)
+                                            {
+                                                object enumObj = propertyInfo.PropertyType.InvokeMember(cell.ToString(), BindingFlags.GetField, null, null, null);
+                                                propertyInfo.SetValue(t, Convert.ChangeType(enumObj, propertyInfo.PropertyType));
+                                            }
+                                            else if (propertyInfo.PropertyType == typeof(DateTime))
+                                            {
+                                                try
+                                                {
+                                                    propertyInfo.SetValue(t, Convert.ChangeType(cell.DateCellValue, propertyInfo.PropertyType));
+                                                }
+                                                catch (Exception)
+                                                {
+                                                    propertyInfo.SetValue(t, Convert.ChangeType(cell.ToString(), propertyInfo.PropertyType));
+                                                }
+                                            }
+                                            else
+                                            {
+                                                propertyInfo.SetValue(t, Convert.ChangeType(cell.ToString(), propertyInfo.PropertyType));
+                                            }
                                         }
                                     }
-
-                                    if (excelTitleFieldMapper.IsCoordinateExpress || (cell != null && cell.CellType == CellType.Formula))
+                                    catch (Exception e)
                                     {
-                                        //读取含有表达式的单元格值
-                                        cellValue = formulaEvaluator.Evaluate(cell).StringValue;
-                                        propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
+                                        this.Logger.LogError(e, $"文件_{filePath}读取{currentRowIndex + 1}行内容失败！");
                                     }
-                                    else if (propertyInfo.PropertyType.IsEnum)
-                                    {
-                                        object enumObj = propertyInfo.PropertyType.InvokeMember(cellValue, BindingFlags.GetField, null, null, null);
-                                        propertyInfo.SetValue(t, Convert.ChangeType(enumObj, propertyInfo.PropertyType));
-                                    }
-                                    else
-                                    {
-                                        propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
-                                    }
-                                }
-                                catch (Exception e)
-                                {
-                                    this.Logger.LogDebug($"文件_{filePath}读取{currentRowIndex + 1}行内容失败！");
-                                    t = default(T);
-                                    break;
                                 }
                             }
                             if (t != null)
@@ -1002,7 +1016,10 @@ namespace PPPayReportTools.Excel
                         }
                         else if (cellValue is DateTime)
                         {
-                            cell.SetCellValue((DateTime)cellValue);
+                            if ((DateTime)cellValue > DateTime.MinValue)
+                            {
+                                cell.SetCellValue((DateTime)cellValue);
+                            }
                         }
                         else if (cellValue is bool)
                         {
@@ -1010,7 +1027,12 @@ namespace PPPayReportTools.Excel
                         }
                         else
                         {
-                            cell.SetCellValue(cellValue.ToString());
+                            string cellValueStr = cellValue.ToString();
+                            if (cellValueStr.Length > 32767)
+                            {
+                                cellValueStr = cellValueStr.Substring(0, 32764) + "...";
+                            }
+                            cell.SetCellValue(cellValueStr);
                         }
                     }
                 }

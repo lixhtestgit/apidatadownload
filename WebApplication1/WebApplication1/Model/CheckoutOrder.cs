@@ -108,35 +108,35 @@ namespace WebApplication1.Model
         }
         public List<string> SessionIDList { get; set; }
 
-        [ExcelTitle("创建订单失败原因")]
-        public string CreateOrderErrorReason
+        [ExcelTitle("创建订单结果")]
+        public string CreateOrderResultShow
         {
             get
             {
-                if (this.CreateOrderErrorReasonList == null || this.CreateOrderErrorReasonList.Count == 0)
+                if (this.CreateOrderResultList == null || this.CreateOrderResultList.Count == 0)
                 {
                     return "无";
                 }
-                return string.Join(",", this.CreateOrderErrorReasonList.Distinct());
+                return string.Join(",", this.CreateOrderResultList.Distinct());
             }
         }
-        public List<string> CreateOrderErrorReasonList { get; set; }
+        public List<string> CreateOrderResultList { get; set; }
 
-        [ExcelTitle("支付失败原因")]
-        public string PayErrorReason
+        [ExcelTitle("订单支付结果")]
+        public string PayResultShow
         {
             get
             {
-                if (this.PayErrorReasonList == null || this.PayErrorReasonList.Count == 0)
+                if (this.PayResultList == null || this.PayResultList.Count == 0)
                 {
                     return "无";
                 }
-                return string.Join(",", this.PayErrorReasonList.Distinct());
+                return string.Join(",", this.PayResultList.Distinct());
             }
         }
-        public List<string> PayErrorReasonList { get; set; }
+        public List<string> PayResultList { get; set; }
 
-        [ExcelTitle("创建订单结果日志")]
+        [ExcelTitle("创建订单结果原始日志")]
         public string ESCreateOrderResultLog
         {
             get
@@ -150,7 +150,7 @@ namespace WebApplication1.Model
         }
         public List<string> ESCreateOrderResultLogList { get; set; }
 
-        [ExcelTitle("支付结果日志")]
+        [ExcelTitle("支付结果原始日志")]
         public string ESPayResultLog
         {
             get
