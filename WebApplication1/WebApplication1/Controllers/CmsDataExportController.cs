@@ -314,6 +314,7 @@ namespace WebApplication1.Controllers
             (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-06-01' AND AddTime<'2022-07-01')[6月美金汇总],
             (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-07-01' AND AddTime<'2022-08-01')[7月美金汇总]
             FROM TB_Site where ID IN(6546, 6691, 6738, 6903, 6938, 6983, 7027, 7203, 7204, 7207, 7211, 7224)
+            ORDER BY ID
             ";
 
             var xiangqingSQL= @"
@@ -321,7 +322,8 @@ namespace WebApplication1.Controllers
                 (SELECT s.Name FROM dbo.TB_Site s WHERE s.ID=o.SiteID)[站点名称],
                 ID[订单ID],AddTime[创建时间],o.CurrencyName[币种名称],
                 CASE WHEN o.CurrencyPrice IS NULL OR o.CurrencyPrice<=0 THEN o.Price_PreCount1 ELSE o.CurrencyPrice END[多币种金额],
-                o.Price_PreCount1[美金金额]
+                o.Price_PreCount1[美金金额],
+                o.OriginSiteID[原始站点ID],o.OriginID[原始订单ID]
             from dbo.TJ_TB_Order o 
             WHERE AddTime>='2022-07-01' and AddTime<'2022-08-01' 
             AND o.SiteID IN (6546,6691,6738,6903,6938,6983,7027,7203,7204,7207,7211,7224)
