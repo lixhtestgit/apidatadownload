@@ -55,8 +55,8 @@ namespace WebApplication1.Controllers
         public async Task<IActionResult> DownLoadJKD()
         {
             string baseFileRequestUrl = "http://www.jinkaodian.com/CL.ExamWebService/subject/{fileName}";
-            string mfFileName = "3_0_2209131702510158.zip";
-            string sfFileName = "3_1_220913170251{count}.zip";
+            string mfFileName = "3_0_2209131702510158.zip"; //免费压缩包
+            string sfFileName = "3_1_220913170251{count}.zip"; //收费压缩包
 
             //HttpResponseMessage responseMessage = await this.PayHttpClient.GetAsync(baseFileRequestUrl.Replace("{fileName}", mfFileName));
             //using (Stream stream = await responseMessage.Content.ReadAsStreamAsync())
@@ -71,11 +71,13 @@ namespace WebApplication1.Controllers
             //    }
             //}
 
-            for (int i = 0; i < 10000; i++)
+            //下载收费压缩包1（通过PostMan请求示例可以精准获取zip）
+            //下载收费压缩包2
+            for (int i = 1; i < 10000; i++)
             {
-                string newSfFileName= sfFileName.Replace("{count}",i.ToString("0000"));
+                string newSfFileName = sfFileName.Replace("{count}", i.ToString("0000"));
                 HttpResponseMessage responseMessage = await this.PayHttpClient.GetAsync(baseFileRequestUrl.Replace("{fileName}", newSfFileName));
-                if (responseMessage.StatusCode==System.Net.HttpStatusCode.OK)
+                if (responseMessage.StatusCode == System.Net.HttpStatusCode.OK)
                 {
                     using (Stream stream = await responseMessage.Content.ReadAsStreamAsync())
                     {
@@ -88,6 +90,7 @@ namespace WebApplication1.Controllers
                             stream.CopyTo(fs);
                         }
                     }
+                    break;
                 }
             }
 
