@@ -7,6 +7,8 @@ using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
@@ -44,7 +46,57 @@ namespace WebApplication1.Controllers
             this.Logger = logger;
         }
 
+        /// <summary>
+        /// 金考典收费压缩包破解下载
+        /// </summary>
+        /// <returns></returns>
         [Route("")]
+        [HttpGet]
+        public async Task<IActionResult> DownLoadJKD()
+        {
+            string baseFileRequestUrl = "http://www.jinkaodian.com/CL.ExamWebService/subject/{fileName}";
+            string mfFileName = "3_0_2209131702510158.zip";
+            string sfFileName = "3_1_220913170251{count}.zip";
+
+            //HttpResponseMessage responseMessage = await this.PayHttpClient.GetAsync(baseFileRequestUrl.Replace("{fileName}", mfFileName));
+            //using (Stream stream = await responseMessage.Content.ReadAsStreamAsync())
+            //{
+            //    if (!Directory.Exists(@"C:\Users\lixianghong\Desktop\download"))
+            //    {
+            //        Directory.CreateDirectory(@"C:\Users\lixianghong\Desktop\download");
+            //    }
+            //    using (FileStream fs = new FileStream($@"C:\Users\lixianghong\Desktop\download\{mfFileName}", FileMode.OpenOrCreate, FileAccess.Write))
+            //    {
+            //        stream.CopyTo(fs);
+            //    }
+            //}
+
+            for (int i = 0; i < 10000; i++)
+            {
+                string newSfFileName= sfFileName.Replace("{count}",i.ToString("0000"));
+                HttpResponseMessage responseMessage = await this.PayHttpClient.GetAsync(baseFileRequestUrl.Replace("{fileName}", newSfFileName));
+                if (responseMessage.StatusCode==System.Net.HttpStatusCode.OK)
+                {
+                    using (Stream stream = await responseMessage.Content.ReadAsStreamAsync())
+                    {
+                        if (!Directory.Exists(@"C:\Users\lixianghong\Desktop\download"))
+                        {
+                            Directory.CreateDirectory(@"C:\Users\lixianghong\Desktop\download");
+                        }
+                        using (FileStream fs = new FileStream($@"C:\Users\lixianghong\Desktop\download\{newSfFileName}", FileMode.OpenOrCreate, FileAccess.Write))
+                        {
+                            stream.CopyTo(fs);
+                        }
+                    }
+                }
+            }
+
+            this.Logger.LogInformation($"任务结束.");
+
+            return Ok();
+        }
+
+        [Route("DownLoad")]
         [HttpGet]
         public async Task<IActionResult> DownLoad()
         {
