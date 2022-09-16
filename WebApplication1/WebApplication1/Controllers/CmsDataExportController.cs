@@ -250,6 +250,8 @@ namespace WebApplication1.Controllers
                             WHERE o.AddTime>'{beginDate}' AND o.AddTime<'{endDate}' AND o.SiteID IN (19,1363)
                             Order By o.AddTime";
             awaitOrderJObjList = this._baseRepository.QueryAsync<TJ_TB_Order>(EDBConnectionType.SqlServer, tjOrderSql).Result;
+            orderObjTotalCount = awaitOrderJObjList.Count;
+            orderObjPosition = 0;
 
             //同步原始订单到原站点
             Func<TJ_TB_Order, Task> syncOrderFunc = async (orderObj) =>
