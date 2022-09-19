@@ -1,24 +1,18 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using NPOI.SS.Formula.Functions;
 using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Policy;
 using System.Threading.Tasks;
 using WebApplication1.DB.Base;
 using WebApplication1.DB.CMS;
-using WebApplication1.DB.Extend;
 using WebApplication1.DB.Repository;
 using WebApplication1.Enum;
 using WebApplication1.Model;
-using WebApplication1.Model.CmsData;
 
 namespace WebApplication1.Controllers
 {
@@ -26,6 +20,7 @@ namespace WebApplication1.Controllers
     [ApiController]
     public class CmsDataExportController : ControllerBase
     {
+        //api/CmsDataExport/CopyDataToSite
         private BaseRepository _baseRepository;
         private TB_UsersRepository _usersRepository;
         private TJ_TB_OrderRepository _tjOrderRepository;
@@ -33,6 +28,7 @@ namespace WebApplication1.Controllers
         private TB_UserSendAddressOrderRepository _userSendAddressOrderRepository;
         private ExcelHelper _excelHelper;
         private ILogger _logger;
+        private object _obj = new object();
 
         public CmsDataExportController(
             BaseRepository baseRepository,
@@ -134,10 +130,10 @@ namespace WebApplication1.Controllers
 
         [Route("CopyDataToSite")]
         [HttpGet]
-        public void CopyDataToSite()
+        public async Task CopyDataToSite()
         {
-            string beginDate = "2022-07-01";
-            string endDate = "2022-08-01";
+            string beginDate = "2022-08-01";
+            string endDate = "2022-09-01";
 
             #region 需求1：排除指定站点（0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143）平均分配到对应10个站点中
 
@@ -157,24 +153,30 @@ namespace WebApplication1.Controllers
             int orderObjTotalCount = awaitOrderJObjList.Count;
 
             //同步原始订单到新站点
+            Dictionary<int, int> siteZB = new Dictionary<int, int>
+            {
+                {6546,23 },
+                {6938,23 },
+                {6903,17 },
+                {6691,17 },
+                {7027,6 },
+                {7207,2 },
+                {7211,2 },
+                {6738,2 },
+                {6983,2 },
+                {7204,2 },
+                {7203,2 },
+                {7224,2 }
+            };
+            Dictionary<int, int> siteMaxOrderIDDic = new Dictionary<int, int>(12);
+            foreach (var item in siteZB)
+            {
+                int maxOrderID = await this._tjOrderRepository.GetMaxID(item.Key);
+                siteMaxOrderIDDic.Add(item.Key, maxOrderID);
+            }
+
             Func<TJ_TB_Order, Task> syncOrderToNewSiteFunc = async (orderObj) =>
             {
-                Dictionary<int, int> siteZB = new Dictionary<int, int>
-                {
-                    {6546,23 },
-                    {6938,23 },
-                    {6903,17 },
-                    {6691,17 },
-                    {7027,6 },
-                    {7207,2 },
-                    {7211,2 },
-                    {6738,2 },
-                    {6983,2 },
-                    {7204,2 },
-                    {7203,2 },
-                    {7224,2 }
-                };
-
                 try
                 {
                     orderObjPosition++;
@@ -203,7 +205,11 @@ namespace WebApplication1.Controllers
                     {
                         try
                         {
-                            fpOrderID = await this._tjOrderRepository.GetMaxID(fpSiteID) + 1;
+                            lock (this._obj)
+                            {
+                                fpOrderID = siteMaxOrderIDDic[fpSiteID] + 1;
+                                siteMaxOrderIDDic[fpSiteID] = fpOrderID;
+                            }
                             orderObj.ID = fpOrderID;
                             insertResult = await this._tjOrderRepository.Insert(EDBConnectionType.SqlServer, orderObj);
                         }
@@ -314,12 +320,13 @@ namespace WebApplication1.Controllers
             (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-04-01' AND AddTime<'2022-05-01')[4月美金汇总],
             (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-05-01' AND AddTime<'2022-06-01')[5月美金汇总],
             (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-06-01' AND AddTime<'2022-07-01')[6月美金汇总],
-            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-07-01' AND AddTime<'2022-08-01')[7月美金汇总]
+            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-07-01' AND AddTime<'2022-08-01')[7月美金汇总],
+            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-08-01' AND AddTime<'2022-09-01')[8月美金汇总]
             FROM TB_Site where ID IN(6546, 6691, 6738, 6903, 6938, 6983, 7027, 7203, 7204, 7207, 7211, 7224)
             ORDER BY ID
             ";
 
-            var xiangqingSQL= @"
+            var xiangqingSQL = @"
             select o.SiteID[站点ID],
                 (SELECT s.Name FROM dbo.TB_Site s WHERE s.ID=o.SiteID)[站点名称],
                 ID[订单ID],AddTime[创建时间],o.CurrencyName[币种名称],
@@ -327,7 +334,7 @@ namespace WebApplication1.Controllers
                 o.Price_PreCount1[美金金额],
                 o.OriginSiteID[原始站点ID],o.OriginID[原始订单ID]
             from dbo.TJ_TB_Order o 
-            WHERE AddTime>='2022-07-01' and AddTime<'2022-08-01' 
+            WHERE AddTime>='2022-08-01' and AddTime<'2022-09-01' 
             AND o.SiteID IN (6546,6691,6738,6903,6938,6983,7027,7203,7204,7207,7211,7224)
             ORDER by AddTime
             ";
