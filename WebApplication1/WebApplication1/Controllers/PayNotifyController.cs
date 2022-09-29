@@ -99,7 +99,7 @@ namespace WebApplication1.Controllers
         public async Task<IActionResult> PayCompanyOrderSync()
         {
             string contentRootPath = this.WebHostEnvironment.ContentRootPath;
-            string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\xendit.xlsx";
+            string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\payu-订单.xlsx";
             List<PayCompanyOrder> orderList = this.ExcelHelper.ReadTitleDataList<PayCompanyOrder>(testFilePath, new ExcelFileDescription(0));
 
             int totalCount = orderList.Count;
@@ -107,8 +107,8 @@ namespace WebApplication1.Controllers
             string notifyUrl = null;
             int position = 0;
             bool isSync = false;
-            string payCompany = "Xendit";
-            string payHost = "pay.runyipay.com";
+            string payCompany = "PayU";
+            string payHost = "pay.qffun.com";
             int orderSyncCount = 0;
             List<string> syncFailedList = new List<string>(10);
             foreach (PayCompanyOrder order in orderList)
@@ -150,6 +150,17 @@ namespace WebApplication1.Controllers
                                     status = "SETTLED"
                                 }), null);
                                 isSync = postResult.Item1 == System.Net.HttpStatusCode.OK;
+                            }
+                            else if (payCompany == "PayU")
+                            {
+                                notifyUrl = $"https://{payHost}/{payCompany}/v3/SyncSimpleOrder";
+
+                                var postResult = await this.PayHttpClient.Post(notifyUrl, new Dictionary<string, string>
+                                {
+                                    { "sid" , order.SessionID},
+                                    {"_token","2EZ539WKH7jFfJjVxfC7kMyQsc87xB9TwQeiuQAPQnMobcUxeC5yfXLGmbnnq9m4Vgmn5xgwLyUkJS29rWAYP3uZbc77kBD6ZSWA" }
+                                }, null);
+                                isSync = (postResult.Item1 == System.Net.HttpStatusCode.OK && postResult.Item2 == "Finish!");
                             }
                         }
                     }

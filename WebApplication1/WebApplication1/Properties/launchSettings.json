@@ -4,7 +4,8 @@
     "WebApplication1": {
       "commandName": "Project",
       "launchBrowser": true,
-      "launchUrl": "http://localhost:5599/",
+      "launchUrl": "",
+      //api/PayNotify/PayCompanyOrderSync
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
