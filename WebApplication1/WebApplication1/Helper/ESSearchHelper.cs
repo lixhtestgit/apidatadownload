@@ -5,7 +5,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using WebApplication1.Model.PayNotify;
 
 namespace WebApplication1.Helper
 {
@@ -101,7 +103,7 @@ namespace WebApplication1.Helper
         /// <param name="filePath"></param>
         /// <param name="logTypeFunc"></param>
         /// <returns></returns>
-        public List<ESLog> GetLogListByFile(string logFlag,string filePath, Func<string, string> logTypeFunc)
+        public List<ESLog> GetLogListByFile(string logFlag, string filePath, Func<string, string> logTypeFunc)
         {
             List<ESLog> logList = new List<ESLog>(100);
 

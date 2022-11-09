@@ -1,18 +1,13 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
-using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using WebApplication1.DB.Base;
 using WebApplication1.DB.CMS;
 using WebApplication1.DB.Repository;
 using WebApplication1.Enum;
-using WebApplication1.Model;
 
 namespace WebApplication1.Controllers
 {
@@ -48,92 +43,16 @@ namespace WebApplication1.Controllers
             this._logger = logger;
         }
 
-        [Route("")]
-        [HttpGet]
-        public async Task DownLoadData()
-        {
-            string siteName = "de.beddinginn.com";
-            int siteID = 45;
-            string sql = @"SELECT s.Name SiteName,o.ID OrderID,bill.ID OrderBillID,o.Price_PreCount1,
-                    dbo.GetAllCategoryName(pro.ParentIDs,pro.SiteID,',') CategoryName,
-                    o.AddTime,pro.SPUID,bill.CustomID SKUID,o.PayTime,
-                    (SELECT ptm.PayTypeName FROM TB_PayMethodAndPaymentCompanyMapping ptm WHERE ptm.ID=o.PayType) PayTypeName,
-                    addOrder.AddRessUserName UserName,u.RegDate,u.Email,addOrder.AddressLine1,addOrder.AddressLine2,addOrder.Phone,country.CountryName,
-                    (SELECT SUM(re.RefundMoney) FROM dbo.TB_OrderRemark re WHERE re.OrderID=o.ID AND re.SiteID=re.SiteID AND re.BillID=bill.ID AND re.State=',5,' AND re.IsRefund=1) RefundPrice,
-                    (SELECT TOP 1 re.Remark FROM dbo.TB_OrderRemark re WHERE re.OrderID=o.ID AND re.SiteID=re.SiteID AND re.BillID=bill.ID AND re.State=',5,' AND re.IsRefund=1) RefundReson,
-                    bill.Remark OrderRemark
-                    FROM
-                    dbo.TB_Order o
-                    INNER JOIN dbo.TB_Site s ON s.ID = o.SiteID
-                    INNER JOIN dbo.TB_UserSendAddressOrder addOrder ON addOrder.OrderID = o.ID AND o.SiteID = addOrder.SiteID AND addOrder.Type = 1
-                    INNER JOIN dbo.TB_Country country ON country.ID = addOrder.CountryID
-                    INNER JOIN dbo.TB_OrderBill bill ON bill.OrderID = o.ID AND bill.SiteID = o.SiteID
-                    INNER JOIN dbo.TB_Users u ON o.UserID = u.ID AND o.SiteID = u.SiteID
-                    LEFT JOIN dbo.TB_Product pro ON pro.ID = bill.ProductID AND pro.SiteID = bill.SiteID
-                    WHERE {wheresql} AND o.AddTime<'2019-06-01' AND o.SiteID = " + siteID;
-
-            string idSql = $"SELECT MIN(ID) minID,MAX(ID) maxID from dbo.TB_Order WHERE SiteID={siteID}";
-            JObject idJObj = (await this._baseRepository.QueryAsync<JObject>(EDBConnectionType.SqlServer, idSql)).FirstOrDefault();
-            int minID = idJObj.SelectToken("minID").ToObject<int>();
-            int maxID = idJObj.SelectToken("maxID").ToObject<int>();
-
-            int pageSize = 10000;
-            int page = 0;
-            string pageSql = null;
-            List<CmsSiteOrderExport> pageList = null;
-            int pageCount = (maxID - minID + 1) / pageSize + ((maxID - minID + 1) % pageSize > 0 ? 1 : 0);
-            string fileName = @"E:\CMS数据下载\" + siteName + @"数据下载\SqlData_{page}.xlsx";
-            string pageFileName = null;
-            IWorkbook workbook = null;
-            do
-            {
-                page++;
-                this._logger.LogInformation($"正在查询第{page}/{pageCount}页数据...");
-                pageFileName = fileName.Replace("{page}", page.ToString());
-                if (!System.IO.File.Exists(pageFileName))
-                {
-                    pageSql = sql.Replace("{wheresql}", $"o.ID>={minID + (page - 1) * pageSize} AND o.ID<{minID + page * pageSize}");
-                    pageList = await this._baseRepository.QueryAsync<CmsSiteOrderExport>(EDBConnectionType.SqlServer, pageSql);
-
-                    workbook = this._excelHelper.CreateOrUpdateWorkbook(pageList);
-                    this._excelHelper.SaveWorkbookToFile(workbook, pageFileName);
-                }
-            } while (minID + page * pageSize - 1 < maxID);
-
-            this._logger.LogInformation("下载完成！");
-        }
-
-        [Route("SumFileData")]
-        [HttpGet]
-        public void SumFileData()
-        {
-            string[] accountDirectoryArray = Directory.GetDirectories(@"E:\CMS数据下载");
-
-            IWorkbook workbook = null;
-
-            foreach (string accountDirectory in accountDirectoryArray)
-            {
-                List<CmsSiteOrderExport> allDataList = new List<CmsSiteOrderExport>(50 * 10000);
-                string[] accountDirectoryFileArray = Directory.GetFiles(accountDirectory);
-                foreach (string accountDirectoryFile in accountDirectoryFileArray)
-                {
-                    this._logger.LogInformation($"正在合并账号文件:{accountDirectoryFile}");
-                    List<CmsSiteOrderExport> pageList = this._excelHelper.ReadTitleDataList<CmsSiteOrderExport>(accountDirectoryFile, new ExcelFileDescription());
-                    allDataList.AddRange(pageList);
-                }
-                workbook = this._excelHelper.CreateOrUpdateWorkbook(allDataList);
-                this._excelHelper.SaveWorkbookToFile(workbook, @$"{accountDirectory}\AllData.xlsx");
-            }
-
-            this._logger.LogInformation("合并完成！");
-        }
-
+        /// <summary>
+        /// 复制CMS站点数据到独立做账站点订单表中
+        /// </summary>
+        /// <returns></returns>
         [Route("CopyDataToSite")]
         [HttpGet]
         public async Task CopyDataToSite()
         {
-            string beginDate = "2022-08-01";
-            string endDate = "2022-09-01";
+            string beginDate = "2022-09-01";
+            string endDate = "2022-10-01";
 
             #region 需求1：排除指定站点（0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143）平均分配到对应10个站点中
 
@@ -314,14 +233,7 @@ namespace WebApplication1.Controllers
             //执行SQL查询数据整理到Excel中：
             var huizongSQL = @"
             SELECT ID, Name,
-            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime >= '2022-01-01' AND AddTime < '2022-02-01')[1月美金汇总],
-            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-02-01' AND AddTime<'2022-03-01')[2月美金汇总],
-            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-03-01' AND AddTime<'2022-04-01')[3月美金汇总],
-            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-04-01' AND AddTime<'2022-05-01')[4月美金汇总],
-            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-05-01' AND AddTime<'2022-06-01')[5月美金汇总],
-            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-06-01' AND AddTime<'2022-07-01')[6月美金汇总],
-            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-07-01' AND AddTime<'2022-08-01')[7月美金汇总],
-            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-08-01' AND AddTime<'2022-09-01')[8月美金汇总]
+            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-09-01' AND AddTime<'2022-10-01')[9月美金汇总]
             FROM TB_Site where ID IN(6546, 6691, 6738, 6903, 6938, 6983, 7027, 7203, 7204, 7207, 7211, 7224)
             ORDER BY ID
             ";
@@ -334,7 +246,7 @@ namespace WebApplication1.Controllers
                 o.Price_PreCount1[美金金额],
                 o.OriginSiteID[原始站点ID],o.OriginID[原始订单ID]
             from dbo.TJ_TB_Order o 
-            WHERE AddTime>='2022-08-01' and AddTime<'2022-09-01' 
+            WHERE AddTime>='2022-09-01' and AddTime<'2022-10-01' 
             AND o.SiteID IN (6546,6691,6738,6903,6938,6983,7027,7203,7204,7207,7211,7224)
             ORDER by AddTime
             ";

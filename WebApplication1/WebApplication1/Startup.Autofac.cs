@@ -31,6 +31,7 @@ namespace WebApplication1
             containerBuilder.RegisterType<ExcelHelper>().InstancePerLifetimeScope();
             containerBuilder.RegisterType<CheckoutBIZ>().InstancePerLifetimeScope();
             containerBuilder.RegisterType<ESSearchHelper>().InstancePerLifetimeScope();
+            containerBuilder.RegisterType<MeShopHelper>().InstancePerLifetimeScope();
         }
     }
 }
