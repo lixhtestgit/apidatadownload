@@ -19,9 +19,9 @@ namespace WebApplication1.Controllers
     /// <summary>
     /// 获取店铺弃单数据并获取对应支付方式日志
     /// </summary>
-    [Route("api/Order")]
+    [Route("api/MeShopCheckout")]
     [ApiController]
-    public class OrderController : ControllerBase
+    public class MeShopCheckoutController : ControllerBase
     {
         protected HttpClient PayHttpClient { get; set; }
         public ExcelHelper ExcelHelper { get; set; }
@@ -29,7 +29,7 @@ namespace WebApplication1.Controllers
         public ESSearchHelper ESSearchHelper { get; set; }
         public CheckoutBIZ CheckoutBIZ { get; set; }
 
-        public OrderController(
+        public MeShopCheckoutController(
             IHttpClientFactory httpClientFactory,
             ExcelHelper excelHelper,
             ILogger<TestController> logger,
@@ -44,7 +44,7 @@ namespace WebApplication1.Controllers
         }
 
         /// <summary>
-        /// ES搜索订单支付方式
+        /// ES搜索弃单支付方式和订单创建，支付相关日志
         /// </summary>
         /// <returns></returns>
         [Route("")]
