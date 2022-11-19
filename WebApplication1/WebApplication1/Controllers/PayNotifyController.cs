@@ -58,16 +58,50 @@ namespace WebApplication1.Controllers
         public async Task<IActionResult> ESSearchOrderPayType()
         {
             string dataFilter = @"[
+    {
+        ""multi_match"": {
+            ""type"": ""phrase"",
+            ""query"": ""PAYSUCCESS-INFO-PROCESS"",
+            ""lenient"": true
+        }
+    },
+    {
+        ""bool"": {
+            ""filter"": [
                 {
                     ""multi_match"": {
                         ""type"": ""phrase"",
-                        ""query"": ""MeShopPay向网站发送支付结果失败"",
+                        ""query"": ""PayPal"",
                         ""lenient"": true
                     }
+                },
+                {
+                    ""bool"": {
+                        ""should"": [
+                            {
+                                ""multi_match"": {
+                                    ""type"": ""phrase"",
+                                    ""query"": ""ericdress"",
+                                    ""lenient"": true
+                                }
+                            },
+                            {
+                                ""multi_match"": {
+                                    ""type"": ""phrase"",
+                                    ""query"": ""tbdress"",
+                                    ""lenient"": true
+                                }
+                            }
+                        ],
+                        ""minimum_should_match"": 1
+                    }
                 }
-            ]";
+            ]
+        }
+    }
+]";
 
-            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"获取Pay通知失败数据", "meshopstore.com", dataFilter, 6, log =>
+            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"获取独立站支付成功数据", "meshopstore.com", dataFilter, 20, log =>
              {
                  return "1";
              });
@@ -82,7 +116,16 @@ namespace WebApplication1.Controllers
             foreach (ESLog log in esLogList)
             {
                 sessionID = sessionIDRegex.Match(log.Log).Value;
-                notifyUrl = notifyUrlRegex.Match(log.Log).Value + "?sessionID=" + sessionID;
+                notifyUrl = notifyUrlRegex.Match(log.Log).Value;
+                if (notifyUrl.Contains("?"))
+                {
+                    notifyUrl += "&";
+                }
+                else
+                {
+                    notifyUrl += "?";
+                }
+                notifyUrl += "sessionID=" + sessionID;
                 isSend = false;
                 do
                 {
@@ -356,7 +399,7 @@ namespace WebApplication1.Controllers
                     }
                     updateOrderStateSqlDic[item.SiteCode].Add($"update order_master where state=2,tx='{item.TX}' where id={item.OrderCode.Split(',')[0]};");
                 }
-                
+
                 string updateOrderSql = JsonConvert.SerializeObject(updateOrderStateSqlDic);
             }
 

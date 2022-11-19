@@ -86,7 +86,7 @@ namespace WebApplication1.BIZ
                     {
                         //CheckoutID = checkoutOrderJObj.SelectToken("ID").ToObject<string>(),
                         CheckoutGuid = checkoutOrderJObj.SelectToken("Guid").ToObject<string>(),
-                        OrderState = checkoutOrderJObj.SelectToken("State").ToObject<int>() == 0 ? "未恢复" : "已恢复",
+                        //OrderState = checkoutOrderJObj.SelectToken("State").ToObject<int>() == 0 ? "未恢复" : "已恢复",
                         //UserName = checkoutOrderJObj.SelectToken("UserName").ToObject<string>(),
                         //Email = checkoutOrderJObj.SelectToken("Email").ToObject<string>(),
                         //ChoiseCurrency = checkoutOrderJObj.SelectToken("ChoiseCurrency").ToObject<string>(),
