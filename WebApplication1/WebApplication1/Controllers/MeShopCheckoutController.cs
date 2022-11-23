@@ -54,15 +54,7 @@ namespace WebApplication1.Controllers
             string filePath = $@"C:\Users\lixianghong\Desktop\弃单数据_{DateTime.Now.ToString("yyyyMMdd")}.xlsx";
 
             string[] checkoutGuidArray = new string[] {
-                "0249bea1-d38c-4d40-a30f-29f34972e64a",
-                "0c19751e-2a65-4346-9e2b-8decca3fecf2",
-                "1d2ffec2-cd90-4cb4-b4ec-4b2cc2bbdf3f",
-                "53d0d2c2-2762-48b1-ba2b-0a76328838a9",
-                "6db00c5e-8d10-414c-8651-c2708578e985",
-                "78f6016f-bca5-47ff-bfc1-030a49fda307",
-                "eff3a06c-032a-4b6b-9f5e-dab28f5fc060",
-                "f53d2c6b-c117-4c93-873f-3a3c81ed8147",
-                "fd7c50eb-b197-410b-956a-cb775c20091f"
+                "2acf9b72-4829-4068-9f30-48262e5d2cf4","47cfc6c1-0825-4a2e-8aeb-a63abd605608","72059435-96f5-45f8-837d-7a80bfbf6a8e","be041651-f3fa-4bfd-8927-d803c8274264","c5ef4b9b-0152-49fb-99ca-668eec4ebd51","e662c59c-ccb3-431b-927d-91ca69d9def9"
             };
             List<CheckoutOrder> dataList = await this.GetESCheckoutOrderList(checkoutGuidArray);
 
@@ -150,7 +142,7 @@ namespace WebApplication1.Controllers
                 position++;
             }
 
-            return checkoutOrderList;
+             return checkoutOrderList;
         }
 
         /// <summary>

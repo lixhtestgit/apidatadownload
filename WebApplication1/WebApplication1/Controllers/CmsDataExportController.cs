@@ -51,8 +51,8 @@ namespace WebApplication1.Controllers
         [HttpGet]
         public async Task CopyDataToSite()
         {
-            string beginDate = "2022-09-01";
-            string endDate = "2022-10-01";
+            string beginDate = "2022-10-01";
+            string endDate = "2022-11-01";
 
             #region 需求1：排除指定站点（0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143）平均分配到对应10个站点中
 
