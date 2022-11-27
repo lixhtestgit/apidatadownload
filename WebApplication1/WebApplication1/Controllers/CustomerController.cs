@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -7,8 +8,6 @@ using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
@@ -24,79 +23,29 @@ namespace WebApplication1.Controllers
     [ApiController]
     public class CustomerController : ControllerBase
     {
+        public IWebHostEnvironment WebHostEnvironment { get; set; }
         protected HttpClient PayHttpClient { get; set; }
         public ExcelHelper ExcelHelper { get; set; }
         public ILogger Logger { get; set; }
 
-        public static string CustomerDetailBaseUrl = "http://newims.lekaowang.cn/Site/Sale/ModifyPublicList.aspx?CustomerID={CustomerID}&RealName={RealName}&Tel={Tel}";
+        public static string CustomerDetailBaseUrl = "http://newims.lekaowang.cn/Site/Sale/SaleModifyDistributionList.aspx?CustomerID={CustomerID}&RealName={RealName}&Tel={Tel}";
         public static string CustomerListBaseUrl = "http://newims.lekaowang.cn/InterfaceLibrary/Sale/Handler_List.ashx?FunName=GetPublicList&Conditions=AllCondition&SearchField=Tel&Method={Method}&ExtendSubject={ExtendSubject}&CustomerType=普通数据";
         public static int PageSize = 1000;
         public static Dictionary<string, string> HeadDic = new Dictionary<string, string>
         {
-            { "Cookie","aliyungf_tc=f007b064d7c6cf44f257c30542d03ba4d71d0aabb08059157ce9dee8fac960f9; ASP.NET_SessionId=10pcluagzfrz0la1xkpv5j2f; LKNewCRMUserEmail=tinglan.cui@sinodq.net; CheckCode=41519"}
+            { "Cookie","aliyungf_tc=1232463e8b48f4d63de8f1b26091be91b07c27c6fed772ea160b31d4daa19e94; CheckCode=03376; ASP.NET_SessionId=5yzjsqo55x1nvswtstzndkzx; LKNewCRMUserEmail=tinglan.cui@sinodq.net"}
         };
 
         public CustomerController(
+            IWebHostEnvironment webHostEnvironment,
             IHttpClientFactory httpClientFactory,
             ExcelHelper excelHelper,
             ILogger<TestController> logger)
         {
+            this.WebHostEnvironment = webHostEnvironment;
             this.PayHttpClient = httpClientFactory.CreateClient();
             this.ExcelHelper = excelHelper;
             this.Logger = logger;
-        }
-
-        /// <summary>
-        /// 金考典收费压缩包破解下载
-        /// </summary>
-        /// <returns></returns>
-        [Route("")]
-        [HttpGet]
-        public async Task<IActionResult> DownLoadJKD()
-        {
-            string baseFileRequestUrl = "http://www.jinkaodian.com/CL.ExamWebService/subject/{fileName}";
-            string mfFileName = "3_0_2209131702510158.zip"; //免费压缩包
-            string sfFileName = "3_1_220913170251{count}.zip"; //收费压缩包
-
-            //HttpResponseMessage responseMessage = await this.PayHttpClient.GetAsync(baseFileRequestUrl.Replace("{fileName}", mfFileName));
-            //using (Stream stream = await responseMessage.Content.ReadAsStreamAsync())
-            //{
-            //    if (!Directory.Exists(@"C:\Users\lixianghong\Desktop\download"))
-            //    {
-            //        Directory.CreateDirectory(@"C:\Users\lixianghong\Desktop\download");
-            //    }
-            //    using (FileStream fs = new FileStream($@"C:\Users\lixianghong\Desktop\download\{mfFileName}", FileMode.OpenOrCreate, FileAccess.Write))
-            //    {
-            //        stream.CopyTo(fs);
-            //    }
-            //}
-
-            //下载收费压缩包1（通过PostMan请求示例可以精准获取zip）
-            //下载收费压缩包2
-            for (int i = 1; i < 10000; i++)
-            {
-                string newSfFileName = sfFileName.Replace("{count}", i.ToString("0000"));
-                HttpResponseMessage responseMessage = await this.PayHttpClient.GetAsync(baseFileRequestUrl.Replace("{fileName}", newSfFileName));
-                if (responseMessage.StatusCode == System.Net.HttpStatusCode.OK)
-                {
-                    using (Stream stream = await responseMessage.Content.ReadAsStreamAsync())
-                    {
-                        if (!Directory.Exists(@"C:\Users\lixianghong\Desktop\download"))
-                        {
-                            Directory.CreateDirectory(@"C:\Users\lixianghong\Desktop\download");
-                        }
-                        using (FileStream fs = new FileStream($@"C:\Users\lixianghong\Desktop\download\{newSfFileName}", FileMode.OpenOrCreate, FileAccess.Write))
-                        {
-                            stream.CopyTo(fs);
-                        }
-                    }
-                    break;
-                }
-            }
-
-            this.Logger.LogInformation($"任务结束.");
-
-            return Ok();
         }
 
         [Route("DownLoad")]
@@ -105,26 +54,19 @@ namespace WebApplication1.Controllers
         {
             string[] methodArray = new string[] { "SEO", "百度短信", "报名入口", "大唐数据", "公众号", "京东", "老客户转介绍", "乐语", "其他", "数据库", "淘宝", "推广页", "无", "信息流", "注册用户", "400", "百度信息流", "今日头条", "现场面审", "畅想云端数据", "乐语录入", "柯达数据", "电信数据", "用友题库", "用友视频", "广点通信息流", "快手信息流", "推广APP", "用友banner", "公开课", "安徽渠道公众号", "微信二维码", "小程序", "乐考校园", "微博粉丝通", "抖音", "模考大赛", "易聊" };
             //string[] extendSubjectArray = new string[] { "无", "初级会计", "初级会计1", "中级会计", "经济师1", "注册安全工程师", "CPA", "管理会计", "税务师", "初级经济师", "中级经济师", "高级经济师", "软考", "FRR", "基金", "银行", "注册会计师", "证券", "期货", "初级银行", "CFA", "中级银行", "一级建造师", "二级建造师", "二级建造师1", "消防工程师", "教师资格证", "注册建造师", "执业药师", "执业医师", "心理咨询师", "公务员", "健康管理师", "婚姻家庭咨询师", "远程教育", "薪税师", "碳排放管理师" };
-            string[] extendSubjectArray = new string[] { "中级经济师" };
+            string[] extendSubjectArray = new string[] { "初级会计", "初级会计1", "中级会计", "管理会计", "注册会计师", "经济师1", "初级经济师", "中级经济师", "高级经济师" };
 
             Dictionary<string, string> customerListUrlDic = new Dictionary<string, string>(methodArray.Length * extendSubjectArray.Length);
             foreach (var method in methodArray)
             {
                 foreach (var extendSubject in extendSubjectArray)
                 {
-                    if (method != "推广页" || extendSubject != "中级会计")
-                    {
-                        customerListUrlDic.Add($"{method}+{extendSubject}", CustomerController.CustomerListBaseUrl.Replace("{Method}", method).Replace("{ExtendSubject}", extendSubject));
-                    }
+                    //if (method != "推广页" || extendSubject != "中级会计")
+                    //{
+                    customerListUrlDic.Add($"{method}+{extendSubject}", CustomerController.CustomerListBaseUrl.Replace("{Method}", method).Replace("{ExtendSubject}", extendSubject));
+                    //}
                 }
             }
-
-#if DEBUG
-
-            //customerListUrlDic = new Dictionary<string, string> { { $"推广页+高级经济师", CustomerController.CustomerListBaseUrl.Replace("{Method}", "推广页").Replace("{ExtendSubject}", "高级经济师") } };
-
-#endif
-
 
             IWorkbook workbook = null;
             string fileName = null;
@@ -133,11 +75,10 @@ namespace WebApplication1.Controllers
             int fileMaxPageCount = 0;
             foreach (var customerListUrlItem in customerListUrlDic)
             {
-                fileName = $@"E:\公司小项目\弃单支付方式查询\WebApplication1\WebApplication1\DownLoad\{customerListUrlItem.Key}.xls";
+                fileName = $@"{this.WebHostEnvironment.ContentRootPath}\DownLoad\{customerListUrlItem.Key}.xls";
 
                 if (!System.IO.File.Exists(fileName)
-                    && !System.IO.File.Exists(fileName.Replace(".xls", ".xlsx"))
-                    && !System.IO.File.Exists(fileName + "_空数据"))
+                    && !System.IO.File.Exists(fileName.Replace(".xls", ".xlsx")))
                 {
                     dataListUrl = customerListUrlItem.Value;
                     List<Customer> allDataList = ExcelHelper.ReadTitleDataList<Customer>(fileName + "_未完成", new ExcelFileDescription());
@@ -158,7 +99,6 @@ namespace WebApplication1.Controllers
 
                         if (fileTotalCount <= 0)
                         {
-                            fileName += "_空数据";
                             workbook = ExcelHelper.CreateOrUpdateWorkbook(allDataList);
                             ExcelHelper.SaveWorkbookToFile(workbook, fileName);
 
