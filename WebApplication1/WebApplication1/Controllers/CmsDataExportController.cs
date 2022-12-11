@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using PPPayReportTools.Excel;
 using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using WebApplication1.DB.Base;
 using WebApplication1.DB.CMS;
@@ -63,8 +64,8 @@ namespace WebApplication1.Controllers
                             LEFT JOIN dbo.TB_Site s ON s.ID=o.SiteID
                             LEFT JOIN dbo.TB_Users AS u ON o.UserID = U.ID AND o.SiteID = u.SiteID
                             LEFT JOIN dbo.TB_UserSendAddressOrder AS a WITH (NOLOCK) ON o.SiteID = a.SiteID AND a.OrderID = o.ID AND a.AddressID = o.Address1
-                            WHERE o.AddTime>'{beginDate}' AND o.AddTime<'{endDate}' AND o.SiteID NOT IN (0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143)
-                            Order By o.AddTime";
+                            WHERE o.PayTime>'{beginDate}' AND o.PayTime<'{endDate}' AND o.SiteID NOT IN (0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143)
+                            Order By o.PayTime";
             List<TJ_TB_Order> awaitOrderJObjList = this._baseRepository.QueryAsync<TJ_TB_Order>(EDBConnectionType.SqlServer, tjOrderSql).Result;
 
             Random random = new Random();
@@ -130,7 +131,17 @@ namespace WebApplication1.Controllers
                                 siteMaxOrderIDDic[fpSiteID] = fpOrderID;
                             }
                             orderObj.ID = fpOrderID;
-                            insertResult = await this._tjOrderRepository.Insert(EDBConnectionType.SqlServer, orderObj);
+
+                            //检测原始数据是否已经插入统计表
+                            TJ_TB_Order tjTBOrder = await this._tjOrderRepository.First(EDBConnectionType.SqlServer, m => m.OriginID == orderObj.OriginID && m.OriginSiteID == orderObj.OriginSiteID);
+                            if (tjTBOrder != null)
+                            {
+                                insertResult = 1;
+                            }
+                            else
+                            {
+                                insertResult = await this._tjOrderRepository.Insert(EDBConnectionType.SqlServer, orderObj);
+                            }
                         }
                         catch (Exception)
                         {
@@ -172,8 +183,8 @@ namespace WebApplication1.Controllers
                             LEFT JOIN dbo.TB_Site s ON s.ID=o.SiteID
                             LEFT JOIN dbo.TB_Users AS u ON o.UserID = U.ID AND o.SiteID = u.SiteID
                             LEFT JOIN dbo.TB_UserSendAddressOrder AS a WITH (NOLOCK) ON o.SiteID = a.SiteID AND a.OrderID = o.ID AND a.AddressID = o.Address1
-                            WHERE o.AddTime>'{beginDate}' AND o.AddTime<'{endDate}' AND o.SiteID IN (19,1363)
-                            Order By o.AddTime";
+                            WHERE o.PayTime>'{beginDate}' AND o.PayTime<'{endDate}' AND o.SiteID IN (19,1363)
+                            Order By o.PayTime";
             awaitOrderJObjList = this._baseRepository.QueryAsync<TJ_TB_Order>(EDBConnectionType.SqlServer, tjOrderSql).Result;
             orderObjTotalCount = awaitOrderJObjList.Count;
             orderObjPosition = 0;
@@ -195,7 +206,16 @@ namespace WebApplication1.Controllers
                     {
                         try
                         {
-                            insertResult = await this._tjOrderRepository.Insert(EDBConnectionType.SqlServer, orderObj);
+                            //检测原始数据是否已经插入统计表
+                            TJ_TB_Order tjTBOrder = await this._tjOrderRepository.First(EDBConnectionType.SqlServer, m => m.OriginID == orderObj.OriginID && m.OriginSiteID == orderObj.OriginSiteID);
+                            if (tjTBOrder != null)
+                            {
+                                insertResult = 1;
+                            }
+                            else
+                            {
+                                insertResult = await this._tjOrderRepository.Insert(EDBConnectionType.SqlServer, orderObj);
+                            } 
                         }
                         catch (Exception)
                         {
@@ -233,7 +253,7 @@ namespace WebApplication1.Controllers
             //执行SQL查询数据整理到Excel中：
             var huizongSQL = @"
             SELECT ID, Name,
-            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-09-01' AND AddTime<'2022-10-01')[9月美金汇总]
+            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND PayTime>= '2022-09-01' AND PayTime<'2022-10-01')[9月美金汇总]
             FROM TB_Site where ID IN(6546, 6691, 6738, 6903, 6938, 6983, 7027, 7203, 7204, 7207, 7211, 7224)
             ORDER BY ID
             ";
@@ -241,14 +261,14 @@ namespace WebApplication1.Controllers
             var xiangqingSQL = @"
             select o.SiteID[站点ID],
                 (SELECT s.Name FROM dbo.TB_Site s WHERE s.ID=o.SiteID)[站点名称],
-                ID[订单ID],AddTime[创建时间],o.CurrencyName[币种名称],
+                ID[订单ID],PayTime[支付时间],o.CurrencyName[币种名称],
                 CASE WHEN o.CurrencyPrice IS NULL OR o.CurrencyPrice<=0 THEN o.Price_PreCount1 ELSE o.CurrencyPrice END[多币种金额],
                 o.Price_PreCount1[美金金额],
-                o.OriginSiteID[原始站点ID],o.OriginID[原始订单ID]
+                -- o.OriginSiteID[原始站点ID],o.OriginID[原始订单ID]
             from dbo.TJ_TB_Order o 
-            WHERE AddTime>='2022-09-01' and AddTime<'2022-10-01' 
+            WHERE PayTime>='2022-09-01' and PayTime<'2022-10-01' 
             AND o.SiteID IN (6546,6691,6738,6903,6938,6983,7027,7203,7204,7207,7211,7224)
-            ORDER by AddTime
+            ORDER by PayTime
             ";
 
             #endregion

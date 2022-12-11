@@ -54,8 +54,8 @@ namespace WebApplication1.Controllers
             string filePath = $@"C:\Users\lixianghong\Desktop\弃单数据_{DateTime.Now.ToString("yyyyMMdd")}.xlsx";
 
             string[] checkoutGuidArray = new string[] {
-                "2acf9b72-4829-4068-9f30-48262e5d2cf4","47cfc6c1-0825-4a2e-8aeb-a63abd605608","72059435-96f5-45f8-837d-7a80bfbf6a8e","be041651-f3fa-4bfd-8927-d803c8274264","c5ef4b9b-0152-49fb-99ca-668eec4ebd51","e662c59c-ccb3-431b-927d-91ca69d9def9"
-            };
+				"264a57b2-d0c6-4a13-b6d1-9b075f71d074","c14ae090-7e6b-46d7-b94a-57530593475b","e64736e5-95bb-4b78-909f-c35c9c7cfc26"
+			};
             List<CheckoutOrder> dataList = await this.GetESCheckoutOrderList(checkoutGuidArray);
 
             IWorkbook workbook = ExcelHelper.CreateOrUpdateWorkbook(dataList);
