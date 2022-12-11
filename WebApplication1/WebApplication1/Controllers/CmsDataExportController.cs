@@ -17,6 +17,7 @@ namespace WebApplication1.Controllers
     public class CmsDataExportController : ControllerBase
     {
         //api/CmsDataExport/CopyDataToSite
+
         private BaseRepository _baseRepository;
         private TB_UsersRepository _usersRepository;
         private TJ_TB_OrderRepository _tjOrderRepository;
@@ -52,25 +53,24 @@ namespace WebApplication1.Controllers
         [HttpGet]
         public async Task CopyDataToSite()
         {
-            string beginDate = "2022-10-01";
-            string endDate = "2022-11-01";
+            string beginDate = "2022-11-01";
+            string endDate = "2022-12-01";
 
             #region 需求1：排除指定站点（0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143）平均分配到对应10个站点中
 
-            string tjOrderSql = @$"SELECT u.Email UserEmail,
+            string tjOrderSql1 = @$"SELECT u.Email UserEmail,
                             (SELECT SUM(ob.BuyCount) FROM dbo.TB_OrderBill ob WHERE ob.SiteID=o.SiteID AND ob.OrderID=o.ID) ProductCount,
                             a.CountryID,
                             o.* FROM dbo.TB_Order o
                             LEFT JOIN dbo.TB_Site s ON s.ID=o.SiteID
                             LEFT JOIN dbo.TB_Users AS u ON o.UserID = U.ID AND o.SiteID = u.SiteID
                             LEFT JOIN dbo.TB_UserSendAddressOrder AS a WITH (NOLOCK) ON o.SiteID = a.SiteID AND a.OrderID = o.ID AND a.AddressID = o.Address1
-                            WHERE o.PayTime>'{beginDate}' AND o.PayTime<'{endDate}' AND o.SiteID NOT IN (0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143)
-                            Order By o.PayTime";
-            List<TJ_TB_Order> awaitOrderJObjList = this._baseRepository.QueryAsync<TJ_TB_Order>(EDBConnectionType.SqlServer, tjOrderSql).Result;
+                            WHERE o.AddTime>'{beginDate}' AND o.AddTime<'{endDate}' AND o.SiteID NOT IN (0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143)
+                            Order By o.AddTime";
+            List<TJ_TB_Order> awaitOrderJObjList1 = await this._baseRepository.QueryAsync<TJ_TB_Order>(EDBConnectionType.SqlServer, tjOrderSql1);
 
-            Random random = new Random();
-            int orderObjPosition = 0;
-            int orderObjTotalCount = awaitOrderJObjList.Count;
+            int orderObjPosition1 = 0;
+            int orderObjTotalCount1 = awaitOrderJObjList1.Count;
 
             //同步原始订单到新站点
             Dictionary<int, int> siteZB = new Dictionary<int, int>
@@ -95,12 +95,14 @@ namespace WebApplication1.Controllers
                 siteMaxOrderIDDic.Add(item.Key, maxOrderID);
             }
 
+            Random random = new Random();
+
             Func<TJ_TB_Order, Task> syncOrderToNewSiteFunc = async (orderObj) =>
             {
                 try
                 {
-                    orderObjPosition++;
-                    this._logger.LogInformation($"正在同步需求1第{orderObjPosition}/{orderObjTotalCount}个订单...");
+                    orderObjPosition1++;
+                    this._logger.LogInformation($"正在同步需求1第{orderObjPosition1}/{orderObjTotalCount1}个订单...");
 
                     int fpSiteID = 0;
                     int randomI = random.Next(1, 101);
@@ -154,48 +156,48 @@ namespace WebApplication1.Controllers
                 }
             };
 
-            int waitObjIndex = 0;
-            List<Task> syncTaskList = new List<Task>(10);
-            bool allIsSync = true;
+            int waitObjIndex1 = 0;
+            bool allIsSync1 = true;
+            List<Task> syncTaskList1 = new List<Task>(10);
             do
             {
-                allIsSync = true;
-                if (syncTaskList.Count < 10 && waitObjIndex <= awaitOrderJObjList.Count - 1)
+                allIsSync1 = true;
+                if (syncTaskList1.Count < 10 && waitObjIndex1 <= orderObjTotalCount1 - 1)
                 {
-                    Task syncTask = syncOrderToNewSiteFunc(awaitOrderJObjList[waitObjIndex]);
-                    syncTaskList.Add(syncTask);
-                    waitObjIndex++;
+                    Task syncTask = syncOrderToNewSiteFunc(awaitOrderJObjList1[waitObjIndex1]);
+                    syncTaskList1.Add(syncTask);
+                    waitObjIndex1++;
                 }
                 //检测异步方法是否全部执行完毕
-                allIsSync = syncTaskList.Exists(m => m.IsCompleted == false) ? false : true;
+                allIsSync1 = syncTaskList1.Exists(m => m.IsCompleted == false) ? false : true;
                 //移除已完成任务，安排下一对象同步
-                syncTaskList.RemoveAll(x => x.IsCompleted == true);
-            } while (allIsSync == false || waitObjIndex < awaitOrderJObjList.Count);
+                syncTaskList1.RemoveAll(x => x.IsCompleted == true);
+            } while (allIsSync1 == false || waitObjIndex1 < orderObjTotalCount1);
 
             #endregion
 
             #region 需求2：将www.beddinginn.com,www.oroyalcars.com(19,1363)将原始订单数据直接搬迁到独立表
 
-            tjOrderSql = @$"SELECT u.Email UserEmail,
+            string tjOrderSql2 = @$"SELECT u.Email UserEmail,
                             (SELECT SUM(ob.BuyCount) FROM dbo.TB_OrderBill ob WHERE ob.SiteID=o.SiteID AND ob.OrderID=o.ID) ProductCount,
                             a.CountryID,
                             o.* FROM dbo.TB_Order o
                             LEFT JOIN dbo.TB_Site s ON s.ID=o.SiteID
                             LEFT JOIN dbo.TB_Users AS u ON o.UserID = U.ID AND o.SiteID = u.SiteID
                             LEFT JOIN dbo.TB_UserSendAddressOrder AS a WITH (NOLOCK) ON o.SiteID = a.SiteID AND a.OrderID = o.ID AND a.AddressID = o.Address1
-                            WHERE o.PayTime>'{beginDate}' AND o.PayTime<'{endDate}' AND o.SiteID IN (19,1363)
-                            Order By o.PayTime";
-            awaitOrderJObjList = this._baseRepository.QueryAsync<TJ_TB_Order>(EDBConnectionType.SqlServer, tjOrderSql).Result;
-            orderObjTotalCount = awaitOrderJObjList.Count;
-            orderObjPosition = 0;
+                            WHERE o.AddTime>'{beginDate}' AND o.AddTime<'{endDate}' AND o.SiteID IN (19,1363)
+                            Order By o.AddTime";
+            List<TJ_TB_Order> awaitOrderJObjList2 = this._baseRepository.QueryAsync<TJ_TB_Order>(EDBConnectionType.SqlServer, tjOrderSql2).Result;
+            int orderObjTotalCount2 = awaitOrderJObjList2.Count;
+            int orderObjPosition2 = 0;
 
             //同步原始订单到原站点
             Func<TJ_TB_Order, Task> syncOrderFunc = async (orderObj) =>
             {
                 try
                 {
-                    orderObjPosition++;
-                    this._logger.LogInformation($"正在同步需求2第{orderObjPosition}/{orderObjTotalCount}个订单...");
+                    orderObjPosition2++;
+                    this._logger.LogInformation($"正在同步需求2第{orderObjPosition2}/{orderObjTotalCount2}个订单...");
 
                     //添加订单
                     orderObj.OriginID = orderObj.ID;
@@ -215,7 +217,7 @@ namespace WebApplication1.Controllers
                             else
                             {
                                 insertResult = await this._tjOrderRepository.Insert(EDBConnectionType.SqlServer, orderObj);
-                            } 
+                            }
                         }
                         catch (Exception)
                         {
@@ -228,48 +230,29 @@ namespace WebApplication1.Controllers
                 }
             };
 
-            waitObjIndex = 0;
-            syncTaskList = new List<Task>(10);
-            allIsSync = true;
+            int waitObjIndex2 = 0;
+            List<Task> syncTaskList2 = new List<Task>(10);
+            bool allIsSync2 = true;
             do
             {
-                allIsSync = true;
-                if (syncTaskList.Count < 10 && waitObjIndex <= awaitOrderJObjList.Count - 1)
+                allIsSync2 = true;
+                if (syncTaskList2.Count < 10 && waitObjIndex2 <= orderObjTotalCount2 - 1)
                 {
-                    Task syncTask = syncOrderFunc(awaitOrderJObjList[waitObjIndex]);
-                    syncTaskList.Add(syncTask);
-                    waitObjIndex++;
+                    Task syncTask = syncOrderFunc(awaitOrderJObjList2[waitObjIndex2]);
+                    syncTaskList2.Add(syncTask);
+                    waitObjIndex2++;
                 }
                 //检测异步方法是否全部执行完毕
-                allIsSync = syncTaskList.Exists(m => m.IsCompleted == false) ? false : true;
+                allIsSync2 = syncTaskList2.Exists(m => m.IsCompleted == false) ? false : true;
                 //移除已完成任务，安排下一对象同步
-                syncTaskList.RemoveAll(x => x.IsCompleted == true);
-            } while (allIsSync == false || waitObjIndex < awaitOrderJObjList.Count);
+                syncTaskList2.RemoveAll(x => x.IsCompleted == true);
+            } while (allIsSync2 == false || waitObjIndex2 < orderObjTotalCount2);
 
             #endregion
 
             #region 需求3
 
-            //执行SQL查询数据整理到Excel中：
-            var huizongSQL = @"
-            SELECT ID, Name,
-            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND PayTime>= '2022-09-01' AND PayTime<'2022-10-01')[9月美金汇总]
-            FROM TB_Site where ID IN(6546, 6691, 6738, 6903, 6938, 6983, 7027, 7203, 7204, 7207, 7211, 7224)
-            ORDER BY ID
-            ";
-
-            var xiangqingSQL = @"
-            select o.SiteID[站点ID],
-                (SELECT s.Name FROM dbo.TB_Site s WHERE s.ID=o.SiteID)[站点名称],
-                ID[订单ID],PayTime[支付时间],o.CurrencyName[币种名称],
-                CASE WHEN o.CurrencyPrice IS NULL OR o.CurrencyPrice<=0 THEN o.Price_PreCount1 ELSE o.CurrencyPrice END[多币种金额],
-                o.Price_PreCount1[美金金额],
-                -- o.OriginSiteID[原始站点ID],o.OriginID[原始订单ID]
-            from dbo.TJ_TB_Order o 
-            WHERE PayTime>='2022-09-01' and PayTime<'2022-10-01' 
-            AND o.SiteID IN (6546,6691,6738,6903,6938,6983,7027,7203,7204,7207,7211,7224)
-            ORDER by PayTime
-            ";
+            //执行SQL查询数据整理到Excel中：由于财务统计时间维度不统一，这里不再提供数据统计数据，由使用方自主决定，这里只固定数据源
 
             #endregion
 
