@@ -6,6 +6,16 @@ namespace WebApplication1.Model
 {
     public class CheckoutOrder
     {
+        public CheckoutOrder()
+        {
+            this.ESPayTypeList = new List<string>();
+            this.SessionIDList = new List<string>();
+            this.CreateOrderResultList = new List<string>();
+            this.PayResultList = new List<string>();
+            this.ESCreateOrderResultLogList = new List<string>();
+            this.ESPayResultLogList = new List<string>();
+        }
+
         [ExcelTitle("弃单号")]
         public string CheckoutGuid { get; set; }
 

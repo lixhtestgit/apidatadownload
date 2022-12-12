@@ -1,5 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using NPOI.SS.Formula;
+using NPOI.SS.Formula.Functions;
 using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System;
@@ -13,6 +16,7 @@ using System.Threading.Tasks;
 using WebApplication1.BIZ;
 using WebApplication1.Helper;
 using WebApplication1.Model;
+using WebApplication1.Model.PayNotify;
 
 namespace WebApplication1.Controllers
 {
@@ -23,19 +27,22 @@ namespace WebApplication1.Controllers
     [ApiController]
     public class MeShopCheckoutController : ControllerBase
     {
-        protected HttpClient PayHttpClient { get; set; }
-        public ExcelHelper ExcelHelper { get; set; }
-        public ILogger Logger { get; set; }
-        public ESSearchHelper ESSearchHelper { get; set; }
-        public CheckoutBIZ CheckoutBIZ { get; set; }
+        public IWebHostEnvironment WebHostEnvironment;
+        protected HttpClient PayHttpClient;
+        public ExcelHelper ExcelHelper;
+        public ILogger Logger;
+        public ESSearchHelper ESSearchHelper;
+        public CheckoutBIZ CheckoutBIZ;
 
         public MeShopCheckoutController(
+            IWebHostEnvironment webHostEnvironment,
             IHttpClientFactory httpClientFactory,
             ExcelHelper excelHelper,
             ILogger<TestController> logger,
             ESSearchHelper eSSearchHelper,
             CheckoutBIZ checkoutBIZ)
         {
+            this.WebHostEnvironment = webHostEnvironment;
             this.PayHttpClient = httpClientFactory.CreateClient();
             this.ExcelHelper = excelHelper;
             this.Logger = logger;
@@ -45,6 +52,7 @@ namespace WebApplication1.Controllers
 
         /// <summary>
         /// ES搜索弃单支付方式和订单创建，支付相关日志
+        /// api/MeShopCheckout/
         /// </summary>
         /// <returns></returns>
         [Route("")]
@@ -53,64 +61,27 @@ namespace WebApplication1.Controllers
         {
             string filePath = $@"C:\Users\lixianghong\Desktop\弃单数据_{DateTime.Now.ToString("yyyyMMdd")}.xlsx";
 
-            string[] checkoutGuidArray = new string[] {
-				"264a57b2-d0c6-4a13-b6d1-9b075f71d074","c14ae090-7e6b-46d7-b94a-57530593475b","e64736e5-95bb-4b78-909f-c35c9c7cfc26"
-			};
-            List<CheckoutOrder> dataList = await this.GetESCheckoutOrderList(checkoutGuidArray);
+            #region 通过手动收集弃单集合
+            //string[] checkoutGuidArray = new string[] {
+            //    "264a57b2-d0c6-4a13-b6d1-9b075f71d074","c14ae090-7e6b-46d7-b94a-57530593475b","e64736e5-95bb-4b78-909f-c35c9c7cfc26"
+            //};
+            //List<CheckoutOrder> dataList = await this.GetESCheckoutOrderList(checkoutGuidArray);
+            #endregion
+
+            #region 通过弃单导出文件收集弃单集合
+
+            string contentRootPath = this.WebHostEnvironment.ContentRootPath;
+            string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacypayhossted弃单.xlsx";
+            List<CheckoutOrder> dataList = this.ExcelHelper.ReadTitleDataList<CheckoutOrder>(testFilePath, new ExcelFileDescription(0));
+
+            string payLogFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacyhost.log";
+            this.UpdateOrderPayDataByFile(payLogFilePath, dataList);
+            #endregion
 
             IWorkbook workbook = ExcelHelper.CreateOrUpdateWorkbook(dataList);
             ExcelHelper.SaveWorkbookToFile(workbook, filePath);
 
             this.Logger.LogInformation($"任务结束.");
-
-            return Ok();
-        }
-
-        /// <summary>
-        /// ES搜索WP异步通知
-        /// </summary>
-        /// <returns></returns>
-        [Route("ESWP")]
-        [HttpGet]
-        public async Task<IActionResult> ESWP()
-        {
-            string dataFilter = @"[
-    {
-        ""multi_match"": {
-            ""type"": ""phrase"",
-            ""query"": ""soundo-shop"",
-            ""lenient"": true
-        }
-    },
-    {
-        ""multi_match"": {
-            ""type"": ""phrase"",
-            ""query"": ""1_收到异步通知"",
-            ""lenient"": true
-        }
-    }
-]";
-
-            List<string> validList = new List<string>(100);
-
-            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"WP日志", "meshopstore.com", dataFilter, 2, log =>
-            {
-                string payType = null;
-                if (log.Contains("worldpay", StringComparison.OrdinalIgnoreCase))
-                {
-                    payType = "worldpay";
-
-                    log = log.Replace("\\\"", "\"");
-                    string logDate = Convert.ToDateTime(log.Substring(0, 19)).AddHours(8).ToString("yyyy-MM-dd HH:mm:ss");
-                    string orderCode = new Regex("(?<=orderCode=\")[^\"]+(?=\")").Match(log).Value;
-                    string lastEvent = new Regex("(?<=<lastEvent>)[^<]+(?=<)").Match(log).Value;
-                    string returnCode = new Regex("(?<=ISO8583ReturnCode.+description=\")[^\"]+(?=\")").Match(log).Value;
-                    validList.Add($"{orderCode}_{logDate}_{lastEvent}_{returnCode}");
-                }
-                return payType;
-            });
-            validList.Sort();
-            string wpValidLogStr = string.Join("\r\n", validList);
 
             return Ok();
         }
@@ -142,7 +113,7 @@ namespace WebApplication1.Controllers
                 position++;
             }
 
-             return checkoutOrderList;
+            return checkoutOrderList;
         }
 
         /// <summary>
@@ -285,7 +256,8 @@ namespace WebApplication1.Controllers
                 {
                     string validLog = null;
                     string resultRemark = null;
-                    if (log.Contains("CreateOrder_Result", StringComparison.OrdinalIgnoreCase))
+                    if (log.Contains("CreateOrder_Result", StringComparison.OrdinalIgnoreCase)
+                        || log.Contains("CreateOrder_1002_Result", StringComparison.OrdinalIgnoreCase))
                     {
                         //获取创建订单结果日志
                         validLog = log;
@@ -298,6 +270,10 @@ namespace WebApplication1.Controllers
                         else if (model.ESPayType.Contains("Paytm") && !validLog.Contains("Success"))
                         {
                             resultRemark = new Regex("(?<=\"resultMsg\":\")[^\"]+(?=\")").Match(log).Value;
+                        }
+                        else if (model.ESPayType.Contains("PacyPayHosted") && !validLog.Contains("Success"))
+                        {
+                            resultRemark = new Regex("(?<=\"respMsg\":\")[^\"]+(?=\")").Match(log).Value;
                         }
                         if (!string.IsNullOrEmpty(resultRemark))
                         {
@@ -365,6 +341,26 @@ namespace WebApplication1.Controllers
                             }
 
                         }
+                        else if (model.ESPayType.Contains("PacyPayHosted")
+                            && log.Contains("MeShopPay,收到异步通知", StringComparison.OrdinalIgnoreCase))
+                        {
+                            //获取创建订单结果日志
+                            validLog = log;
+                            model.ESPayResultLogList.Add(validLog);
+
+                            string pacyPayHostedState = new Regex("(?<=\"status\":\")[^\"]+(?=\")").Match(log).Value;
+                            resultRemark = new Regex("(?<=\"reason\":\")[^\"]+(?=\")").Match(log).Value;
+
+                            if (pacyPayHostedState.Equals("S", StringComparison.OrdinalIgnoreCase))
+                            {
+                                resultRemark = "成功";
+                            }
+                            else
+                            {
+                                resultRemark = $"失败：{pacyPayHostedState}:{resultRemark}";
+                            }
+
+                        }
 
                         if (!string.IsNullOrEmpty(resultRemark))
                         {
@@ -382,14 +378,22 @@ namespace WebApplication1.Controllers
         /// <summary>
         /// 获取支付相关数据
         /// </summary>
-        /// <param name="filePath"></param>
-        /// <param name="modelList"></param>
+        /// <param name="filePath">支付日志文件</param>
+        /// <param name="modelList">弃单列表</param>
         /// <returns></returns>
         private void UpdateOrderPayDataByFile(string filePath, List<CheckoutOrder> modelList)
         {
             string lineText = null;
             int linePosition = 0;
-            Dictionary<string, CheckoutOrder> checkoutOrderDic = modelList.ToDictionary(m => m.CheckoutGuid);
+            Dictionary<string, CheckoutOrder> checkoutOrderDic = new Dictionary<string, CheckoutOrder>(modelList.Count);
+            foreach (CheckoutOrder item in modelList)
+            {
+                if (!checkoutOrderDic.ContainsKey(item.CheckoutGuid))
+                {
+                    checkoutOrderDic.Add(item.CheckoutGuid, item);
+                }
+            }
+
             List<string> checkoutGuidList = checkoutOrderDic.Keys.ToList();
             CheckoutOrder model = null;
             string sessionID = null;
@@ -428,12 +432,22 @@ namespace WebApplication1.Controllers
                     #region 收集调度版本日志_后续分析使用
 
                     //调度版本
+                    sessionID = null;
                     if (lineText.Contains("SessionID"))
                     {
                         sessionID = new Regex("(?<=\"SessionID\":\")[^\"]+(?=\")").Match(lineText).Value;
+                    }
+                    else if (lineText.Contains("收到异步通知"))
+                    {
+                        //PacyPayHosted摘取有用日志
+                        if (lineText.Contains("merchantTxnId"))
+                        {
+                            sessionID = new Regex("(?<=\"merchantTxnId\":\")[^\"]+(?=\")").Match(lineText).Value;
+                        }
+                    }
 
-                        this.Logger.LogInformation($"第{linePosition}行数据已收集会话支付日志：SessionID={sessionID}");
-
+                    if (sessionID.IsNotNullOrEmpty())
+                    {
                         if (sessionIDLogListDic.ContainsKey(sessionID))
                         {
                             sessionIDLogListDic[sessionID].Add(lineText);
@@ -443,6 +457,7 @@ namespace WebApplication1.Controllers
                             sessionIDLogListDic.Add(sessionID, new List<string> { lineText });
                         }
                     }
+
 
                     #endregion
 
@@ -462,7 +477,8 @@ namespace WebApplication1.Controllers
                     {
                         #region 获取结果和原因
                         string payType = null, payError = null;
-                        if (sessionIDLog.Contains("CreateOrder_Result", StringComparison.OrdinalIgnoreCase))
+                        if (sessionIDLog.Contains("CreateOrder_Result", StringComparison.OrdinalIgnoreCase)
+                            || sessionIDLog.Contains("CreateOrder_1002_Result", StringComparison.OrdinalIgnoreCase))
                         {
                             //获取创建订单结果日志
                             if (!model.ESCreateOrderResultLogList.Contains(sessionIDLog))
@@ -488,6 +504,19 @@ namespace WebApplication1.Controllers
                                 payType = "PayEaseDirect";
                                 payError = new Regex("(?<=\"orderInfo\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
                                 if (string.IsNullOrEmpty(payError))
+                                {
+                                    payError = "成功";
+                                }
+                                else
+                                {
+                                    payError = "失败：" + payError;
+                                }
+                            }
+                            else if (sessionIDLog.Contains("PacyPayHosted_CreateOrder_1002_Result"))
+                            {
+                                payType = "PacyPayHosted";
+                                payError = new Regex("(?<=\"respMsg\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                                if (payError == "Success")
                                 {
                                     payError = "成功";
                                 }
@@ -542,6 +571,31 @@ namespace WebApplication1.Controllers
                                 else
                                 {
                                     payError = "失败：" + payError;
+                                }
+                            }
+                            else if (sessionIDLog.Contains("MeShopPay,收到异步通知", StringComparison.OrdinalIgnoreCase)
+                                && sessionIDLog.Contains("PacyPayHosted", StringComparison.OrdinalIgnoreCase))
+                            {
+                                payType = "PacyPayHosted";
+
+                                //获取创建订单结果日志
+                                model.ESPayResultLogList.Add(sessionIDLog);
+
+                                string pacyPayHostedState = new Regex("(?<=\"status\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                                payError = new Regex("(?<=\"respMsg\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+
+                                if (pacyPayHostedState.Equals("S", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    payError = "成功";
+                                }
+                                else
+                                {
+                                    //如果respMsg获取不到数据，再从reason中获取
+                                    if (payError.IsNullOrEmpty())
+                                    {
+                                        payError = new Regex("(?<=\"reason\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                                    }
+                                    payError = $"失败：{pacyPayHostedState}:{payError}";
                                 }
                             }
 
