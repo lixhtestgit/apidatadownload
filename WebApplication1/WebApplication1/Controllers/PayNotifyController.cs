@@ -15,6 +15,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using WebApplication1.Extension;
 using WebApplication1.Helper;
+using WebApplication1.Model.MeShop;
 using WebApplication1.Model.PayNotify;
 
 namespace WebApplication1.Controllers

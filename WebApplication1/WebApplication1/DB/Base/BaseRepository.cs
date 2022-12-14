@@ -22,7 +22,7 @@ namespace WebApplication1.DB.Base
         /// <summary>
         /// 配置执行超时时间120（秒）
         /// </summary>
-        private int commandTimeout = 120;
+        private int commandTimeout = 1200000;
 
         private ConfigHelper _configHelper { get; set; }
         /// <summary>

@@ -17,7 +17,9 @@ namespace WebApplication1.DB.CMS
         public DateTime RegDate { get; set; }
         [PropertyMapper]
         public string RegIP { get; set; }
-        [PropertyMapper]
+		[PropertyMapper]
+		public DateTime LastLoginDate { get; set; }
+		[PropertyMapper]
         public int State { get; set; }
         [PropertyMapper]
         public int UserType { get; set; }

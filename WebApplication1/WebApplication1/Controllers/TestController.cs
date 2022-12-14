@@ -14,7 +14,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using WebApplication1.Model;
+using WebApplication1.Model.MeShop;
 
 namespace WebApplication1.Controllers
 {

@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 
-namespace WebApplication1.Model
+namespace WebApplication1.Model.MeShop
 {
     internal class MeShopCultureTran
     {
