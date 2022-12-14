@@ -101,15 +101,19 @@ namespace WebApplication1.Controllers
             int days = 14;
             foreach (string checkoutGuid in checkoutGuidArray)
             {
-                CheckoutOrder checkoutOrder = new CheckoutOrder
+                if (checkoutGuid.IsNotNullOrEmpty())
                 {
-                    CheckoutGuid = checkoutGuid
-                };
+					CheckoutOrder checkoutOrder = new CheckoutOrder
+					{
+						CheckoutGuid = checkoutGuid
+					};
 
-                //查询支付方式
-                await this.UpdateOrderPayDataByES(totalCount, position, checkoutOrder, days);
+					//查询支付方式
+					await this.UpdateOrderPayDataByES(totalCount, position, checkoutOrder, days);
 
-                checkoutOrderList.Add(checkoutOrder);
+					checkoutOrderList.Add(checkoutOrder);
+				}
+                
                 position++;
             }
 
@@ -383,7 +387,10 @@ namespace WebApplication1.Controllers
         /// <returns></returns>
         private void UpdateOrderPayDataByFile(string filePath, List<CheckoutOrder> modelList)
         {
-            string lineText = null;
+			modelList.RemoveAll(m=>m.CheckoutGuid.IsNullOrEmpty());
+
+
+			string lineText = null;
             int linePosition = 0;
             Dictionary<string, CheckoutOrder> checkoutOrderDic = new Dictionary<string, CheckoutOrder>(modelList.Count);
             foreach (CheckoutOrder item in modelList)
