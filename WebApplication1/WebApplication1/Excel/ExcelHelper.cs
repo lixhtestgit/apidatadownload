@@ -481,8 +481,8 @@ namespace PPPayReportTools.Excel
                                     propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
                                 }
                             }
-                            catch (Exception e)
-                            {
+                            catch (Exception)
+							{
                                 this.Logger.LogDebug($"sheetName_{sheet.SheetName}读取{currentRowIndex + 1}行内容失败！");
                                 t = default(T);
                                 break;

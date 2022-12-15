@@ -3,7 +3,7 @@ using WebApplication1.Enum;
 
 namespace WebApplication1.DB.CMS
 {
-	[ClassMapper(EDBConnectionType.SqlServer, "dbo", "TB_UserSendAddressOrder")]
+	[ClassMapper(EDBSiteName.CMS, "dbo", "TB_UserSendAddressOrder")]
 	public class TB_UserSendAddress
 	{
 		[PropertyMapper]

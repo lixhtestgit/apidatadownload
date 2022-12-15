@@ -1,20 +1,16 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
 using PPPayReportTools.Excel;
-using RestSharp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Net.Http;
 using System.Threading.Tasks;
 using WebApplication1.DB.Base;
 using WebApplication1.DB.CMS;
 using WebApplication1.DB.Repository;
 using WebApplication1.Enum;
+using WebApplication1.Extension;
 using WebApplication1.Helper;
-using WebApplication1.Model.MeShop;
 
 namespace WebApplication1.Controllers
 {
@@ -82,7 +78,7 @@ namespace WebApplication1.Controllers
                             LEFT JOIN dbo.TB_UserSendAddressOrder AS a WITH (NOLOCK) ON o.SiteID = a.SiteID AND a.OrderID = o.ID AND a.AddressID = o.Address1
                             WHERE o.AddTime>'{beginDate}' AND o.AddTime<'{endDate}' AND o.SiteID NOT IN (0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143)
                             Order By o.AddTime";
-			List<TJ_TB_Order> awaitOrderJObjList1 = await this._baseRepository.QueryAsync<TJ_TB_Order>(EDBConnectionType.SqlServer, tjOrderSql1);
+			List<TJ_TB_Order> awaitOrderJObjList1 = await this._baseRepository.QueryAsync<TJ_TB_Order>(EDBSiteName.CMS, tjOrderSql1);
 
 			int orderObjPosition1 = 0;
 			int orderObjTotalCount1 = awaitOrderJObjList1.Count;
@@ -150,14 +146,14 @@ namespace WebApplication1.Controllers
 							orderObj.ID = fpOrderID;
 
 							//检测原始数据是否已经插入统计表
-							TJ_TB_Order tjTBOrder = await this._tjOrderRepository.First(EDBConnectionType.SqlServer, m => m.OriginID == orderObj.OriginID && m.OriginSiteID == orderObj.OriginSiteID);
+							TJ_TB_Order tjTBOrder = await this._tjOrderRepository.First(EDBSiteName.CMS, m => m.OriginID == orderObj.OriginID && m.OriginSiteID == orderObj.OriginSiteID);
 							if (tjTBOrder != null)
 							{
 								insertResult = 1;
 							}
 							else
 							{
-								insertResult = await this._tjOrderRepository.Insert(EDBConnectionType.SqlServer, orderObj);
+								insertResult = await this._tjOrderRepository.Insert(EDBSiteName.CMS, orderObj);
 							}
 						}
 						catch (Exception)
@@ -165,7 +161,7 @@ namespace WebApplication1.Controllers
 						}
 					} while (insertResult == 0);
 				}
-				catch (Exception e)
+				catch (Exception)
 				{
 					throw;
 				}
@@ -202,7 +198,7 @@ namespace WebApplication1.Controllers
                             LEFT JOIN dbo.TB_UserSendAddressOrder AS a WITH (NOLOCK) ON o.SiteID = a.SiteID AND a.OrderID = o.ID AND a.AddressID = o.Address1
                             WHERE o.AddTime>'{beginDate}' AND o.AddTime<'{endDate}' AND o.SiteID IN (19,1363)
                             Order By o.AddTime";
-			List<TJ_TB_Order> awaitOrderJObjList2 = this._baseRepository.QueryAsync<TJ_TB_Order>(EDBConnectionType.SqlServer, tjOrderSql2).Result;
+			List<TJ_TB_Order> awaitOrderJObjList2 = this._baseRepository.QueryAsync<TJ_TB_Order>(EDBSiteName.CMS, tjOrderSql2).Result;
 			int orderObjTotalCount2 = awaitOrderJObjList2.Count;
 			int orderObjPosition2 = 0;
 
@@ -224,14 +220,14 @@ namespace WebApplication1.Controllers
 						try
 						{
 							//检测原始数据是否已经插入统计表
-							TJ_TB_Order tjTBOrder = await this._tjOrderRepository.First(EDBConnectionType.SqlServer, m => m.OriginID == orderObj.OriginID && m.OriginSiteID == orderObj.OriginSiteID);
+							TJ_TB_Order tjTBOrder = await this._tjOrderRepository.First(EDBSiteName.CMS, m => m.OriginID == orderObj.OriginID && m.OriginSiteID == orderObj.OriginSiteID);
 							if (tjTBOrder != null)
 							{
 								insertResult = 1;
 							}
 							else
 							{
-								insertResult = await this._tjOrderRepository.Insert(EDBConnectionType.SqlServer, orderObj);
+								insertResult = await this._tjOrderRepository.Insert(EDBSiteName.CMS, orderObj);
 							}
 						}
 						catch (Exception)
@@ -239,7 +235,7 @@ namespace WebApplication1.Controllers
 						}
 					} while (insertResult == 0);
 				}
-				catch (Exception e)
+				catch (Exception)
 				{
 					throw;
 				}
@@ -287,45 +283,54 @@ namespace WebApplication1.Controllers
 
 			Dictionary<int, string> syncSiteDic = new Dictionary<int, string>
 			{
-				//{1,"tbdressshop" },
+				{1,"tbdressshop" },
 				{11,"ericdressfashion" },
 				{3,"wigsbuyshop" }
 			};
 
 			foreach (var syncSiteItem in syncSiteDic)
 			{
-				int sourceSiteID = syncSiteItem.Key;
+				int siteID = syncSiteItem.Key;
 				string meshopSiteHostAdmin = syncSiteItem.Value;
 
-				List<TB_Users> tbUserList = await this._usersRepository.SyncUsers(sourceSiteID);
-				tbUserList.RemoveAll(m => m.Email.Contains("@tidebuy.net"));
+				List<TB_Users> tbUserList = await this._usersRepository.GetSyncUsers(siteID);
 
-				List<string> emailList = tbUserList.Select(m => m.Email.Replace(" ", "").Replace("'", "''")).Distinct().ToList();
-
-				int totalCount = emailList.Count;
-				List<string> currentSyncEmailList = null;
+				int totalCount = tbUserList.Count;
+				List<TB_Users> currentSyncUserList = null;
 				int syncPageCount = 10000;
 				int maxSyncTimes = totalCount / syncPageCount + (totalCount % syncPageCount > 0 ? 1 : 0);
 				int currentSyncTime = 1;
 
+				DateTime minRegisterDate = Convert.ToDateTime("2001-01-01");
 				do
 				{
 					List<string> insertSqlList = new List<string>(syncPageCount);
-					currentSyncEmailList = emailList.Skip((currentSyncTime - 1) * syncPageCount).Take(syncPageCount).ToList();
-					foreach (var item in currentSyncEmailList)
+					currentSyncUserList = tbUserList.Skip((currentSyncTime - 1) * syncPageCount).Take(syncPageCount).ToList();
+					foreach (var item in currentSyncUserList)
 					{
-						insertSqlList.Add($"('{item}',1)");
+						if (item.Email.Contains("@") && item.Email.Contains("."))
+						{
+							item.Email = item.Email?.Replace("\r\n", "").Replace(" ", "").Replace("'", "''").Replace("\\","") ?? "";
+							if (item.RegDate < minRegisterDate)
+							{
+								item.RegDate = minRegisterDate;
+							}
+							insertSqlList.Add($"({item.ID},'{item.Email}','{item.RegDate.AddHours(-8).ToString_yyyyMMddHHmmss()}',1,0,0)");
+						}
 					}
-					string syncSQL = $"INSERT INTO user_info(Email,State) VALUES {string.Join(',', insertSqlList)};";
+					string syncSQL = $"INSERT INTO user_info(ID,Email,CreateTime,State,RegisterType,PlatformType) VALUES {string.Join(',', insertSqlList)};";
 
 					try
 					{
-						await this._meShopHelper.SyncUserToShop(meshopSiteHostAdmin, syncSQL);
+						int syncCount = await this._meShopHelper.SyncUserToShop(meshopSiteHostAdmin, syncSQL);
+						if (syncCount <= 0)
+						{
+							this._logger.LogInformation($"同步站点异常:syncSQL={syncSQL}");
+						}
 					}
-					catch (Exception)
+					catch (Exception e)
 					{
-
-						throw;
+						this._logger.LogError(e, $"同步站点异常:syncSQL={syncSQL}");
 					}
 
 					this._logger.LogInformation($"已同步站点{meshopSiteHostAdmin}—{currentSyncTime * syncPageCount}/{totalCount}个订单...");

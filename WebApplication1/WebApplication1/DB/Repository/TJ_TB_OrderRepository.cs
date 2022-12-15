@@ -16,14 +16,14 @@ namespace WebApplication1.DB.Repository
 
         public async Task<int> GetMaxID(int siteID)
         {
-            int data = (int)await base.ExecuteScalar(EDBConnectionType.SqlServer, $"SELECT ISNULL(MAX(ID),0) from dbo.TJ_TB_Order WHERE SiteID={siteID}", null);
+            int data = (int)await base.ExecuteScalar(EDBSiteName.CMS, $"SELECT ISNULL(MAX(ID),0) from dbo.TJ_TB_Order WHERE SiteID={siteID}", null);
 
             return data;
         }
 
         public async Task<TJ_TB_Order> GetModelByID(int siteID, int orderID)
         {
-            List<TJ_TB_Order> dataList = await base.Select(EDBConnectionType.SqlServer, m => m.SiteID == siteID && m.ID == orderID);
+            List<TJ_TB_Order> dataList = await base.Select(EDBSiteName.CMS, m => m.SiteID == siteID && m.ID == orderID);
 
             return dataList.FirstOrDefault();
         }

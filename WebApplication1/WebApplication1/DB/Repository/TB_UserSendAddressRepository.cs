@@ -15,7 +15,7 @@ namespace WebApplication1.DB.Repository
 
 		public async Task<List<TB_UserSendAddress>> GetModelByUserIDS(int siteID)
 		{
-			List<TB_UserSendAddress> dataList = await base.QueryAsync<TB_UserSendAddress>(EDBConnectionType.SqlServer, 
+			List<TB_UserSendAddress> dataList = await base.QueryAsync<TB_UserSendAddress>(EDBSiteName.CMS, 
 				$@"SELECT * FROM TB_UserSendAddress 
 					WHERE SiteID={siteID} 
 					AND State=1

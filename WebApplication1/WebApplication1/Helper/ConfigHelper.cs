@@ -25,13 +25,13 @@ namespace WebApplication1.Helper
             this._MemoryCache = memoryCache;
         }
 
-        private Dictionary<EDBConnectionType, ConfigDBConnection> _DBConnectionDic = null;
+        private Dictionary<EDBSiteName, ConfigDBConnection> _DBConnectionDic = null;
 
         /// <summary>
         /// 获取所有数据库连接字符串
         /// </summary>
         /// <returns></returns>
-        public Dictionary<EDBConnectionType, ConfigDBConnection> GetDBConnectionDic()
+        public Dictionary<EDBSiteName, ConfigDBConnection> GetDBConnectionDic()
         {
             if (this._DBConnectionDic == null || this._DBConnectionDic.Count == 0)
             {
@@ -39,28 +39,20 @@ namespace WebApplication1.Helper
                 {
                     cacheEntry.SetAbsoluteExpiration(DateTimeOffset.Now.AddDays(1));
 
-                    Dictionary<EDBConnectionType, ConfigDBConnection> connectionDic = new Dictionary<EDBConnectionType, ConfigDBConnection>(0);
+                    Dictionary<EDBSiteName, ConfigDBConnection> connectionDic = new Dictionary<EDBSiteName, ConfigDBConnection>(0);
                     IConfigurationSection dbSection = this._Configuration.GetSection("DBConnection");
-                    string providerName = null;
-                    EDBConnectionType connectionType = default;
+
+					EDBSiteName siteName = default;
+					EDBConnectionType connectionType = default;
                     foreach (IConfigurationSection item in dbSection.GetChildren())
                     {
-                        providerName = item.GetValue<string>("ProviderName");
-                        if (providerName.Equals(EDBConnectionType.SqlServer.ToString(), StringComparison.OrdinalIgnoreCase))
+						connectionType = item.GetValue<EDBConnectionType>("ProviderName");
+						siteName = item.GetValue<EDBSiteName>("SiteName");
+
+                        connectionDic.Add(siteName, new ConfigDBConnection
                         {
-                            connectionType = EDBConnectionType.SqlServer;
-                        }
-                        else if (providerName.Equals(EDBConnectionType.MySql.ToString(), StringComparison.OrdinalIgnoreCase))
-                        {
-                            connectionType = EDBConnectionType.MySql;
-                        }
-                        else if (providerName.Equals(EDBConnectionType.PostgreSQL.ToString(), StringComparison.OrdinalIgnoreCase))
-                        {
-                            connectionType = EDBConnectionType.PostgreSQL;
-                        }
-                        connectionDic.Add(connectionType, new ConfigDBConnection
-                        {
-                            ProviderName = providerName,
+							DBConnectionType = connectionType,
+                            SiteName = siteName,
                             ConnectionStr = item.GetValue<string>("ConnectionStr")
                         });
                     }
@@ -69,7 +61,7 @@ namespace WebApplication1.Helper
                 });
             }
 
-            return this._DBConnectionDic ?? new Dictionary<EDBConnectionType, ConfigDBConnection>(0);
+            return this._DBConnectionDic ?? new Dictionary<EDBSiteName, ConfigDBConnection>(0);
         }
 
     }

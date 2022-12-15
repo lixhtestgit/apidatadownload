@@ -50,48 +50,48 @@ namespace WebApplication1.Controllers
             this.CheckoutBIZ = checkoutBIZ;
         }
 
-        /// <summary>
-        /// ES搜索弃单支付方式和订单创建，支付相关日志
-        /// api/MeShopCheckout/
-        /// </summary>
-        /// <returns></returns>
-        [Route("")]
-        [HttpGet]
-        public async Task<IActionResult> ESSearchOrderPayType()
-        {
-            string filePath = $@"C:\Users\lixianghong\Desktop\弃单数据_{DateTime.Now.ToString("yyyyMMdd")}.xlsx";
+		/// <summary>
+		/// ES搜索弃单支付方式和订单创建，支付相关日志
+		/// api/MeShopCheckout/
+		/// </summary>
+		/// <returns></returns>
+		[Route("")]
+		[HttpGet]
+		public IActionResult ESSearchOrderPayType()
+		{
+			string filePath = $@"C:\Users\lixianghong\Desktop\弃单数据_{DateTime.Now.ToString("yyyyMMdd")}.xlsx";
 
-            #region 通过手动收集弃单集合
-            //string[] checkoutGuidArray = new string[] {
-            //    "264a57b2-d0c6-4a13-b6d1-9b075f71d074","c14ae090-7e6b-46d7-b94a-57530593475b","e64736e5-95bb-4b78-909f-c35c9c7cfc26"
-            //};
-            //List<CheckoutOrder> dataList = await this.GetESCheckoutOrderList(checkoutGuidArray);
-            #endregion
+			#region 通过手动收集弃单集合
+			//string[] checkoutGuidArray = new string[] {
+			//    "264a57b2-d0c6-4a13-b6d1-9b075f71d074","c14ae090-7e6b-46d7-b94a-57530593475b","e64736e5-95bb-4b78-909f-c35c9c7cfc26"
+			//};
+			//List<CheckoutOrder> dataList = await this.GetESCheckoutOrderList(checkoutGuidArray);
+			#endregion
 
-            #region 通过弃单导出文件收集弃单集合
+			#region 通过弃单导出文件收集弃单集合
 
-            string contentRootPath = this.WebHostEnvironment.ContentRootPath;
-            string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacypayhossted弃单.xlsx";
-            List<CheckoutOrder> dataList = this.ExcelHelper.ReadTitleDataList<CheckoutOrder>(testFilePath, new ExcelFileDescription(0));
+			string contentRootPath = this.WebHostEnvironment.ContentRootPath;
+			string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacypayhossted弃单.xlsx";
+			List<CheckoutOrder> dataList = this.ExcelHelper.ReadTitleDataList<CheckoutOrder>(testFilePath, new ExcelFileDescription(0));
 
-            string payLogFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacyhost.log";
-            this.UpdateOrderPayDataByFile(payLogFilePath, dataList);
-            #endregion
+			string payLogFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacyhost.log";
+			this.UpdateOrderPayDataByFile(payLogFilePath, dataList);
+			#endregion
 
-            IWorkbook workbook = ExcelHelper.CreateOrUpdateWorkbook(dataList);
-            ExcelHelper.SaveWorkbookToFile(workbook, filePath);
+			IWorkbook workbook = ExcelHelper.CreateOrUpdateWorkbook(dataList);
+			ExcelHelper.SaveWorkbookToFile(workbook, filePath);
 
-            this.Logger.LogInformation($"任务结束.");
+			this.Logger.LogInformation($"任务结束.");
 
-            return Ok();
-        }
+			return Ok();
+		}
 
-        /// <summary>
-        /// 获取ES弃单订单列表
-        /// </summary>
-        /// <param name="checkoutGuidArray"></param>
-        /// <returns></returns>
-        public async Task<List<CheckoutOrder>> GetESCheckoutOrderList(params string[] checkoutGuidArray)
+		/// <summary>
+		/// 获取ES弃单订单列表
+		/// </summary>
+		/// <param name="checkoutGuidArray"></param>
+		/// <returns></returns>
+		public async Task<List<CheckoutOrder>> GetESCheckoutOrderList(params string[] checkoutGuidArray)
         {
             List<CheckoutOrder> checkoutOrderList = new List<CheckoutOrder>(checkoutGuidArray.Length);
 

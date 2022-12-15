@@ -131,8 +131,8 @@ namespace WebApplication1.Controllers
                         workbook = ExcelHelper.CreateOrUpdateWorkbook(allDataList);
                         ExcelHelper.SaveWorkbookToFile(workbook, fileName);
                     }
-                    catch (Exception e)
-                    {
+                    catch (Exception)
+					{
                         fileName += "_未完成";
                         workbook = ExcelHelper.CreateOrUpdateWorkbook(allDataList);
                         ExcelHelper.SaveWorkbookToFile(workbook, fileName);

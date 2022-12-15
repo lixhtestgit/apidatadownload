@@ -9,9 +9,9 @@ namespace WebApplication1.DB.Extend
     public class ClassMapperAttribute : System.Attribute
     {
         /// <summary>
-        /// 数据库类型
+        /// 站点名称
         /// </summary>
-        public EDBConnectionType DBConnectionType { get; set; }
+        public EDBSiteName SiteName { get; set; }
         /// <summary>
         /// 数据库表的架构
         /// </summary>
@@ -21,15 +21,15 @@ namespace WebApplication1.DB.Extend
         /// </summary>
         public string TableName { get; set; }
 
-        /// <summary>
-        /// 构造
-        /// </summary>
-        /// <param name="eDBConnectionType"></param>
-        /// <param name="schemaName"></param>
-        /// <param name="tableName"></param>
-        public ClassMapperAttribute(EDBConnectionType eDBConnectionType, string schemaName = null, string tableName = null)
+		/// <summary>
+		/// 构造
+		/// </summary>
+		/// <param name="siteName"></param>
+		/// <param name="schemaName"></param>
+		/// <param name="tableName"></param>
+		public ClassMapperAttribute(EDBSiteName siteName, string schemaName = null, string tableName = null)
         {
-            DBConnectionType = eDBConnectionType;
+			SiteName = siteName;
             SchemaName = schemaName;
             TableName = tableName;
         }

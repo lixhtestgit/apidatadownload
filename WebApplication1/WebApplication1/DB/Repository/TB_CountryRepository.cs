@@ -24,7 +24,7 @@ namespace WebApplication1.DB.Repository
 		/// <returns></returns>
 		public async Task<List<TB_Country>> GetModelAll()
 		{
-			List<TB_Country> dataList = await base.Select(EDBConnectionType.SqlServer);
+			List<TB_Country> dataList = await base.Select(EDBSiteName.CMS);
 
 			return dataList;
 		}

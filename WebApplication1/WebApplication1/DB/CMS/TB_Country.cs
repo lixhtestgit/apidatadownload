@@ -3,7 +3,7 @@ using WebApplication1.Enum;
 
 namespace WebApplication1.DB.CMS
 {
-	[ClassMapper(EDBConnectionType.SqlServer, "dbo", "TB_Country")]
+	[ClassMapper(EDBSiteName.CMS, "dbo", "TB_Country")]
 	public class TB_Country
 	{
 		[PropertyMapper]

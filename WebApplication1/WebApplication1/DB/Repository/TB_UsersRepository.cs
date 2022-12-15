@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Policy;
 using System.Threading.Tasks;
 using WebApplication1.DB.Base;
 using WebApplication1.DB.CMS;
@@ -18,20 +17,21 @@ namespace WebApplication1.DB.Repository
 
 		public async Task<int> GetMaxID(int siteID)
 		{
-			int data = (int)await base.ExecuteScalar(EDBConnectionType.SqlServer, $"SELECT MAX(ID) from dbo.TB_Users WHERE SiteID={siteID}", null);
+			int data = (int)await base.ExecuteScalar(EDBSiteName.CMS, $"SELECT MAX(ID) from dbo.TB_Users WHERE SiteID={siteID}", null);
 
 			return data;
 		}
 
 		public async Task<TB_Users> GetModelByID(int siteID, int userID)
 		{
-			List<TB_Users> dataList = await base.Select(EDBConnectionType.SqlServer, m => m.SiteID == siteID && m.ID == userID);
+			List<TB_Users> dataList = await base.Select(EDBSiteName.CMS, m => m.SiteID == siteID && m.ID == userID);
 
 			return dataList.FirstOrDefault();
 		}
+
 		public async Task<TB_Users> GetModelByEmail(int siteID, string userEmail)
 		{
-			List<TB_Users> dataList = await base.Select(EDBConnectionType.SqlServer, m => m.SiteID == siteID && m.Email == userEmail);
+			List<TB_Users> dataList = await base.Select(EDBSiteName.CMS, m => m.SiteID == siteID && m.Email == userEmail);
 
 			return dataList.FirstOrDefault();
 		}
@@ -44,7 +44,7 @@ namespace WebApplication1.DB.Repository
 		/// <returns></returns>
 		public async Task<List<TB_Users>> GetModelBySiteIDAndLastLoginDate(int siteID, DateTime lastLoginDate)
 		{
-			List<TB_Users> dataList = await base.Select(EDBConnectionType.SqlServer, m => m.SiteID == siteID && m.LastLoginDate > Convert.ToDateTime("2022-09-01"));
+			List<TB_Users> dataList = await base.Select(EDBSiteName.CMS, m => m.SiteID == siteID && m.LastLoginDate > Convert.ToDateTime("2022-09-01"));
 
 			return dataList;
 		}
@@ -56,20 +56,23 @@ namespace WebApplication1.DB.Repository
 		/// <returns></returns>
 		public async Task<List<TB_Users>> GetModelBySiteIDAndHaveOrder(int siteID)
 		{
-			List<TB_Users> dataList = await base.QueryAsync<TB_Users>(EDBConnectionType.SqlServer, $"SELECT * FROM dbo.TB_Users WHERE SiteID={siteID} AND ID IN (SELECT UserID FROM dbo.TB_Order WHERE SiteID={siteID}");
+			List<TB_Users> dataList = await base.QueryAsync<TB_Users>(EDBSiteName.CMS, $"SELECT * FROM dbo.TB_Users WHERE SiteID={siteID} AND ID IN (SELECT UserID FROM dbo.TB_Order WHERE SiteID={siteID}");
 
 			return dataList;
 		}
 
-		public async Task<List<TB_Users>> SyncUsers(int siteID)
+		/// <summary>
+		/// 获取同步用户
+		/// </summary>
+		/// <param name="siteID"></param>
+		/// <returns></returns>
+		public async Task<List<TB_Users>> GetSyncUsers(int siteID)
 		{
-			List<TB_Users> dataList = await base.QueryAsync<TB_Users>(EDBConnectionType.SqlServer, 
-				@$"SELECT Email FROM dbo.TB_Users WHERE SiteID={siteID} 
-					AND ID IN (
-						SELECT MAX(ID) AS UserID FROM dbo.TB_Users WHERE SiteID={siteID} 
-							AND (LastLoginDate>'2022-10-01' OR ID IN (SELECT UserID FROM dbo.TB_Order WHERE SiteID={siteID})
-						) GROUP BY Email
-					)");
+			List<TB_Users> dataList = await base.QueryAsync<TB_Users>(EDBSiteName.CMS, 
+				@$"SELECT ID,Email,RegDate FROM dbo.TB_Users WHERE SiteID={siteID} 
+				AND ID IN (
+					SELECT MAX(ID) AS UserID FROM dbo.TB_Users WHERE SiteID={siteID} GROUP BY Email
+				)");
 			return dataList;
 		}
 
