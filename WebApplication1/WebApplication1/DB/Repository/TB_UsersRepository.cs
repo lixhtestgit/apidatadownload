@@ -69,7 +69,8 @@ namespace WebApplication1.DB.Repository
 		public async Task<List<TB_Users>> GetSyncUsers(int siteID)
 		{
 			List<TB_Users> dataList = await base.QueryAsync<TB_Users>(EDBSiteName.CMS, 
-				@$"SELECT ID,Email,RegDate FROM dbo.TB_Users WHERE SiteID={siteID} 
+				@$"SELECT ID+100000 as ID,Email,RegDate FROM dbo.TB_Users WHERE SiteID={siteID} 
+				AND RegDate>'2022-12-15 16:55:13'
 				AND ID IN (
 					SELECT MAX(ID) AS UserID FROM dbo.TB_Users WHERE SiteID={siteID} GROUP BY Email
 				)");

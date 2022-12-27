@@ -103,9 +103,18 @@ namespace WebApplication1.Helper
 			int result = 0;
 
 			Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
-			var syncResult = await this.PayHttpClient.Post($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql", syncSql, authDic, "text/plain");
+			var syncResult = await this.PayHttpClient.Post($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=1", syncSql, authDic, "text/plain");
 
 			result = Convert.ToInt32(syncResult.Item2);
+			return result;
+		}
+
+		public async Task<JArray> SelectUserToShop(string hostAdmin, string syncSql)
+		{
+			Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
+			var syncResult = await this.PayHttpClient.Post($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=0", syncSql, authDic, "text/plain");
+
+			JArray result = JArray.Parse(syncResult.Item2);
 			return result;
 		}
 	}

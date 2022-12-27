@@ -283,8 +283,8 @@ namespace WebApplication1.Controllers
 
 			Dictionary<int, string> syncSiteDic = new Dictionary<int, string>
 			{
-				{1,"tbdressshop" },
-				{11,"ericdressfashion" },
+				//{11,"ericdressfashion" },
+				//{1,"tbdressshop" },
 				{3,"wigsbuyshop" }
 			};
 
