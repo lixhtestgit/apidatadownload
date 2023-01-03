@@ -50,48 +50,105 @@ namespace WebApplication1.Controllers
             this.CheckoutBIZ = checkoutBIZ;
         }
 
-		/// <summary>
-		/// ES搜索弃单支付方式和订单创建，支付相关日志
-		/// api/MeShopCheckout/
+        /// <summary>
+        /// ES搜索弃单支付方式和订单创建，支付相关日志
+        /// api/MeShopCheckout/
+        /// </summary>
+        /// <returns></returns>
+        [Route("")]
+        [HttpGet]
+        public IActionResult ESSearchOrderPayType()
+        {
+            string filePath = $@"C:\Users\lixianghong\Desktop\弃单数据_{DateTime.Now.ToString("yyyyMMdd")}.xlsx";
+
+            #region 通过手动收集弃单集合
+            //string[] checkoutGuidArray = new string[] {
+            //    "264a57b2-d0c6-4a13-b6d1-9b075f71d074","c14ae090-7e6b-46d7-b94a-57530593475b","e64736e5-95bb-4b78-909f-c35c9c7cfc26"
+            //};
+            //List<CheckoutOrder> dataList = await this.GetESCheckoutOrderList(checkoutGuidArray);
+            #endregion
+
+            #region 通过弃单导出文件收集弃单集合
+
+            string contentRootPath = this.WebHostEnvironment.ContentRootPath;
+            string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacypayhossted弃单.xlsx";
+            List<CheckoutOrder> dataList = this.ExcelHelper.ReadTitleDataList<CheckoutOrder>(testFilePath, new ExcelFileDescription(0));
+
+            string payLogFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacyhost.log";
+            this.UpdateOrderPayDataByFile(payLogFilePath, dataList);
+            #endregion
+
+            IWorkbook workbook = ExcelHelper.CreateOrUpdateWorkbook(dataList);
+            ExcelHelper.SaveWorkbookToFile(workbook, filePath);
+
+            this.Logger.LogInformation($"任务结束.");
+
+            return Ok();
+        }
+
+        /// <summary>
+		/// ES获取店铺域名URL请求分类统计
+		/// api/MeShopCheckout/test
 		/// </summary>
 		/// <returns></returns>
-		[Route("")]
-		[HttpGet]
-		public IActionResult ESSearchOrderPayType()
-		{
-			string filePath = $@"C:\Users\lixianghong\Desktop\弃单数据_{DateTime.Now.ToString("yyyyMMdd")}.xlsx";
+		[Route("test")]
+        [HttpGet]
+        public async Task<IActionResult> Test()
+        {
+            string dataFilter = @"[
+            {
+                ""multi_match"": {
+                    ""type"": ""best_fields"",
+                    ""query"": ""cbeht.top"",
+                    ""lenient"": true
+                }
+            },
+            {
+                ""multi_match"": {
+                    ""type"": ""phrase"",
+                    ""query"": ""meshop-8c2d5e72-meshop-shop-5555"",
+                    ""lenient"": true
+                }
+            }
+        ]";
 
-			#region 通过手动收集弃单集合
-			//string[] checkoutGuidArray = new string[] {
-			//    "264a57b2-d0c6-4a13-b6d1-9b075f71d074","c14ae090-7e6b-46d7-b94a-57530593475b","e64736e5-95bb-4b78-909f-c35c9c7cfc26"
-			//};
-			//List<CheckoutOrder> dataList = await this.GetESCheckoutOrderList(checkoutGuidArray);
-			#endregion
+            List<ESLog> esLogList = await this.ESSearchHelper.GetESNginxLogList($"xxx", "meshopstore.com", dataFilter, 1, log =>
+            {
+                return "1";
+            });
 
-			#region 通过弃单导出文件收集弃单集合
+            Dictionary<string, int> nginxPageUrlCountDic = new Dictionary<string, int>(1000);
 
-			string contentRootPath = this.WebHostEnvironment.ContentRootPath;
-			string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacypayhossted弃单.xlsx";
-			List<CheckoutOrder> dataList = this.ExcelHelper.ReadTitleDataList<CheckoutOrder>(testFilePath, new ExcelFileDescription(0));
+            Regex payUrlRegex = new Regex("(?<=\"(POST|GET){1}\\s+)[^\\s]+(?=\\s+)", RegexOptions.IgnoreCase);
 
-			string payLogFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacyhost.log";
-			this.UpdateOrderPayDataByFile(payLogFilePath, dataList);
-			#endregion
+            foreach (ESLog item in esLogList)
+            {
+                string pagUrl = payUrlRegex.Match(item.Log).Value;
+                if (pagUrl.IsNotNullOrEmpty())
+                {
+                    if (nginxPageUrlCountDic.ContainsKey(pagUrl))
+                    {
+                        nginxPageUrlCountDic[pagUrl]++;
+                    }
+                    else
+                    {
+                        nginxPageUrlCountDic.Add(pagUrl, 1);
+                    }
+                }
+            }
+            var showSortArray = nginxPageUrlCountDic.OrderByDescending(m => m.Value).ToArray();
 
-			IWorkbook workbook = ExcelHelper.CreateOrUpdateWorkbook(dataList);
-			ExcelHelper.SaveWorkbookToFile(workbook, filePath);
+            this.Logger.LogInformation($"任务结束.");
 
-			this.Logger.LogInformation($"任务结束.");
+            return Ok();
+        }
 
-			return Ok();
-		}
-
-		/// <summary>
-		/// 获取ES弃单订单列表
-		/// </summary>
-		/// <param name="checkoutGuidArray"></param>
-		/// <returns></returns>
-		public async Task<List<CheckoutOrder>> GetESCheckoutOrderList(params string[] checkoutGuidArray)
+        /// <summary>
+        /// 获取ES弃单订单列表
+        /// </summary>
+        /// <param name="checkoutGuidArray"></param>
+        /// <returns></returns>
+        public async Task<List<CheckoutOrder>> GetESCheckoutOrderList(params string[] checkoutGuidArray)
         {
             List<CheckoutOrder> checkoutOrderList = new List<CheckoutOrder>(checkoutGuidArray.Length);
 
@@ -103,17 +160,17 @@ namespace WebApplication1.Controllers
             {
                 if (checkoutGuid.IsNotNullOrEmpty())
                 {
-					CheckoutOrder checkoutOrder = new CheckoutOrder
-					{
-						CheckoutGuid = checkoutGuid
-					};
+                    CheckoutOrder checkoutOrder = new CheckoutOrder
+                    {
+                        CheckoutGuid = checkoutGuid
+                    };
 
-					//查询支付方式
-					await this.UpdateOrderPayDataByES(totalCount, position, checkoutOrder, days);
+                    //查询支付方式
+                    await this.UpdateOrderPayDataByES(totalCount, position, checkoutOrder, days);
 
-					checkoutOrderList.Add(checkoutOrder);
-				}
-                
+                    checkoutOrderList.Add(checkoutOrder);
+                }
+
                 position++;
             }
 
@@ -387,10 +444,10 @@ namespace WebApplication1.Controllers
         /// <returns></returns>
         private void UpdateOrderPayDataByFile(string filePath, List<CheckoutOrder> modelList)
         {
-			modelList.RemoveAll(m=>m.CheckoutGuid.IsNullOrEmpty());
+            modelList.RemoveAll(m => m.CheckoutGuid.IsNullOrEmpty());
 
 
-			string lineText = null;
+            string lineText = null;
             int linePosition = 0;
             Dictionary<string, CheckoutOrder> checkoutOrderDic = new Dictionary<string, CheckoutOrder>(modelList.Count);
             foreach (CheckoutOrder item in modelList)

@@ -259,15 +259,34 @@ namespace WebApplication1.Controllers
 				syncTaskList2.RemoveAll(x => x.IsCompleted == true);
 			} while (allIsSync2 == false || waitObjIndex2 < orderObjTotalCount2);
 
-			#endregion
+            #endregion
 
-			#region 需求3
+            #region 需求3
 
-			//执行SQL查询数据整理到Excel中：由于财务统计时间维度不统一，这里不再提供数据统计数据，由使用方自主决定，这里只固定数据源
+            //执行SQL查询数据整理到Excel中：
+            var huizongSQL = @"
+            SELECT ID, Name,
+            (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-09-01' AND AddTime<'2022-10-01')[9月美金汇总]
+            FROM TB_Site where ID IN(6546, 6691, 6738, 6903, 6938, 6983, 7027, 7203, 7204, 7207, 7211, 7224)
+            ORDER BY ID
+            ";
 
-			#endregion
+            var xiangqingSQL = @"
+            select o.SiteID[站点ID],
+                (SELECT s.Name FROM dbo.TB_Site s WHERE s.ID=o.SiteID)[站点名称],
+                ID[订单ID],AddTime[创建时间],o.CurrencyName[币种名称],
+                CASE WHEN o.CurrencyPrice IS NULL OR o.CurrencyPrice<=0 THEN o.Price_PreCount1 ELSE o.CurrencyPrice END[多币种金额],
+                o.Price_PreCount1[美金金额],
+                o.OriginSiteID[原始站点ID],o.OriginID[原始订单ID]
+            from dbo.TJ_TB_Order o 
+            WHERE AddTime>='2022-09-01' and AddTime<'2022-10-01' 
+            AND o.SiteID IN (6546,6691,6738,6903,6938,6983,7027,7203,7204,7207,7211,7224)
+            ORDER by AddTime
+            ";
 
-			this._logger.LogInformation("订单处理完成！");
+            #endregion
+
+            this._logger.LogInformation("订单处理完成！");
 		}
 
 
