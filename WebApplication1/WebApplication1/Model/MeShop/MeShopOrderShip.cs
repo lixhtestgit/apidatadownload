@@ -2,12 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace WebApplication1.Model
+namespace WebApplication1.Model.MeShop
 {
     /// <summary>
     /// 订单发货类
     /// </summary>
-    public class OrderShip
+    public class MeShopOrderShip
     {
         [ExcelTitle("订单号")]
         public string OrderID { get; set; }
@@ -17,11 +17,11 @@ namespace WebApplication1.Model
         {
             get
             {
-                if (this.FreightNameList == null || this.FreightNameList.Count == 0)
+                if (FreightNameList == null || FreightNameList.Count == 0)
                 {
                     return "无";
                 }
-                return string.Join(",", this.FreightNameList.Distinct());
+                return string.Join(",", FreightNameList.Distinct());
             }
         }
 
