@@ -86,21 +86,29 @@ namespace WebApplication1.Controllers
         [HttpGet]
         public async Task SendOrderShipToMeShop()
         {
+            string hostAdmin = "netstore";
             string contentRootPath = this.WebHostEnvironment.ContentRootPath;
             string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\netstore发货数据导入.xlsx";
 
+            //获取Excel发货订单数据
             List<ExcelOrderShip> allOrderShipList = this.ExcelHelper.ReadTitleDataList<ExcelOrderShip>(testFilePath, new ExcelFileDescription(0));
             long[] orderIDS = allOrderShipList.Select(m => m.OrderID).Distinct().ToArray();
+
+            //过滤已发货订单
+            List<MeShopOrder> meshopOrderList = await this.MeShopHelper.GetOrderList(hostAdmin, orderIDS);
+            long[] hadShipedOrders = meshopOrderList.FindAll(m => m.ShipState > 0).Select(m => m.ID).Distinct().ToArray();
+            allOrderShipList.RemoveAll(m => hadShipedOrders.Contains(m.OrderID));
+            orderIDS = allOrderShipList.Select(m => m.OrderID).Distinct().ToArray();
 
             List<ExcelOrderShip> orderShipList = null;
             int orderIDIndex = 0;
             foreach (var orderID in orderIDS)
             {
                 orderIDIndex++;
-                if (orderIDIndex < 130)
-                {
-                    continue;
-                }
+                //if (orderIDIndex < 130)
+                //{
+                //    continue;
+                //}
                 orderShipList = allOrderShipList.FindAll(m => m.OrderID == orderID);
 
                 JObject orderShipItemJObj = new JObject();
@@ -118,7 +126,7 @@ namespace WebApplication1.Controllers
                     OrderItemCounts = orderShipItemJObj
                 };
 
-                int syncResult = await this.MeShopHelper.SyncOrderShipToShop("netstore", JsonConvert.SerializeObject(orderShipBody));
+                int syncResult = await this.MeShopHelper.SyncOrderShipToShop(hostAdmin, JsonConvert.SerializeObject(orderShipBody));
                 if (syncResult <= 0)
                 {
                     this.Logger.LogInformation($"同步{orderIDIndex}/{orderIDS.Length}个订单发货记录...失败.");
@@ -143,7 +151,7 @@ namespace WebApplication1.Controllers
                 ShipState = new { value = new int[] { 1, 2 } },
                 pager = new { PageNumber = 1, PageSize = 20000 }
             });
-            var shipOrderResult = await this.PayHttpClient.Post(shipOrderUrl, shipOrderPostData, headDic);
+            var shipOrderResult = await this.PayHttpClient.PostJson(shipOrderUrl, shipOrderPostData, headDic);
 
             JArray shipOrderJArray = JObject.Parse(shipOrderResult.Item2).SelectToken("data.Results").ToObject<JArray>() ?? new JArray();
             List<MeShopOrderShip> orderShipList = new List<MeShopOrderShip>(shipOrderJArray.Count);
@@ -155,7 +163,7 @@ namespace WebApplication1.Controllers
                 orderID = itemJObj.SelectToken("ID").ToObject<string>();
                 orderDetailUrl = orderDetailBaseUrl.Replace("{orderID}", orderID);
 
-                var orderDetailResult = await this.PayHttpClient.Post(orderDetailUrl, "", headDic);
+                var orderDetailResult = await this.PayHttpClient.PostJson(orderDetailUrl, "", headDic);
                 JArray orderItemListJArray = JObject.Parse(orderDetailResult.Item2).SelectToken("data.OrderItemList").ToObject<JArray>();
                 orderShipList.Add(new MeShopOrderShip
                 {

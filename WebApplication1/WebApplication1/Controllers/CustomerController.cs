@@ -84,7 +84,7 @@ namespace WebApplication1.Controllers
                     List<Customer> allDataList = ExcelHelper.ReadTitleDataList<Customer>(fileName + "_未完成", new ExcelFileDescription());
                     try
                     {
-                        var getPageResult = await this.PayHttpClient.Post(dataListUrl, new Dictionary<string, string>
+                        var getPageResult = await this.PayHttpClient.PostForm(dataListUrl, new Dictionary<string, string>
                         {
                             {"_search","false" },
                             {"nd","1651849194124" },
@@ -215,7 +215,7 @@ namespace WebApplication1.Controllers
 
         public async Task<List<Customer>> GetPageCustomerList(string listUrl, int pageSize, int page)
         {
-            var currentPageList = await this.PayHttpClient.Post(listUrl, new Dictionary<string, string>
+            var currentPageList = await this.PayHttpClient.PostForm(listUrl, new Dictionary<string, string>
             {
                 {"_search","false" },
                 {"nd","1651849194124" },

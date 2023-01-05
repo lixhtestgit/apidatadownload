@@ -4,7 +4,7 @@
     "WebApplication1": {
       "commandName": "Project",
       "launchBrowser": true,
-      "launchUrl": "",
+      "launchUrl": "api/OrderShip/SendOrderShipToMeShop",
       //api/PayNotify/PayCompanyOrderSync
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"

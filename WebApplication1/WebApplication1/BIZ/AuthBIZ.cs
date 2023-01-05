@@ -37,7 +37,7 @@ namespace WebApplication1.BIZ
                 {"password",password },
                 {"shopUrl", shopName}
             };
-            var authResult = await this.PayHttpClient.Post(ssoLoginUrl, formDic, null);
+            var authResult = await this.PayHttpClient.PostForm(ssoLoginUrl, formDic, null);
 
             ShopAuth shopAuth = JsonConvert.DeserializeObject<ShopAuth>(authResult.Item2);
 

@@ -74,7 +74,7 @@ namespace WebApplication1.Helper
             {
                 {"kbn-xsrf", "true" }
             };
-            string responseResult2 = (await this.PayHttpClient.Post(postUrl, body, headerDict: postHeaderDic)).Item2;
+            string responseResult2 = (await this.PayHttpClient.PostJson(postUrl, body, headerDict: postHeaderDic)).Item2;
             JArray hitJArray = JObject.Parse(responseResult2).SelectToken("hits.hits")?.ToObject<JArray>();
             foreach (JObject item in hitJArray)
             {
@@ -161,7 +161,7 @@ namespace WebApplication1.Helper
             {
                 {"kbn-xsrf", "true" }
             };
-            string responseResult2 = (await this.PayHttpClient.Post(postUrl, body, headerDict: postHeaderDic)).Item2;
+            string responseResult2 = (await this.PayHttpClient.PostJson(postUrl, body, headerDict: postHeaderDic)).Item2;
             JArray hitJArray = JObject.Parse(responseResult2).SelectToken("hits.hits")?.ToObject<JArray>();
             foreach (JObject item in hitJArray)
             {

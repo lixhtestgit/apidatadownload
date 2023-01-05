@@ -75,7 +75,7 @@ namespace WebApplication1.BIZ
                     };
                 }
                 string shipOrderPostData = JsonConvert.SerializeObject(filter);
-                var shipOrderResult = await this.PayHttpClient.Post(checkoutListUrl, shipOrderPostData, headDic);
+                var shipOrderResult = await this.PayHttpClient.PostJson(checkoutListUrl, shipOrderPostData, headDic);
 
                 JArray checkoutOrderJArray = JObject.Parse(shipOrderResult.Item2).SelectToken("data.Results").ToObject<JArray>() ?? new JArray();
                 List<CheckoutOrder> checkoutOrderList = new List<CheckoutOrder>(checkoutOrderJArray.Count);
