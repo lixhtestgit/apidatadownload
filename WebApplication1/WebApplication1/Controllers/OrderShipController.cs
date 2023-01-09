@@ -105,10 +105,10 @@ namespace WebApplication1.Controllers
             foreach (var orderID in orderIDS)
             {
                 orderIDIndex++;
-                //if (orderIDIndex < 130)
-                //{
-                //    continue;
-                //}
+                if (orderIDIndex <= 0)
+                {
+                    continue;
+                }
                 orderShipList = allOrderShipList.FindAll(m => m.OrderID == orderID);
 
                 JObject orderShipItemJObj = new JObject();
