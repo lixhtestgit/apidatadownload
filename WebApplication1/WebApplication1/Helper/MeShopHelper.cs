@@ -36,7 +36,9 @@ namespace WebApplication1.Helper
         /// </summary>
         public Dictionary<string, dynamic> ShopApiV1AuthUserDic = new Dictionary<string, dynamic>
         {
-            {"netstore", new { Email = "chenfei@meshop.net", Password = "Store78sp9" } }
+            {"netstore", new { Email = "chenfei@meshop.net", Password = "Store78sp9" } },
+            {"wigsbuyshop", new { Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
+            {"janewigshop", new { Email = "chenfei@meshop.net", Password = "Meshop0823" } }
         };
 
         /// <summary>
@@ -170,13 +172,13 @@ namespace WebApplication1.Helper
             return result;
         }
 
-        public async Task<JArray> SelectUserToShop(string hostAdmin, string syncSql)
+        public async Task<List<T>> SelectDataToShop<T>(string hostAdmin, string syncSql)
         {
             Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
             var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=0", syncSql, authDic, "text/plain");
 
-            JArray result = JArray.Parse(syncResult.Item2);
-            return result;
+            List<T> tList = JArray.Parse(syncResult.Item2).ToObject<List<T>>();
+            return tList ?? new List<T>(0);
         }
 
         /// <summary>
