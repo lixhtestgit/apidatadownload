@@ -42,7 +42,7 @@ namespace WebApplication1.Controllers
         }
 
         /// <summary>
-        /// MeShopSku复制
+        /// MeShopSku价格复制
         /// api/MeShopSku/MeShopSkuCopy
         /// </summary>
         /// <returns></returns>
