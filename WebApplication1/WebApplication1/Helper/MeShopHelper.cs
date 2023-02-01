@@ -37,6 +37,8 @@ namespace WebApplication1.Helper
         public Dictionary<string, dynamic> ShopApiV1AuthUserDic = new Dictionary<string, dynamic>
         {
             {"netstore", new { Email = "chenfei@meshop.net", Password = "Store78sp9" } },
+            {"tbdressshop", new { Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
+            {"shoespieshop", new { Email = "chenfei@meshop.net", Password = "Meshop0823" } },
             {"wigsbuyshop", new { Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
             {"janewigshop", new { Email = "chenfei@meshop.net", Password = "Meshop0823" } }
         };

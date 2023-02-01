@@ -8,6 +8,7 @@ using Newtonsoft.Json.Linq;
 using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -86,56 +87,68 @@ namespace WebApplication1.Controllers
         [HttpGet]
         public async Task SendOrderShipToMeShop()
         {
-            string hostAdmin = "netstore";
             string contentRootPath = this.WebHostEnvironment.ContentRootPath;
-            string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\netstore发货数据导入.xlsx";
+            string waitSyncShipDirectoryPath = $@"{contentRootPath}\示例测试目录\订单发货专用文件夹";
+            string[] waitSyncShipFiles = Directory.GetFiles(waitSyncShipDirectoryPath);
 
-            //获取Excel发货订单数据
-            List<ExcelOrderShip> allOrderShipList = this.ExcelHelper.ReadTitleDataList<ExcelOrderShip>(testFilePath, new ExcelFileDescription(0));
-            long[] orderIDS = allOrderShipList.Select(m => m.OrderID).Distinct().ToArray();
+            int syncFilePosition = 0;
+            int syncTotalFileCount = waitSyncShipFiles.Length;
 
-            //过滤已发货订单
-            List<MeShopOrder> meshopOrderList = await this.MeShopHelper.GetOrderList(hostAdmin, orderIDS);
-            long[] hadShipedOrders = meshopOrderList.FindAll(m => m.ShipState > 0).Select(m => m.ID).Distinct().ToArray();
-            allOrderShipList.RemoveAll(m => hadShipedOrders.Contains(m.OrderID));
-            orderIDS = allOrderShipList.Select(m => m.OrderID).Distinct().ToArray();
-
-            List<ExcelOrderShip> orderShipList = null;
-            int orderIDIndex = 0;
-            foreach (var orderID in orderIDS)
+            foreach (var waitSyncShipFilePath in waitSyncShipFiles)
             {
-                orderIDIndex++;
-                if (orderIDIndex <= 0)
-                {
-                    continue;
-                }
-                orderShipList = allOrderShipList.FindAll(m => m.OrderID == orderID);
+                syncFilePosition++;
 
-                JObject orderShipItemJObj = new JObject();
-                foreach (var orderShip in orderShipList)
-                {
-                    orderShipItemJObj.Add(orderShip.OrderItemID.ToString(), orderShip.OrderItemProductCount);
-                }
+                ExcelOrderShipFile currentFile = this.ExcelHelper.ReadCellData<ExcelOrderShipFile>(waitSyncShipFilePath);
+                string hostAdmin = currentFile.ShopUrl.Replace(" ", "").Replace("https://", "").Split('.')[0];
 
-                dynamic orderShipBody = new
-                {
-                    orderID = orderID,
-                    ShipNumber = orderShipList[0].ShipNo,
-                    ShipUrl = orderShipList[0].ShipNoSearchWebsite,
-                    FreightName = orderShipList[0].FreightName,
-                    OrderItemCounts = orderShipItemJObj
-                };
+                //获取Excel发货订单数据
+                List<ExcelOrderShip> allOrderShipList = this.ExcelHelper.ReadTitleDataList<ExcelOrderShip>(waitSyncShipFilePath, new ExcelFileDescription(1));
+                long[] orderIDS = allOrderShipList.Select(m => m.OrderID).Distinct().ToArray();
 
-                int syncResult = await this.MeShopHelper.SyncOrderShipToShop(hostAdmin, JsonConvert.SerializeObject(orderShipBody));
-                if (syncResult <= 0)
+                //过滤已发货订单
+                List<MeShopOrder> meshopOrderList = await this.MeShopHelper.GetOrderList(hostAdmin, orderIDS);
+                long[] hadShipedOrders = meshopOrderList.FindAll(m => m.ShipState > 0).Select(m => m.ID).Distinct().ToArray();
+                allOrderShipList.RemoveAll(m => hadShipedOrders.Contains(m.OrderID));
+                orderIDS = allOrderShipList.Select(m => m.OrderID).Distinct().ToArray();
+
+                List<ExcelOrderShip> orderShipList = null;
+                int orderIDIndex = 0;
+                foreach (var orderID in orderIDS)
                 {
-                    this.Logger.LogInformation($"同步{orderIDIndex}/{orderIDS.Length}个订单发货记录...失败.");
-                }
-                else
-                {
-                    this.Logger.LogInformation($"已同步{orderIDIndex}/{orderIDS.Length}个订单发货记录...");
+                    orderIDIndex++;
+                    if (orderIDIndex <= 0)
+                    {
+                        continue;
+                    }
+                    orderShipList = allOrderShipList.FindAll(m => m.OrderID == orderID);
+
+                    JObject orderShipItemJObj = new JObject();
+                    foreach (var orderShip in orderShipList)
+                    {
+                        orderShipItemJObj.Add(orderShip.OrderItemID.ToString(), orderShip.OrderItemProductCount);
+                    }
+
+                    dynamic orderShipBody = new
+                    {
+                        orderID = orderID,
+                        ShipNumber = orderShipList[0].ShipNo,
+                        ShipUrl = orderShipList[0].ShipNoSearchWebsite,
+                        FreightName = orderShipList[0].FreightName,
+                        OrderItemCounts = orderShipItemJObj
+                    };
+
+                    int syncResult = await this.MeShopHelper.SyncOrderShipToShop(hostAdmin, JsonConvert.SerializeObject(orderShipBody));
+                    if (syncResult <= 0)
+                    {
+                        this.Logger.LogInformation($"同步第{syncFilePosition}/{syncTotalFileCount}个文件第{orderIDIndex}/{orderIDS.Length}个订单发货记录...失败.");
+                    }
+                    else
+                    {
+                        this.Logger.LogInformation($"已同步第{syncFilePosition}/{syncTotalFileCount}个文件第{orderIDIndex}/{orderIDS.Length}个订单发货记录...");
+                    }
                 }
             }
+            this.Logger.LogInformation($"同步结束.");
         }
 
         /// <summary>
