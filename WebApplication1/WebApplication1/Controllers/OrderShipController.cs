@@ -137,10 +137,19 @@ namespace WebApplication1.Controllers
                         OrderItemCounts = orderShipItemJObj
                     };
 
-                    int syncResult = await this.MeShopHelper.SyncOrderShipToShop(hostAdmin, JsonConvert.SerializeObject(orderShipBody));
+                    //尝试最多10次
+                    int syncResult = 0;
+                    for (int i = 0; i < 10; i++)
+                    {
+                        syncResult = await this.MeShopHelper.SyncOrderShipToShop(hostAdmin, JsonConvert.SerializeObject(orderShipBody));
+                        if (syncResult > 0)
+                        {
+                            break;
+                        }
+                    }
                     if (syncResult <= 0)
                     {
-                        this.Logger.LogInformation($"同步第{syncFilePosition}/{syncTotalFileCount}个文件第{orderIDIndex}/{orderIDS.Length}个订单发货记录...失败.");
+                        this.Logger.LogInformation($"同步第{syncFilePosition}/{syncTotalFileCount}个文件第{orderIDIndex}/{orderIDS.Length}个订单发货记录...失败.orderID={orderID}");
                     }
                     else
                     {
