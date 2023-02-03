@@ -7,7 +7,7 @@ namespace WebApplication1.Model.ExcelModel
     /// </summary>
     public class ExcelOrderShip
     {
-        [ExcelTitle("订单号")]
+        [ExcelTitle("订单号", true)]
         public long OrderID { get; set; }
 
         [ExcelTitle("子单号")]

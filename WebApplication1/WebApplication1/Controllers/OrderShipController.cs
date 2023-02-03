@@ -121,38 +121,46 @@ namespace WebApplication1.Controllers
                     }
                     orderShipList = allOrderShipList.FindAll(m => m.OrderID == orderID);
 
-                    JObject orderShipItemJObj = new JObject();
-                    foreach (var orderShip in orderShipList)
+                    try
                     {
-                        orderShipItemJObj.Add(orderShip.OrderItemID.ToString(), orderShip.OrderItemProductCount);
-                    }
-
-                    dynamic orderShipBody = new
-                    {
-                        orderID = orderID,
-                        ShipNumber = orderShipList[0].ShipNo,
-                        ShipUrl = orderShipList[0].ShipNoSearchWebsite,
-                        FreightName = orderShipList[0].FreightName,
-                        OrderItemCounts = orderShipItemJObj
-                    };
-
-                    //尝试最多10次
-                    int syncResult = 0;
-                    for (int i = 0; i < 10; i++)
-                    {
-                        syncResult = await this.MeShopHelper.SyncOrderShipToShop(hostAdmin, JsonConvert.SerializeObject(orderShipBody));
-                        if (syncResult > 0)
+                        JObject orderShipItemJObj = new JObject();
+                        foreach (ExcelOrderShip orderShip in orderShipList)
                         {
-                            break;
+                            orderShipItemJObj.Add(orderShip.OrderItemID.ToString(), orderShip.OrderItemProductCount);
+                        }
+
+                        dynamic orderShipBody = new
+                        {
+                            orderID = orderID,
+                            ShipNumber = orderShipList[0].ShipNo,
+                            ShipUrl = orderShipList[0].ShipNoSearchWebsite,
+                            FreightName = orderShipList[0].FreightName,
+                            OrderItemCounts = orderShipItemJObj
+                        };
+
+                        //尝试最多10次
+                        int syncResult = 0;
+                        for (int i = 0; i < 10; i++)
+                        {
+                            syncResult = await this.MeShopHelper.SyncOrderShipToShop(hostAdmin, JsonConvert.SerializeObject(orderShipBody));
+                            if (syncResult > 0)
+                            {
+                                break;
+                            }
+                        }
+                        if (syncResult <= 0)
+                        {
+                            this.Logger.LogInformation($"同步第{syncFilePosition}/{syncTotalFileCount}个文件第{orderIDIndex}/{orderIDS.Length}个订单发货记录...失败.orderID={orderID}");
+                        }
+                        else
+                        {
+                            this.Logger.LogInformation($"已同步第{syncFilePosition}/{syncTotalFileCount}个文件第{orderIDIndex}/{orderIDS.Length}个订单发货记录...");
                         }
                     }
-                    if (syncResult <= 0)
+                    catch (System.Exception e)
                     {
-                        this.Logger.LogInformation($"同步第{syncFilePosition}/{syncTotalFileCount}个文件第{orderIDIndex}/{orderIDS.Length}个订单发货记录...失败.orderID={orderID}");
-                    }
-                    else
-                    {
-                        this.Logger.LogInformation($"已同步第{syncFilePosition}/{syncTotalFileCount}个文件第{orderIDIndex}/{orderIDS.Length}个订单发货记录...");
+                        this.Logger.LogError(e, $"同步第{syncFilePosition}/{syncTotalFileCount}个文件第{orderIDIndex}/{orderIDS.Length}个订单发货记录失败...");
+                        throw;
                     }
                 }
             }
