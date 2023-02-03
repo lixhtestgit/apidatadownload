@@ -16,7 +16,6 @@ using WebApplication1.BIZ;
 using WebApplication1.Helper;
 using WebApplication1.Model.ExcelModel;
 using WebApplication1.Model.MeShop;
-using WebApplication1.Model.PayNotify;
 
 namespace WebApplication1.Controllers
 {
