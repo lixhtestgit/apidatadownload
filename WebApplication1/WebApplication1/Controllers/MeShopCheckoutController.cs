@@ -1,8 +1,6 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using NPOI.SS.Formula;
-using NPOI.SS.Formula.Functions;
 using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System;
@@ -16,7 +14,6 @@ using System.Threading.Tasks;
 using WebApplication1.BIZ;
 using WebApplication1.Helper;
 using WebApplication1.Model;
-using WebApplication1.Model.PayNotify;
 
 namespace WebApplication1.Controllers
 {
