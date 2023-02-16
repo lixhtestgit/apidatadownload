@@ -226,7 +226,7 @@ namespace WebApplication1.Controllers
 
             foreach (ISheet sheet in sheetList)
             {
-                meshopExcelModelList = this.ExcelHelper.ReadTitleList<MeshopExcelModel>(sheet, new ExcelFileDescription(0));
+                meshopExcelModelList = this.ExcelHelper.ReadTitleDataList<MeshopExcelModel>(sheet, new ExcelFileDescription(0));
 
                 string pageName = sheet.SheetName.Replace("_", "").Replace(" ", "");
 

@@ -3,6 +3,9 @@ using System;
 
 namespace WebApplication1.Model.MeShop
 {
+    /// <summary>
+    /// 主单详情
+    /// </summary>
 	public class MeShopOrderDetail
 	{
         /// <summary>
@@ -32,6 +35,6 @@ namespace WebApplication1.Model.MeShop
         /// <summary>
         /// 子单列表
         /// </summary>
-        public List<MeShopOrderDetail> OrderItemList { get; set; }
+        public List<MeShopOrderItem> OrderItemList { get; set; }
     }
 }

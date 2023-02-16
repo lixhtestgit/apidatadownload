@@ -90,28 +90,31 @@ namespace WebApplication1.Helper
         {
             List<MeShopOrder> dataList = null;
 
-            string postUrl = $"https://{hostAdmin}.meshopstore.com/api/v1/order/getorderlist";
-            dynamic postData = new
+            if (hostAdmin.IsNotNullOrEmpty() && orderIDS.Length > 0)
             {
-                ID = new
+                string postUrl = $"https://{hostAdmin}.meshopstore.com/api/v1/order/getorderlist";
+                dynamic postData = new
                 {
-                    Value = orderIDS
-                },
-                Pager = new
+                    ID = new
+                    {
+                        Value = orderIDS
+                    },
+                    Pager = new
+                    {
+                        PageNumber = 1,
+                        PageSize = orderIDS.Length
+                    }
+                };
+                string postDataStr = JsonConvert.SerializeObject(postData);
+                IDictionary<string, string> authDict = await this.GetAuthDic(hostAdmin);
+
+                var postResult = await this.PayHttpClient.PostJson(postUrl, postDataStr, authDict);
+
+                JObject orderJObject = JObject.Parse(postResult.Item2);
+                if (orderJObject.SelectToken("success").ToObject<bool>())
                 {
-                    PageNumber = 1,
-                    PageSize = orderIDS.Length
+                    dataList = orderJObject.SelectToken("data.Results").ToObject<List<MeShopOrder>>();
                 }
-            };
-            string postDataStr = JsonConvert.SerializeObject(postData);
-            IDictionary<string, string> authDict = await this.GetAuthDic(hostAdmin);
-
-            var postResult = await this.PayHttpClient.PostJson(postUrl, postDataStr, authDict);
-
-            JObject orderJObject = JObject.Parse(postResult.Item2);
-            if (orderJObject.SelectToken("success").ToObject<bool>())
-            {
-                dataList = orderJObject.SelectToken("data.Results").ToObject<List<MeShopOrder>>();
             }
 
             return dataList ?? new List<MeShopOrder>(0);
@@ -127,17 +130,43 @@ namespace WebApplication1.Helper
         {
             MeShopOrderDetail shopOrder = null;
 
-            string orderDetailUrl = $"https://{hostAdmin}.meshopstore.com/api/v1/order/GetOrderDetailPageData?orderID={orderID}";
-            Dictionary<string, string> authDict = await this.GetAuthDic(hostAdmin);
-            var orderDetailResult = await this.PayHttpClient.Get(orderDetailUrl, authDict);
-
-            JObject orderJObject = JObject.Parse(orderDetailResult.Item2);
-            if (orderJObject.SelectToken("success").ToObject<bool>())
+            if (hostAdmin.IsNotNullOrEmpty() && orderID > 0)
             {
-                shopOrder = orderJObject.SelectToken("data").ToObject<MeShopOrderDetail>();
+                string orderDetailUrl = $"https://{hostAdmin}.meshopstore.com/api/v1/order/GetOrderDetailPageData?orderID={orderID}";
+                Dictionary<string, string> authDict = await this.GetAuthDic(hostAdmin);
+                var orderDetailResult = await this.PayHttpClient.Get(orderDetailUrl, authDict);
+
+                JObject orderJObject = JObject.Parse(orderDetailResult.Item2);
+                if (orderJObject.SelectToken("success").ToObject<bool>())
+                {
+                    shopOrder = orderJObject.SelectToken("data").ToObject<MeShopOrderDetail>();
+                }
             }
 
             return shopOrder;
+        }
+
+        /// <summary>
+        /// 获取子单列表
+        /// </summary>
+        /// <param name="hostAdmin"></param>
+        /// <param name="orderIDS"></param>
+        /// <returns></returns>
+        public async Task<List<MeShopOrderItem>> GetOrderItemList(string hostAdmin, params long[] orderIDS)
+        {
+            List<MeShopOrderItem> meShopOrderItemList = null;
+            if (orderIDS.Length > 0)
+            {
+                string postUrl = $"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=0";
+                string postDataStr = $"select * from order_item where orderid in ({string.Join(',', orderIDS)})";
+                IDictionary<string, string> authDict = await this.GetAuthDic(hostAdmin);
+
+                var postResult = await this.PayHttpClient.PostJson(postUrl, postDataStr, authDict, HttpClientExtension.CONTENT_TYPE_TEXT);
+
+                meShopOrderItemList = JsonConvert.DeserializeObject<List<MeShopOrderItem>>(postResult.Item2);
+            }
+
+            return meShopOrderItemList ?? new List<MeShopOrderItem>(0);
         }
 
         /// <summary>
@@ -167,19 +196,28 @@ namespace WebApplication1.Helper
         {
             int result = 0;
 
-            Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
-            var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=1", syncSql, authDic, "text/plain");
+            if (hostAdmin.IsNotNullOrEmpty() && syncSql.IsNotNullOrEmpty())
+            {
+                Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
+                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=1", syncSql, authDic, "text/plain");
 
-            result = Convert.ToInt32(syncResult.Item2);
+                result = Convert.ToInt32(syncResult.Item2);
+            }
+
             return result;
         }
 
         public async Task<List<T>> SelectDataToShop<T>(string hostAdmin, string syncSql)
         {
-            Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
-            var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=0", syncSql, authDic, "text/plain");
+            List<T> tList = null;
+            if (hostAdmin.IsNotNullOrEmpty() && syncSql.IsNotNullOrEmpty())
+            {
+                Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
+                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=0", syncSql, authDic, "text/plain");
 
-            List<T> tList = JArray.Parse(syncResult.Item2).ToObject<List<T>>();
+                tList = JArray.Parse(syncResult.Item2).ToObject<List<T>>();
+            }
+
             return tList ?? new List<T>(0);
         }
 
@@ -187,17 +225,43 @@ namespace WebApplication1.Helper
         /// 同步订单发货记录到MeShop
         /// </summary>
         /// <param name="hostAdmin"></param>
-        /// <param name="syncSql"></param>
+        /// <param name="postData"></param>
         /// <returns></returns>
         public async Task<int> SyncOrderShipToShop(string hostAdmin, string postData)
         {
             int result = 0;
 
-            Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
-            var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/order/SetShipedState", postData, authDic);
+            if (hostAdmin.IsNotNullOrEmpty() && postData.IsNotNullOrEmpty())
+            {
+                Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
+                //部分发货
+                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/order/SetShipedState", postData, authDic);
 
-            result = syncResult.Item1 == System.Net.HttpStatusCode.OK ? 1 : 0;
+                result = syncResult.Item1 == System.Net.HttpStatusCode.OK ? 1 : 0;
+            }
+
             return result;
         }
+
+        /// <summary>
+        /// 执行SQL
+        /// </summary>
+        /// <param name="hostAdmin"></param>
+        /// <param name="sql"></param>
+        /// <returns></returns>
+        public async Task<int> ExecSql(string hostAdmin, string sql)
+        {
+            int count = 0;
+            if (hostAdmin.IsNotNullOrEmpty() && sql.IsNotNullOrEmpty())
+            {
+                Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
+                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=1", sql, authDic, "text/plain");
+
+                count = Convert.ToInt32(syncResult.Item2);
+            }
+
+            return count;
+        }
+
     }
 }

@@ -255,16 +255,15 @@ namespace PPPayReportTools.Excel
         /// 更新模板文件数据：将使用单元格映射的数据T存入模板文件中
         /// </summary>
         /// <param name="filePath">所有的单元格数据列表</param>
+        /// <param name="sheetName">sheet名称</param>
         /// <param name="t">添加了单元格参数映射的数据对象</param>
         /// <returns></returns>
-        public IWorkbook CreateOrUpdateWorkbook<T>(string filePath, T t)
+        public IWorkbook CreateOrUpdateWorkbook<T>(string filePath, string sheetName, T t)
         {
-            //该方法默认替换模板数据在首个sheet里
+            IWorkbook workbook = this.CreateWorkbook(filePath);
+            ISheet worksheet = this.GetSheet(workbook, sheetName);
 
-            IWorkbook workbook = null;
-            CommonCellModelColl commonCellColl = this._ReadCellList(filePath, out workbook);
-
-            ISheet worksheet = workbook.GetSheetAt(0);
+            CommonCellModelColl commonCellColl = this._ReadCellList(worksheet);
 
             //获取t的单元格映射列表
             Dictionary<string, ExcelCellFieldMapper> tParamMapperDic = ExcelCellFieldMapper.GetModelFieldMapper<T>().ToDictionary(m => m.CellParamName);
@@ -348,7 +347,7 @@ namespace PPPayReportTools.Excel
 
         #endregion
 
-        #region 读取Excel数据
+        #region 获取ISheet对象
 
         public List<ISheet> GetSheetList(IWorkbook workbook)
         {
@@ -365,7 +364,27 @@ namespace PPPayReportTools.Excel
             return sheetList;
         }
 
-        public List<T> ReadTitleList<T>(ISheet sheet, ExcelFileDescription excelFileDescription) where T : new()
+        public List<ISheet> GetSheetList(string filePath)
+        {
+            IWorkbook workbook = this.CreateWorkbook(filePath);
+            return this.GetSheetList(workbook);
+        }
+
+        public ISheet GetSheet(IWorkbook workbook, string sheetName = null)
+        {
+            List<ISheet> sheetList = this.GetSheetList(workbook);
+            if (sheetName.IsNotNullOrEmpty())
+            {
+                return sheetList.FirstOrDefault(m => m.SheetName.Equals(sheetName, StringComparison.OrdinalIgnoreCase));
+            }
+            return sheetList.FirstOrDefault();
+        }
+
+        #endregion
+
+        #region 读取Excel数据
+
+        public List<T> ReadTitleDataList<T>(ISheet sheet, ExcelFileDescription excelFileDescription) where T : new()
         {
             List<ExcelTitleFieldMapper> titleMapperList = ExcelTitleFieldMapper.GetModelFieldMapper<T>();
 
@@ -447,46 +466,43 @@ namespace PPPayReportTools.Excel
                     {
                         ICell cell = row.GetCell(titleIndexItem.Key);
 
-                        if (cell != null)
+                        excelTitleFieldMapper = titleIndexItem.Value;
+
+                        //没有数据的单元格默认为null
+                        string cellValue = cell?.ToString() ?? "";
+                        propertyInfo = excelTitleFieldMapper.PropertyInfo;
+                        try
                         {
-                            excelTitleFieldMapper = titleIndexItem.Value;
-
-                            //没有数据的单元格默认为null
-                            string cellValue = cell?.ToString() ?? "";
-                            propertyInfo = excelTitleFieldMapper.PropertyInfo;
-                            try
+                            if (excelTitleFieldMapper.IsCheckContentEmpty)
                             {
-                                if (excelTitleFieldMapper.IsCheckContentEmpty)
+                                if (string.IsNullOrEmpty(cellValue))
                                 {
-                                    if (string.IsNullOrEmpty(cellValue))
-                                    {
-                                        t = default(T);
-                                        break;
-                                    }
+                                    t = default(T);
+                                    break;
                                 }
+                            }
 
-                                if (excelTitleFieldMapper.IsCoordinateExpress || cell.CellType == CellType.Formula)
-                                {
-                                    //读取含有表达式的单元格值
-                                    cellValue = formulaEvaluator.Evaluate(cell).StringValue;
-                                    propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
-                                }
-                                else if (propertyInfo.PropertyType.IsEnum)
-                                {
-                                    object enumObj = propertyInfo.PropertyType.InvokeMember(cellValue, BindingFlags.GetField, null, null, null);
-                                    propertyInfo.SetValue(t, Convert.ChangeType(enumObj, propertyInfo.PropertyType));
-                                }
-                                else
-                                {
-                                    propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
-                                }
+                            if (excelTitleFieldMapper.IsCoordinateExpress || cell?.CellType == CellType.Formula)
+                            {
+                                //读取含有表达式的单元格值
+                                cellValue = formulaEvaluator.Evaluate(cell).StringValue;
+                                propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
                             }
-                            catch (Exception)
-							{
-                                this.Logger.LogDebug($"sheetName_{sheet.SheetName}读取{currentRowIndex + 1}行内容失败！");
-                                t = default(T);
-                                break;
+                            else if (propertyInfo.PropertyType.IsEnum)
+                            {
+                                object enumObj = propertyInfo.PropertyType.InvokeMember(cellValue, BindingFlags.GetField, null, null, null);
+                                propertyInfo.SetValue(t, Convert.ChangeType(enumObj, propertyInfo.PropertyType));
                             }
+                            else
+                            {
+                                propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            this.Logger.LogDebug($"sheetName_{sheet.SheetName}读取{currentRowIndex + 1}行内容失败！");
+                            t = default(T);
+                            break;
                         }
                     }
                     if (t != null)
@@ -693,92 +709,20 @@ namespace PPPayReportTools.Excel
             return tList ?? new List<T>(0);
         }
 
-
-
-        /// <summary>
-        /// 读取文件的所有单元格数据
-        /// </summary>
-        /// <param name="filePath">文件路径</param>
-        /// <returns></returns>
-        public CommonCellModelColl ReadCellList(string filePath)
-        {
-            IWorkbook workbook = null;
-
-            CommonCellModelColl commonCellColl = this._ReadCellList(filePath, out workbook);
-            return commonCellColl;
-        }
-
-        /// <summary>
-        /// 读取文件的所有单元格数据
-        /// </summary>
-        /// <param name="filePath">文件路径</param>
-        /// <returns></returns>
-        public CommonCellModelColl ReadCellList(string filePath, out IWorkbook workbook)
-        {
-            CommonCellModelColl commonCellColl = this._ReadCellList(filePath, out workbook);
-            return commonCellColl;
-        }
-
-        private CommonCellModelColl _ReadCellList(string filePath, out IWorkbook workbook)
-        {
-            CommonCellModelColl commonCellColl = new CommonCellModelColl(10000);
-            CommonCellModel cellModel = null;
-            workbook = null;
-
-            using (FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
-            {
-                try
-                {
-                    workbook = new XSSFWorkbook(fileStream);
-                }
-                catch (Exception)
-                {
-                    workbook = new HSSFWorkbook(fileStream);
-                }
-                var sheet = workbook.GetSheetAt(0);
-
-                var rows = sheet.GetRowEnumerator();
-                List<ICell> cellList = null;
-                ICell cell = null;
-
-                //从第1行数据开始获取
-                while (rows.MoveNext())
-                {
-                    IRow row = (IRow)rows.Current;
-
-                    cellList = row.Cells;
-                    int cellCount = cellList.Count;
-
-                    for (int i = 0; i < cellCount; i++)
-                    {
-                        cell = cellList[i];
-                        cellModel = new CommonCellModel
-                        {
-                            RowIndex = row.RowNum,
-                            ColumnIndex = i,
-                            CellValue = cell.ToString(),
-                            IsCellFormula = cell.CellType == CellType.Formula ? true : false
-                        };
-                        commonCellColl.Add(cellModel);
-                    }
-                }
-            }
-            return commonCellColl;
-        }
-
         /// <summary>
         /// 获取文件单元格数据对象
         /// </summary>
         /// <typeparam name="T">T的属性必须标记了ExcelCellAttribute</typeparam>
         /// <param name="filePath">文建路径</param>
+        /// <param name="sheetName">sheet名称</param>
         /// <returns></returns>
-        public T ReadCellData<T>(string filePath) where T : new()
+        public T ReadCellData<T>(string filePath, string sheetName) where T : new()
         {
             T t = new T();
 
-            this.Logger.LogInformation($"开始读取{filePath}的数据...");
+            this.Logger.LogInformation($"开始读取{filePath},sheet名称{sheetName}的数据...");
 
-            CommonCellModelColl commonCellColl = this.ReadCellList(filePath);
+            CommonCellModelColl commonCellColl = this.ReadCellList(filePath, sheetName);
 
             Dictionary<PropertyInfo, ExcelCellFieldMapper> propertyMapperDic = ExcelCellFieldMapper.GetModelFieldMapper<T>().ToDictionary(m => m.PropertyInfo);
             string cellExpress = null;
@@ -795,6 +739,72 @@ namespace PPPayReportTools.Excel
                 }
             }
             return t;
+        }
+
+        /// <summary>
+        /// 读取文件首个Sheet的所有单元格数据
+        /// </summary>
+        /// <param name="filePath">文件路径</param>
+        /// <returns></returns>
+        public CommonCellModelColl ReadFirstSheetCellList(string filePath)
+        {
+            IWorkbook workbook = this.CreateWorkbook(filePath);
+
+            ISheet firstSheet = this.GetSheet(workbook);
+
+            CommonCellModelColl commonCellColl = this._ReadCellList(firstSheet);
+            return commonCellColl;
+        }
+
+        /// <summary>
+        /// 读取指定sheet所有单元格数据
+        /// </summary>
+        /// <param name="filePath">文件路径</param>
+        /// <param name="sheetName">sheet名称</param>
+        /// <returns></returns>
+        public CommonCellModelColl ReadCellList(string filePath, string sheetName)
+        {
+            IWorkbook workbook = this.CreateWorkbook(filePath);
+
+            ISheet sheet = this.GetSheet(workbook, sheetName);
+
+            return this._ReadCellList(sheet);
+        }
+
+        private CommonCellModelColl _ReadCellList(ISheet sheet)
+        {
+            CommonCellModelColl commonCellColl = new CommonCellModelColl(20);
+
+            if (sheet != null)
+            {
+                var rows = sheet.GetRowEnumerator();
+                List<ICell> cellList = null;
+                ICell cell = null;
+
+                //从第1行数据开始获取
+                while (rows.MoveNext())
+                {
+                    IRow row = (IRow)rows.Current;
+
+                    cellList = row.Cells;
+                    int cellCount = cellList.Count;
+
+                    for (int i = 0; i < cellCount; i++)
+                    {
+                        cell = cellList[i];
+                        CommonCellModel cellModel = new CommonCellModel
+                        {
+                            RowIndex = row.RowNum,
+                            ColumnIndex = i,
+                            CellValue = cell.ToString(),
+                            IsCellFormula = cell.CellType == CellType.Formula ? true : false
+                        };
+                        commonCellColl.Add(cellModel);
+                    }
+                }
+            }
+
+            return commonCellColl;
         }
 
         /// <summary>

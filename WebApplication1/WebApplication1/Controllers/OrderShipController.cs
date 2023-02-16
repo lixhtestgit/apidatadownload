@@ -97,70 +97,91 @@ namespace WebApplication1.Controllers
             {
                 syncFilePosition++;
 
-                ExcelOrderShipFile currentFile = this.ExcelHelper.ReadCellData<ExcelOrderShipFile>(waitSyncShipFilePath);
-                string hostAdmin = currentFile.ShopUrl.Replace(" ", "").Replace("https://", "").Split('.')[0];
-
-                //获取Excel发货订单数据
-                List<ExcelOrderShip> allOrderShipList = this.ExcelHelper.ReadTitleDataList<ExcelOrderShip>(waitSyncShipFilePath, new ExcelFileDescription(1));
-                long[] orderIDS = allOrderShipList.Select(m => m.OrderID).Distinct().ToArray();
-
-                //过滤已发货订单
-                List<MeShopOrder> meshopOrderList = await this.MeShopHelper.GetOrderList(hostAdmin, orderIDS);
-                long[] hadShipedOrders = meshopOrderList.FindAll(m => m.ShipState > 0).Select(m => m.ID).Distinct().ToArray();
-                allOrderShipList.RemoveAll(m => hadShipedOrders.Contains(m.OrderID));
-                orderIDS = allOrderShipList.Select(m => m.OrderID).Distinct().ToArray();
-
-                List<ExcelOrderShip> orderShipList = null;
-                int orderIDIndex = 0;
-                foreach (var orderID in orderIDS)
+                List<ISheet> sheetList = this.ExcelHelper.GetSheetList(waitSyncShipFilePath);
+                foreach (ISheet sheet in sheetList)
                 {
-                    orderIDIndex++;
-                    if (orderIDIndex <= 0)
-                    {
-                        continue;
-                    }
-                    orderShipList = allOrderShipList.FindAll(m => m.OrderID == orderID);
+                    ExcelOrderShipFile currentFile = this.ExcelHelper.ReadCellData<ExcelOrderShipFile>(waitSyncShipFilePath, sheet.SheetName);
+                    string hostAdmin = currentFile.ShopUrl.Replace(" ", "").Replace("https://", "").Split('.')[0];
 
-                    try
+                    //1-获取Excel发货订单数据
+                    List<ExcelOrderShip> allOrderShipList = this.ExcelHelper.ReadTitleDataList<ExcelOrderShip>(sheet, new ExcelFileDescription(1));
+                    long[] orderIDS = allOrderShipList.FindAll(m => m.OrderID > 0).Select(m => m.OrderID).Distinct().ToArray();
+
+                    //2-过滤已发货订单
+                    List<MeShopOrder> meshopOrderList = await this.MeShopHelper.GetOrderList(hostAdmin, orderIDS);
+                    long[] hadShipedOrders = meshopOrderList.FindAll(m => m.ShipState > 0).Select(m => m.ID).Distinct().ToArray();
+                    allOrderShipList.RemoveAll(m => hadShipedOrders.Contains(m.OrderID));
+                    orderIDS = allOrderShipList.Select(m => m.OrderID).Distinct().ToArray();
+
+                    //3-同步订单发货
+                    List<ExcelOrderShip> orderShipList = null;
+                    int orderIDIndex = 0;
+                    foreach (var orderID in orderIDS)
                     {
-                        JObject orderShipItemJObj = new JObject();
-                        foreach (ExcelOrderShip orderShip in orderShipList)
+                        orderIDIndex++;
+                        if (orderIDIndex <= 0)
                         {
-                            orderShipItemJObj.Add(orderShip.OrderItemID.ToString(), orderShip.OrderItemProductCount);
+                            continue;
                         }
+                        orderShipList = allOrderShipList.FindAll(m => m.OrderID == orderID);
 
-                        dynamic orderShipBody = new
+                        try
                         {
-                            orderID = orderID,
-                            ShipNumber = orderShipList[0].ShipNo,
-                            ShipUrl = orderShipList[0].ShipNoSearchWebsite,
-                            FreightName = orderShipList[0].FreightName,
-                            OrderItemCounts = orderShipItemJObj
-                        };
-
-                        //尝试最多10次
-                        int syncResult = 0;
-                        for (int i = 0; i < 10; i++)
-                        {
-                            syncResult = await this.MeShopHelper.SyncOrderShipToShop(hostAdmin, JsonConvert.SerializeObject(orderShipBody));
-                            if (syncResult > 0)
+                            JObject orderShipItemJObj = new JObject();
+                            foreach (ExcelOrderShip orderShip in orderShipList)
                             {
-                                break;
+                                orderShipItemJObj.Add(orderShip.OrderItemID.ToString(), orderShip.OrderItemProductCount);
+                            }
+
+                            dynamic orderShipBody = new
+                            {
+                                orderID = orderID,
+                                ShipNumber = orderShipList[0].ShipNo,
+                                ShipUrl = orderShipList[0].ShipNoSearchWebsite,
+                                FreightName = orderShipList[0].FreightName,
+                                OrderItemCounts = orderShipItemJObj
+                            };
+
+                            //尝试最多10次
+                            int syncResult = 0;
+                            for (int i = 0; i < 10; i++)
+                            {
+                                syncResult = await this.MeShopHelper.SyncOrderShipToShop(hostAdmin, JsonConvert.SerializeObject(orderShipBody));
+                                if (syncResult > 0)
+                                {
+                                    break;
+                                }
+                            }
+                            if (syncResult <= 0)
+                            {
+                                this.Logger.LogInformation($"同步第{syncFilePosition}/{syncTotalFileCount}个文件,sheetName={sheet.SheetName},第{orderIDIndex}/{orderIDS.Length}个订单发货文件...失败.orderID={orderID}");
+                            }
+                            else
+                            {
+                                this.Logger.LogInformation($"已同步第{syncFilePosition}/{syncTotalFileCount}个文件,sheetName={sheet.SheetName},第{orderIDIndex}/{orderIDS.Length}个订单发货记录...");
                             }
                         }
-                        if (syncResult <= 0)
+                        catch (System.Exception e)
                         {
-                            this.Logger.LogInformation($"同步第{syncFilePosition}/{syncTotalFileCount}个文件第{orderIDIndex}/{orderIDS.Length}个订单发货记录...失败.orderID={orderID}");
-                        }
-                        else
-                        {
-                            this.Logger.LogInformation($"已同步第{syncFilePosition}/{syncTotalFileCount}个文件第{orderIDIndex}/{orderIDS.Length}个订单发货记录...");
+                            this.Logger.LogError(e, $"同步第{syncFilePosition}/{syncTotalFileCount}个文件,sheetName={sheet.SheetName},第{orderIDIndex}/{orderIDS.Length}个订单发货记录失败...");
+                            throw;
                         }
                     }
-                    catch (System.Exception e)
+
+                    //4-检测发货状态
+                    if (orderIDS.Length > 0)
                     {
-                        this.Logger.LogError(e, $"同步第{syncFilePosition}/{syncTotalFileCount}个文件第{orderIDIndex}/{orderIDS.Length}个订单发货记录失败...");
-                        throw;
+                        List<MeShopOrder> awaitCheckMeshopOrderList = await this.MeShopHelper.GetOrderList(hostAdmin, orderIDS);
+                        List<MeShopOrderItem> awaitCheckMeShopOrderItemList = await this.MeShopHelper.GetOrderItemList(hostAdmin, orderIDS);
+                        foreach (MeShopOrder meShopOrder in awaitCheckMeshopOrderList)
+                        {
+                            bool allItemIsShiped = awaitCheckMeShopOrderItemList.FindAll(m => m.OrderID == meShopOrder.ID).All(m => m.ShipState == 2);
+                            if (allItemIsShiped && meShopOrder.ShipState != 2)
+                            {
+                                int execResult = await this.MeShopHelper.ExecSql(hostAdmin, $"update order_master set shipstate=2 where id={meShopOrder.ID}");
+                                this.Logger.LogInformation($"修复订单{meShopOrder.ID}主单发货状态与子单不同步问题：" + (execResult > 0 ? "成功" : "失败"));
+                            }
+                        }
                     }
                 }
             }

@@ -1,6 +1,7 @@
 ﻿using Autofac.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
+using NLog.Web;
 
 namespace WebApplication1
 {
@@ -26,6 +27,6 @@ namespace WebApplication1
                     //config.AddJsonFile("en-Template3.json", false, true);
                     //config.AddJsonFile("en-Template4.json", false, true);
                     //config.AddJsonFile("en-Template100501.json", false, true);
-                });
+                }).UseNLog();
     }
 }
