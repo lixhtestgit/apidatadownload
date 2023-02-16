@@ -30,7 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Exclude="示例测试目录\订单发货专用文件夹\" />
+    <Folder Remove="示例测试目录\订单发货专用文件夹\" />
   </ItemGroup>
 
 
