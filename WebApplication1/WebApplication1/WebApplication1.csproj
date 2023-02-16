@@ -29,5 +29,9 @@
     <PackageReference Include="System.Data.SqlClient" Version="4.8.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="示例测试目录\订单发货专用文件夹\" />
+  </ItemGroup>
+
 
 </Project>
