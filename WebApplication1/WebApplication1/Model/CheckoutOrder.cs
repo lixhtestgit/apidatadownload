@@ -8,16 +8,19 @@ namespace WebApplication1.Model
     {
         public CheckoutOrder()
         {
-            this.ESPayTypeList = new List<string>();
-            this.SessionIDList = new List<string>();
-            this.CreateOrderResultList = new List<string>();
-            this.PayResultList = new List<string>();
-            this.ESCreateOrderResultLogList = new List<string>();
-            this.ESPayResultLogList = new List<string>();
+            this.ESPayTypeList = new List<string>(1);
+            this.SessionIDList = new List<string>(1);
+            this.CreateOrderResultList = new List<string>(1);
+            this.PayResultList = new List<string>(1);
+            this.ESCreateOrderResultLogList = new List<string>(1);
+            this.ESPayResultLogList = new List<string>(1);
         }
 
         [ExcelTitle("弃单号")]
         public string CheckoutGuid { get; set; }
+
+        [ExcelTitle("订单号")]
+        public string OrderID { get; set; }
 
         [ExcelTitle("支付方式")]
         public string ESPayType
@@ -29,6 +32,10 @@ namespace WebApplication1.Model
                     return "无";
                 }
                 return string.Join(",", this.ESPayTypeList.Distinct());
+            }
+            set
+            {
+                this.ESPayTypeList = value.Split('\n').ToList();
             }
         }
         public List<string> ESPayTypeList { get; set; }
@@ -44,6 +51,10 @@ namespace WebApplication1.Model
                 }
                 return string.Join(",", this.SessionIDList.Distinct());
             }
+            set
+            {
+                this.SessionIDList = value.Split('\n').ToList();
+            }
         }
         public List<string> SessionIDList { get; set; }
 
@@ -57,6 +68,10 @@ namespace WebApplication1.Model
                     return "无";
                 }
                 return string.Join(",", this.CreateOrderResultList.Distinct());
+            }
+            set
+            {
+                this.CreateOrderResultList = value.Split('\n').ToList();
             }
         }
         public List<string> CreateOrderResultList { get; set; }
@@ -72,6 +87,10 @@ namespace WebApplication1.Model
                 }
                 return string.Join(",", this.PayResultList.Distinct());
             }
+            set
+            {
+                this.PayResultList = value.Split('\n').ToList();
+            }
         }
         public List<string> PayResultList { get; set; }
 
@@ -86,6 +105,10 @@ namespace WebApplication1.Model
                 }
                 return string.Join("\n", this.ESCreateOrderResultLogList.Distinct());
             }
+            set
+            {
+                this.ESCreateOrderResultLogList = value.Split('\n').ToList();
+            }
         }
         public List<string> ESCreateOrderResultLogList { get; set; }
 
@@ -99,6 +122,10 @@ namespace WebApplication1.Model
                     return "无";
                 }
                 return string.Join("\n", this.ESPayResultLogList.Distinct());
+            }
+            set
+            {
+                this.ESPayResultLogList = value.Split('\n').ToList();
             }
         }
         public List<string> ESPayResultLogList { get; set; }

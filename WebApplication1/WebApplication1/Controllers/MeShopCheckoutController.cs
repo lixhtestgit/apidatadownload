@@ -12,13 +12,14 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using WebApplication1.BIZ;
+using WebApplication1.Extension;
 using WebApplication1.Helper;
 using WebApplication1.Model;
 
 namespace WebApplication1.Controllers
 {
     /// <summary>
-    /// 获取店铺弃单数据并获取对应支付方式日志
+    /// 获取店铺弃单数据并获取对应支付方式和失败原因日志
     /// </summary>
     [Route("api/MeShopCheckout")]
     [ApiController]
@@ -48,19 +49,17 @@ namespace WebApplication1.Controllers
         }
 
         /// <summary>
-        /// ES搜索弃单支付方式和订单创建，支付相关日志
+        /// ES搜索弃单支付方式和订单创建，支付失败等相关日志
         /// api/MeShopCheckout/
         /// </summary>
         /// <returns></returns>
         [Route("")]
         [HttpGet]
-        public IActionResult ESSearchOrderPayType()
+        public async Task<IActionResult> ESSearchOrderPayType()
         {
-            string filePath = $@"C:\Users\lixianghong\Desktop\弃单数据_{DateTime.Now.ToString("yyyyMMdd")}.xlsx";
-
             #region 通过手动收集弃单集合
             //string[] checkoutGuidArray = new string[] {
-            //    "264a57b2-d0c6-4a13-b6d1-9b075f71d074","c14ae090-7e6b-46d7-b94a-57530593475b","e64736e5-95bb-4b78-909f-c35c9c7cfc26"
+            //    "036135ee-5174-47b1-9aa4-5dd2f7c9d303","059684cd-9ea8-4239-8b46-c3d31d7e89b9","2434fe89-9f40-4cb5-8c0f-8a1ca9460983","57132ecc-1308-48ae-83f3-305da3690951","79f9ea18-e0e9-4538-9649-d6cde3556266","7fe01ce5-fce8-4d8d-a230-406511f34fe3","a2ae7972-947d-4f4c-a539-3a5d7b70efb7","adb4fc45-08df-4b6b-85c2-45b189269174","b7aee623-6796-4764-a131-913dbaad9575","bd7d3dc1-8f6b-4b52-855c-f31445fe8217","c0198dc4-0edc-43a0-9765-4dbddfd5b45a","c5a4431e-86a7-4f4e-82da-1013f2acf41a","efbfdb54-50bd-42f3-a22e-0734c9da1ece","fa0d410a-a7fe-4161-9640-0d379cbfb36d"
             //};
             //List<CheckoutOrder> dataList = await this.GetESCheckoutOrderList(checkoutGuidArray);
             #endregion
@@ -68,11 +67,18 @@ namespace WebApplication1.Controllers
             #region 通过弃单导出文件收集弃单集合
 
             string contentRootPath = this.WebHostEnvironment.ContentRootPath;
-            string testFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacypayhossted弃单.xlsx";
+            string testFilePath = $@"{contentRootPath}\示例测试目录\弃单\待刷失败原因弃单.xlsx";
+
+            string filePath = $@"{contentRootPath}\示例测试目录\弃单\待刷失败原因弃单_收集数据{DateTime.Now.ToString("yyyyMMddHHmmss")}.xlsx";
+
             List<CheckoutOrder> dataList = this.ExcelHelper.ReadTitleDataList<CheckoutOrder>(testFilePath, new ExcelFileDescription(0));
 
-            string payLogFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacyhost.log";
-            this.UpdateOrderPayDataByFile(payLogFilePath, dataList);
+            //通过ES分析失败原因
+            await this.GetESCheckoutOrderList(dataList);
+
+            //通过支付日志文件分析失败原因
+            //string payLogFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacyhost.log";
+            //this.UpdateOrderPayDataByFile(payLogFilePath, dataList);
             #endregion
 
             IWorkbook workbook = ExcelHelper.CreateOrUpdateWorkbook(dataList);
@@ -145,33 +151,22 @@ namespace WebApplication1.Controllers
         /// </summary>
         /// <param name="checkoutGuidArray"></param>
         /// <returns></returns>
-        public async Task<List<CheckoutOrder>> GetESCheckoutOrderList(params string[] checkoutGuidArray)
+        public async Task GetESCheckoutOrderList(List<CheckoutOrder> checkoutOrderList)
         {
-            List<CheckoutOrder> checkoutOrderList = new List<CheckoutOrder>(checkoutGuidArray.Length);
-
             //通过ES更新查询支付方式
             int position = 1;
-            int totalCount = checkoutGuidArray.Length;
+            int totalCount = checkoutOrderList.Count;
             int days = 14;
-            foreach (string checkoutGuid in checkoutGuidArray)
+            foreach (CheckoutOrder checkout in checkoutOrderList)
             {
-                if (checkoutGuid.IsNotNullOrEmpty())
+                if (checkout.CheckoutGuid.IsNotNullOrEmpty())
                 {
-                    CheckoutOrder checkoutOrder = new CheckoutOrder
-                    {
-                        CheckoutGuid = checkoutGuid
-                    };
-
                     //查询支付方式
-                    await this.UpdateOrderPayDataByES(totalCount, position, checkoutOrder, days);
-
-                    checkoutOrderList.Add(checkoutOrder);
+                    await this.UpdateOrderPayDataByES(totalCount, position, checkout, days);
                 }
 
                 position++;
             }
-
-            return checkoutOrderList;
         }
 
         /// <summary>
@@ -185,82 +180,9 @@ namespace WebApplication1.Controllers
         /// <returns></returns>
         private async Task UpdateOrderPayDataByES(int totalCount, int position, CheckoutOrder model, int lastDays)
         {
-            if (model.ESPayTypeList == null)
-            {
-                model.ESPayTypeList = new List<string>(1);
-            }
-            if (model.SessionIDList == null)
-            {
-                model.SessionIDList = new List<string>(1);
-            }
-            if (model.CreateOrderResultList == null)
-            {
-                model.CreateOrderResultList = new List<string>(1);
-            }
-            if (model.PayResultList == null)
-            {
-                model.PayResultList = new List<string>(1);
-            }
-            if (model.ESCreateOrderResultLogList == null)
-            {
-                model.ESCreateOrderResultLogList = new List<string>(1);
-            }
-            if (model.ESPayResultLogList == null)
-            {
-                model.ESPayResultLogList = new List<string>(1);
-            }
-
-            #region 1-获取支付类型
+            #region 1-获取会话ID
 
             string dataFilter = @"[
-    {
-        ""multi_match"": {
-            ""type"": ""phrase"",
-            ""query"": """ + model.CheckoutGuid + @""",
-            ""lenient"": true
-        }
-    },
-    {
-        ""bool"": {
-            ""should"": [
-                {
-                    ""multi_match"": {
-                        ""type"": ""phrase"",
-                        ""query"": ""/ajax/paydd"",
-                        ""lenient"": true
-                    }
-                },
-                {
-                    ""multi_match"": {
-                        ""type"": ""phrase"",
-                        ""query"": ""/ajax/pay"",
-                        ""lenient"": true
-                    }
-                }
-            ],
-            ""minimum_should_match"": 1
-        }
-    }
-]";
-            Regex payTypeRegex = new Regex("(?<=ajax/(paydd|pay)/)[^(\\?|\\s)]+(?=(\\?|\\s))", RegexOptions.IgnoreCase);
-
-            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个支付类型数据", "meshopstore.com", dataFilter, lastDays, log =>
-            {
-                string payType = payTypeRegex.Match(log)?.Value;
-
-                return payType;
-            });
-
-            if (esLogList.Count > 0)
-            {
-                model.ESPayTypeList.AddRange(esLogList.Select(m => m.Type));
-            }
-
-            #endregion
-
-            #region 2-获取会话ID
-
-            dataFilter = @"[
                             {
                                 ""multi_match"": {
                                     ""type"": ""phrase"",
@@ -278,7 +200,7 @@ namespace WebApplication1.Controllers
                         ]";
 
             List<string> sessionIDList = new List<string>(10);
-            esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个SessionID数据", "meshopstore.com", dataFilter, lastDays, log =>
+            await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个SessionID数据", "meshopstore.com", dataFilter, lastDays, log =>
             {
                 string sessionID = null;
                 if (log.Contains("token", StringComparison.OrdinalIgnoreCase))
@@ -296,7 +218,7 @@ namespace WebApplication1.Controllers
 
             #endregion
 
-            #region 获取回话结果日志
+            #region 2-获取回话结果日志
 
             foreach (var sessionID in sessionIDList)
             {
@@ -310,127 +232,19 @@ namespace WebApplication1.Controllers
                                 }
                             ]";
 
-                esLogList = await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个弃单会话结果数据", "meshopstore.com", dataFilter, lastDays, log =>
+                await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个弃单会话结果数据", "meshopstore.com", dataFilter, lastDays, sessionIDLog =>
                 {
-                    string validLog = null;
-                    string resultRemark = null;
-                    if (log.Contains("CreateOrder_Result", StringComparison.OrdinalIgnoreCase)
-                        || log.Contains("CreateOrder_1002_Result", StringComparison.OrdinalIgnoreCase))
-                    {
-                        //获取创建订单结果日志
-                        validLog = log;
-                        model.ESCreateOrderResultLogList.Add(validLog);
+                    //获取结果和原因
+                    this.UpdatePayTypeAndCreateOrderResult(model, sessionIDLog);
+                    this.UpdatePayTypeAndPayResult(model, sessionIDLog);
 
-                        if (model.ESPayType.Contains("PayPal"))
-                        {
-                            resultRemark = new Regex("(?<=\"issue\":\")[^\"]+(?=\")").Match(log).Value;
-                        }
-                        else if (model.ESPayType.Contains("Paytm") && !validLog.Contains("Success"))
-                        {
-                            resultRemark = new Regex("(?<=\"resultMsg\":\")[^\"]+(?=\")").Match(log).Value;
-                        }
-                        else if (model.ESPayType.Contains("PacyPayHosted") && !validLog.Contains("Success"))
-                        {
-                            resultRemark = new Regex("(?<=\"respMsg\":\")[^\"]+(?=\")").Match(log).Value;
-                        }
-                        if (!string.IsNullOrEmpty(resultRemark))
-                        {
-                            model.CreateOrderResultList.Add("失败：" + resultRemark);
-                        }
-                        else
-                        {
-                            model.CreateOrderResultList.Add("成功");
-                        }
-                    }
-                    else
-                    {
-                        //获取支付结果日志
-                        if (model.ESPayType.Contains("PayPal")
-                            && log.Contains("PP_4002_CaptureOrder_Result", StringComparison.OrdinalIgnoreCase))
-                        {
-                            //获取创建订单结果日志
-                            validLog = log;
-                            model.ESPayResultLogList.Add(validLog);
-
-                            resultRemark = new Regex("(?<=\"issue\":\")[^\"]+(?=\")").Match(log).Value;
-                            resultRemark = $"失败：{resultRemark}";
-                        }
-                        else if (model.ESPayType.Contains("PayEase_Direct")
-                            && log.Contains("PayEaseDirect_v1Controller_ResultPage", StringComparison.OrdinalIgnoreCase))
-                        {
-                            //获取创建订单结果日志
-                            validLog = log;
-                            model.ESPayResultLogList.Add(validLog);
-
-                            resultRemark = new Regex("(?<=\"orderInfo\":\")[^\"]+(?=\")").Match(log).Value;
-                            resultRemark = $"失败：{resultRemark}";
-                        }
-                        else if (model.ESPayType.Contains("Paytm")
-                            && log.Contains("Paytm_2002_GetOrder_Result", StringComparison.OrdinalIgnoreCase))
-                        {
-                            //获取创建订单结果日志
-                            validLog = log;
-                            model.ESPayResultLogList.Add(validLog);
-
-                            if (!validLog.Contains("PENDING")
-                                && !validLog.Contains("TXN_SUCCESS"))
-                            {
-                                resultRemark = new Regex("(?<=\"resultMsg\":\")[^\"]+(?=\")").Match(log).Value;
-                                resultRemark = $"失败：{resultRemark}";
-                            }
-                        }
-                        else if (model.ESPayType.Contains("Unlimint")
-                            && log.Contains("MeShopPay,收到异步通知", StringComparison.OrdinalIgnoreCase))
-                        {
-                            //获取创建订单结果日志
-                            validLog = log;
-                            model.ESPayResultLogList.Add(validLog);
-
-                            string unlimintState = new Regex("(?<=\"status\":\")[^\"]+(?=\")").Match(log).Value;
-                            resultRemark = new Regex("(?<=\"decline_reason\":\")[^\"]+(?=\")").Match(log).Value;
-
-                            if (unlimintState.Equals("COMPLETED", StringComparison.OrdinalIgnoreCase))
-                            {
-                                resultRemark = "成功";
-                            }
-                            else
-                            {
-                                resultRemark = $"失败：{unlimintState}:{resultRemark}";
-                            }
-
-                        }
-                        else if (model.ESPayType.Contains("PacyPayHosted")
-                            && log.Contains("MeShopPay,收到异步通知", StringComparison.OrdinalIgnoreCase))
-                        {
-                            //获取创建订单结果日志
-                            validLog = log;
-                            model.ESPayResultLogList.Add(validLog);
-
-                            string pacyPayHostedState = new Regex("(?<=\"status\":\")[^\"]+(?=\")").Match(log).Value;
-                            resultRemark = new Regex("(?<=\"reason\":\")[^\"]+(?=\")").Match(log).Value;
-
-                            if (pacyPayHostedState.Equals("S", StringComparison.OrdinalIgnoreCase))
-                            {
-                                resultRemark = "成功";
-                            }
-                            else
-                            {
-                                resultRemark = $"失败：{pacyPayHostedState}:{resultRemark}";
-                            }
-
-                        }
-
-                        if (!string.IsNullOrEmpty(resultRemark))
-                        {
-                            model.PayResultList.Add(resultRemark);
-                        }
-                    }
-                    return validLog;
+                    return "1";
                 });
 
             }
 
             #endregion
+
         }
 
         /// <summary>
@@ -442,7 +256,6 @@ namespace WebApplication1.Controllers
         private void UpdateOrderPayDataByFile(string filePath, List<CheckoutOrder> modelList)
         {
             modelList.RemoveAll(m => m.CheckoutGuid.IsNullOrEmpty());
-
 
             string lineText = null;
             int linePosition = 0;
@@ -518,10 +331,7 @@ namespace WebApplication1.Controllers
                             sessionIDLogListDic.Add(sessionID, new List<string> { lineText });
                         }
                     }
-
-
                     #endregion
-
                 }
             }
 
@@ -536,147 +346,206 @@ namespace WebApplication1.Controllers
                 {
                     foreach (string sessionIDLog in sessionIDLogListItem.Value)
                     {
-                        #region 获取结果和原因
-                        string payType = null, payError = null;
-                        if (sessionIDLog.Contains("CreateOrder_Result", StringComparison.OrdinalIgnoreCase)
-                            || sessionIDLog.Contains("CreateOrder_1002_Result", StringComparison.OrdinalIgnoreCase))
-                        {
-                            //获取创建订单结果日志
-                            if (!model.ESCreateOrderResultLogList.Contains(sessionIDLog))
-                            {
-                                model.ESCreateOrderResultLogList.Add(sessionIDLog);
-                            }
-
-                            if (sessionIDLog.Contains("PP_1002_CreateOrder_Result"))
-                            {
-                                payType = "PayPal";
-                                payError = new Regex("(?<=\"issue\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
-                                if (string.IsNullOrEmpty(payError))
-                                {
-                                    payError = "成功";
-                                }
-                                else
-                                {
-                                    payError = "失败：" + payError;
-                                }
-                            }
-                            else if (sessionIDLog.Contains("PayEaseDirect_1002_CreateOrder_Result"))
-                            {
-                                payType = "PayEaseDirect";
-                                payError = new Regex("(?<=\"orderInfo\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
-                                if (string.IsNullOrEmpty(payError))
-                                {
-                                    payError = "成功";
-                                }
-                                else
-                                {
-                                    payError = "失败：" + payError;
-                                }
-                            }
-                            else if (sessionIDLog.Contains("PacyPayHosted_CreateOrder_1002_Result"))
-                            {
-                                payType = "PacyPayHosted";
-                                payError = new Regex("(?<=\"respMsg\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
-                                if (payError == "Success")
-                                {
-                                    payError = "成功";
-                                }
-                                else
-                                {
-                                    payError = "失败：" + payError;
-                                }
-                            }
-
-                            if (!string.IsNullOrEmpty(payType) && !model.ESPayTypeList.Contains(payType))
-                            {
-                                this.Logger.LogInformation($"已收集订单支付方式：SessionID={sessionID},payType={payType}");
-                                model.ESPayTypeList.Add(payType);
-                            }
-                            if (!string.IsNullOrEmpty(payError) && !model.CreateOrderResultList.Contains(payError))
-                            {
-                                this.Logger.LogInformation($"已收集创建订单结果：SessionID={sessionID},payError={payError}");
-                                model.CreateOrderResultList.Add(payError);
-                            }
-                        }
-                        else
-                        {
-                            //获取支付结果日志
-                            if (sessionIDLog.Contains("PP_4002_CaptureOrder_Result", StringComparison.OrdinalIgnoreCase))
-                            {
-                                payType = "PayPal";
-                                //获取创建订单结果日志
-                                model.ESPayResultLogList.Add(sessionIDLog);
-
-                                payError = new Regex("(?<=\"issue\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
-                                if (string.IsNullOrEmpty(payError))
-                                {
-                                    payError = "成功";
-                                }
-                                else
-                                {
-                                    payError = "失败：" + payError;
-                                }
-                            }
-                            else if (sessionIDLog.Contains("PayEaseDirect_v1Controller_ResultPage", StringComparison.OrdinalIgnoreCase))
-                            {
-                                payType = "PayEaseDirect";
-
-                                //获取创建订单结果日志
-                                model.ESPayResultLogList.Add(sessionIDLog);
-
-                                payError = new Regex("(?<=\"orderInfo\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
-                                if (string.IsNullOrEmpty(payError))
-                                {
-                                    payError = "成功";
-                                }
-                                else
-                                {
-                                    payError = "失败：" + payError;
-                                }
-                            }
-                            else if (sessionIDLog.Contains("MeShopPay,收到异步通知", StringComparison.OrdinalIgnoreCase)
-                                && sessionIDLog.Contains("PacyPayHosted", StringComparison.OrdinalIgnoreCase))
-                            {
-                                payType = "PacyPayHosted";
-
-                                //获取创建订单结果日志
-                                model.ESPayResultLogList.Add(sessionIDLog);
-
-                                string pacyPayHostedState = new Regex("(?<=\"status\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
-                                payError = new Regex("(?<=\"respMsg\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
-
-                                if (pacyPayHostedState.Equals("S", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    payError = "成功";
-                                }
-                                else
-                                {
-                                    //如果respMsg获取不到数据，再从reason中获取
-                                    if (payError.IsNullOrEmpty())
-                                    {
-                                        payError = new Regex("(?<=\"reason\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
-                                    }
-                                    payError = $"失败：{pacyPayHostedState}:{payError}";
-                                }
-                            }
-
-                            if (!string.IsNullOrEmpty(payType) && !model.ESPayTypeList.Contains(payType))
-                            {
-                                this.Logger.LogInformation($"已收集订单支付方式：SessionID={sessionID},payType={payType}");
-                                model.ESPayTypeList.Add(payType);
-                            }
-                            if (!string.IsNullOrEmpty(payError) && !model.PayResultList.Contains(payError))
-                            {
-                                this.Logger.LogInformation($"已收集订单支付结果：SessionID={sessionID},payError={payError}");
-                                model.PayResultList.Add(payError);
-                            }
-
-                        }
-                        #endregion
+                        //获取结果和原因
+                        this.UpdatePayTypeAndCreateOrderResult(model, sessionIDLog);
+                        this.UpdatePayTypeAndPayResult(model, sessionIDLog);
                     }
                 }
             }
 
+        }
+
+        private void UpdatePayTypeAndCreateOrderResult(CheckoutOrder checkoutOrder, string sessionIDLog)
+        {
+            bool createOrderResult = false;
+            string result = null;
+            string payType = null;
+
+            if (sessionIDLog.Contains("CreateOrder_Result", StringComparison.OrdinalIgnoreCase)
+                            || sessionIDLog.Contains("CreateOrder_1002_Result", StringComparison.OrdinalIgnoreCase))
+            {
+                if (sessionIDLog.Contains("PP"))
+                {
+                    payType = "PayPal";
+                    result = new Regex("(?<=\"issue\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                    if (string.IsNullOrEmpty(result))
+                    {
+                        createOrderResult = true;
+                    }
+                }
+                else if (sessionIDLog.Contains("PayEaseDirect"))
+                {
+                    payType = "PayEaseDirect";
+                    result = new Regex("(?<=\"orderInfo\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                    if (string.IsNullOrEmpty(result))
+                    {
+                        createOrderResult = true;
+                    }
+                }
+                else if (sessionIDLog.Contains("PacyPayHosted"))
+                {
+                    payType = "PacyPayHosted";
+                    result = new Regex("(?<=\"respMsg\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                    if (result == "Success")
+                    {
+                        createOrderResult = true;
+                    }
+                }
+                else if (sessionIDLog.Contains("Paytm"))
+                {
+                    payType = "Paytm";
+                    result = new Regex("(?<=\"resultMsg\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                    if (result == "Success")
+                    {
+                        createOrderResult = true;
+                    }
+                }
+                else if (sessionIDLog.Contains("Unlimint"))
+                {
+                    payType = "Unlimint";
+                    result = new Regex("(?<=\"message\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                    if (result.IsNullOrEmpty())
+                    {
+                        createOrderResult = true;
+                    }
+                }
+
+                if (payType.IsNotNullOrEmpty())
+                {
+                    if (createOrderResult)
+                    {
+                        result = "成功";
+                    }
+                    else
+                    {
+                        result = "失败：" + result;
+                    }
+
+                    if (!string.IsNullOrEmpty(payType) && !checkoutOrder.ESPayTypeList.Contains(payType))
+                    {
+                        this.Logger.LogInformation($"已收集订单支付方式：cartCheckoutGuid={checkoutOrder.CheckoutGuid},payType={payType}");
+                        checkoutOrder.ESPayTypeList.Add(payType);
+                    }
+                    if (!string.IsNullOrEmpty(result) && !checkoutOrder.CreateOrderResultList.Contains(result))
+                    {
+                        this.Logger.LogInformation($"已收集创建订单结果：cartCheckoutGuid={checkoutOrder.CheckoutGuid},result={result}");
+                        checkoutOrder.CreateOrderResultList.Add(result);
+                    }
+                }
+            }
+        }
+
+        private void UpdatePayTypeAndPayResult(CheckoutOrder checkoutOrder, string sessionIDLog)
+        {
+            string payType = null;
+            string result = null;
+            bool payResult = false;
+
+            //获取支付结果日志
+            if (sessionIDLog.Contains("PP_4002_CaptureOrder_Result", StringComparison.OrdinalIgnoreCase))
+            {
+                payType = "PayPal";
+                //获取创建订单结果日志
+                checkoutOrder.ESPayResultLogList.Add(sessionIDLog);
+
+                result = new Regex("(?<=\"issue\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                if (string.IsNullOrEmpty(result))
+                {
+                    payResult = true;
+                }
+            }
+            else if (sessionIDLog.Contains("PayEaseDirect_v1Controller_ResultPage", StringComparison.OrdinalIgnoreCase))
+            {
+                payType = "PayEaseDirect";
+
+                //获取创建订单结果日志
+                checkoutOrder.ESPayResultLogList.Add(sessionIDLog);
+
+                result = new Regex("(?<=\"orderInfo\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                if (string.IsNullOrEmpty(result))
+                {
+                    payResult = true;
+                }
+            }
+            else if (sessionIDLog.Contains("Paytm_2002_GetOrder_Result", StringComparison.OrdinalIgnoreCase))
+            {
+                payType = "Paytm";
+
+                //获取创建订单结果日志
+                checkoutOrder.ESPayResultLogList.Add(sessionIDLog);
+
+                result = new Regex("(?<=\"resultMsg\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+
+                if (sessionIDLog.Contains("PENDING")
+                    || sessionIDLog.Contains("TXN_SUCCESS"))
+                {
+                    payResult = true;
+                }
+            }
+            else if (sessionIDLog.Contains("MeShopPay,收到异步通知", StringComparison.OrdinalIgnoreCase))
+            {
+                if (sessionIDLog.Contains("PacyPayHosted", StringComparison.OrdinalIgnoreCase))
+                {
+                    payType = "PacyPayHosted";
+
+                    //获取创建订单结果日志
+                    checkoutOrder.ESPayResultLogList.Add(sessionIDLog);
+
+                    string pacyPayHostedState = new Regex("(?<=\"status\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                    result = new Regex("(?<=\"respMsg\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+
+                    if (pacyPayHostedState.Equals("S", StringComparison.OrdinalIgnoreCase))
+                    {
+                        payResult = true;
+                    }
+                    else
+                    {
+                        //如果respMsg获取不到数据，再从reason中获取
+                        if (result.IsNullOrEmpty())
+                        {
+                            result = new Regex("(?<=\"reason\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                        }
+                    }
+                }
+                else if (sessionIDLog.Contains("Unlimint", StringComparison.OrdinalIgnoreCase))
+                {
+                    payType = "Unlimint";
+
+                    //获取创建订单结果日志
+                    checkoutOrder.ESPayResultLogList.Add(sessionIDLog);
+
+                    string unlimintState = new Regex("(?<=\"status\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                    result = new Regex("(?<=\"decline_reason\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+
+                    if (unlimintState.Equals("COMPLETED", StringComparison.OrdinalIgnoreCase))
+                    {
+                        payResult = true;
+                    }
+                }
+            }
+
+            if (payType.IsNotNullOrEmpty())
+            {
+                if (payResult)
+                {
+                    result = "成功";
+                }
+                else
+                {
+                    result = "失败：" + result;
+                }
+
+                if (!string.IsNullOrEmpty(payType) && !checkoutOrder.ESPayTypeList.Contains(payType))
+                {
+                    this.Logger.LogInformation($"已收集订单支付方式：cartCheckoutGuid={checkoutOrder.CheckoutGuid},payType={payType}");
+                    checkoutOrder.ESPayTypeList.Add(payType);
+                }
+                if (!string.IsNullOrEmpty(result) && !checkoutOrder.PayResultList.Contains(result))
+                {
+                    this.Logger.LogInformation($"已收集订单支付结果：cartCheckoutGuid={checkoutOrder.CheckoutGuid},result={result}");
+                    checkoutOrder.PayResultList.Add(result);
+                }
+            }
         }
     }
 }

@@ -341,7 +341,7 @@ namespace WebApplication1.Controllers
 
 					try
 					{
-						int syncCount = await this._meShopHelper.SyncUserToShop(meshopSiteHostAdmin, syncSQL);
+						int syncCount = await this._meShopHelper.ExecSqlToShop(meshopSiteHostAdmin, syncSQL);
 						if (syncCount <= 0)
 						{
 							this._logger.LogInformation($"同步站点异常:syncSQL={syncSQL}");

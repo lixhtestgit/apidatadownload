@@ -78,7 +78,15 @@ namespace WebApplication1.Helper
             JArray hitJArray = JObject.Parse(responseResult2).SelectToken("hits.hits")?.ToObject<JArray>();
             foreach (JObject item in hitJArray)
             {
-                string log = item.SelectToken("_source.log").ToObject<string>();
+                string log = null;
+                if (item.SelectToken("_source.message") != null)
+                {
+                    log = item.SelectToken("_source.message").ToObject<string>() ?? "";
+                }
+                else
+                {
+                    log = item.SelectToken("_source.log").ToObject<string>() ?? "";
+                }
                 log = log.Replace("\\", "");
                 string type = logTypeFunc(log);
 
@@ -113,11 +121,11 @@ namespace WebApplication1.Helper
             //ES搜索测试控制台：https://log.meshopstore.com/app/dev_tools#/console
             //ES参考方案可以从：https://log.meshopstore.com/app/discover 获取搜索结构后，再将请求日志中的请求参数中的filter下的参数拿来测试
 
-            string beginDateStr= DateTime.UtcNow.AddDays(-1 * beginDays).ToString("yyyy-MM-ddTHH:mm:ss");
-            string endDateStr= DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
+            string beginDateStr = DateTime.UtcNow.AddDays(-1 * beginDays).ToString("yyyy-MM-ddTHH:mm:ss");
+            string endDateStr = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ss");
 
 #if DEBUG
-            beginDateStr= "2022-12-28T20:38:16.694Z";
+            beginDateStr = "2022-12-28T20:38:16.694Z";
             endDateStr = "2022-12-28T20:48:53.057Z";
 #endif
 

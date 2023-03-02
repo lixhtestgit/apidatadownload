@@ -178,7 +178,7 @@ namespace WebApplication1.Controllers
                             bool allItemIsShiped = awaitCheckMeShopOrderItemList.FindAll(m => m.OrderID == meShopOrder.ID).All(m => m.ShipState == 2);
                             if (allItemIsShiped && meShopOrder.ShipState != 2)
                             {
-                                int execResult = await this.MeShopHelper.ExecSql(hostAdmin, $"update order_master set shipstate=2 where id={meShopOrder.ID}");
+                                int execResult = await this.MeShopHelper.ExecSqlToShop(hostAdmin, $"update order_master set shipstate=2 where id={meShopOrder.ID}");
                                 this.Logger.LogInformation($"修复订单{meShopOrder.ID}主单发货状态与子单不同步问题：" + (execResult > 0 ? "成功" : "失败"));
                             }
                         }

@@ -38,9 +38,11 @@ namespace WebApplication1.Helper
         {
             {"netstore", new { Email = "chenfei@meshop.net", Password = "Store78sp9" } },
             {"tbdressshop", new { Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
+            {"ericdressfashion", new { Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
             {"shoespieshop", new { Email = "chenfei@meshop.net", Password = "Meshop0823" } },
             {"wigsbuyshop", new { Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
-            {"janewigshop", new { Email = "chenfei@meshop.net", Password = "Meshop0823" } }
+            {"janewigshop", new { Email = "chenfei@meshop.net", Password = "Meshop0823" } },
+            {"soomshop", new { Email = "shpopgo@163.com", Password = "709%sop230" } }
         };
 
         /// <summary>
@@ -192,16 +194,24 @@ namespace WebApplication1.Helper
         /// <param name="hostAdmin"></param>
         /// <param name="syncSql"></param>
         /// <returns></returns>
-        public async Task<int> SyncUserToShop(string hostAdmin, string syncSql)
+        public async Task<int> ExecSqlToShop(string hostAdmin, string syncSql)
         {
             int result = 0;
 
             if (hostAdmin.IsNotNullOrEmpty() && syncSql.IsNotNullOrEmpty())
             {
-                Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
-                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=1", syncSql, authDic, "text/plain");
+                try
+                {
+                    Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
+                    var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=1", syncSql, authDic, "text/plain");
 
-                result = Convert.ToInt32(syncResult.Item2);
+                    result = Convert.ToInt32(syncResult.Item2);
+                }
+                catch (Exception e)
+                {
+                    this.Logger.LogError(e, $"执行SQL异常,hostAdmin={hostAdmin},syncSql={syncSql}");
+                    throw;
+                }
             }
 
             return result;
@@ -242,26 +252,5 @@ namespace WebApplication1.Helper
 
             return result;
         }
-
-        /// <summary>
-        /// 执行SQL
-        /// </summary>
-        /// <param name="hostAdmin"></param>
-        /// <param name="sql"></param>
-        /// <returns></returns>
-        public async Task<int> ExecSql(string hostAdmin, string sql)
-        {
-            int count = 0;
-            if (hostAdmin.IsNotNullOrEmpty() && sql.IsNotNullOrEmpty())
-            {
-                Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
-                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=1", sql, authDic, "text/plain");
-
-                count = Convert.ToInt32(syncResult.Item2);
-            }
-
-            return count;
-        }
-
     }
 }
