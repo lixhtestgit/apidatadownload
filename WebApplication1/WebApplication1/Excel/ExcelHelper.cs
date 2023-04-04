@@ -652,7 +652,12 @@ namespace PPPayReportTools.Excel
                                     {
                                         if (excelTitleFieldMapper.IsCheckContentEmpty)
                                         {
-                                            if (string.IsNullOrEmpty(cell?.ToString()))
+                                            string cellValue = cell?.ToString();
+                                            if (cell.CellType == CellType.Formula)
+                                            {
+                                                cellValue = formulaEvaluator.Evaluate(cell).StringValue;
+                                            }
+                                            if (string.IsNullOrEmpty(cellValue))
                                             {
                                                 t = default(T);
                                                 break;

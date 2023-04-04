@@ -3,7 +3,7 @@
 namespace WebApplication1.Enum
 {
 
-    public class EOrder
+    public class EMeShopOrder
     {
         /// <summary>
         /// 订单状态

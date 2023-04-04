@@ -5,6 +5,8 @@ using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading.Tasks;
+using WebApplication1.BIZ;
+using WebApplication1.Enum;
 using WebApplication1.Model.MeShop;
 
 namespace WebApplication1.Helper
@@ -37,13 +39,16 @@ namespace WebApplication1.Helper
         public Dictionary<string, dynamic> ShopApiV1AuthUserDic = new Dictionary<string, dynamic>
         {
             {"netstore", new { Email = "chenfei@meshop.net", Password = "Store78sp9" } },
-            {"tbdressshop", new { Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
+            {"tbdressshop", new { Email = "chenfei@meshop.net", Password = "Tsh64384hhpo" } },
             {"ericdressfashion", new { Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
             {"shoespieshop", new { Email = "chenfei@meshop.net", Password = "Meshop0823" } },
             {"wigsbuyshop", new { Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
             {"janewigshop", new { Email = "chenfei@meshop.net", Password = "Meshop0823" } },
-            {"soomshop", new { Email = "shpopgo@163.com", Password = "709%sop230" } }
+            {"soomshop", new { Email = "shpopgo@163.com", Password = "709%sop230" } },
+            {"tidebuyshop", new { Email = "chenfei@meshop.net", Password = "Meshop0823" } }
         };
+
+        #region 授权
 
         /// <summary>
         /// 获取店铺授权字典
@@ -81,6 +86,10 @@ namespace WebApplication1.Helper
 
             return authDic ?? new Dictionary<string, string>(0);
         }
+
+        #endregion
+
+        #region 订单
 
         /// <summary>
         /// 获取订单列表
@@ -172,6 +181,32 @@ namespace WebApplication1.Helper
         }
 
         /// <summary>
+        /// 同步订单发货记录到MeShop
+        /// </summary>
+        /// <param name="hostAdmin"></param>
+        /// <param name="postData"></param>
+        /// <returns></returns>
+        public async Task<int> SyncOrderShipToShop(string hostAdmin, string postData)
+        {
+            int result = 0;
+
+            if (hostAdmin.IsNotNullOrEmpty() && postData.IsNotNullOrEmpty())
+            {
+                Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
+                //部分发货
+                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/order/SetShipedState", postData, authDic);
+
+                result = syncResult.Item1 == System.Net.HttpStatusCode.OK ? 1 : 0;
+            }
+
+            return result;
+        }
+
+        #endregion
+
+        #region 国家省州
+
+        /// <summary>
         /// 获取国家省州列表
         /// </summary>
         /// <returns></returns>
@@ -187,6 +222,125 @@ namespace WebApplication1.Helper
 
             return baseGeographyList;
         }
+
+        #endregion
+
+        #region 产品
+
+        /// <summary>
+        /// 同步产品状态到MeShop
+        /// </summary>
+        /// <param name="hostAdmin"></param>
+        /// <param name="productState"></param>
+        /// <param name="spuIDS"></param>
+        /// <returns></returns>
+        public async Task<int> SyncProductStateToShop(string hostAdmin, EMeShopProductState productState, params long[] spuIDS)
+        {
+            int result = 0;
+
+            if (hostAdmin.IsNotNullOrEmpty() && spuIDS.Length > 0)
+            {
+                Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
+
+                string postData = JsonConvert.SerializeObject(new
+                {
+                    SpuIds = spuIDS,
+                    State = productState
+                });
+
+                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/ProductManage/updateproductstate", postData, authDic);
+
+                result = syncResult.Item1 == System.Net.HttpStatusCode.OK ? 1 : 0;
+            }
+
+            return result;
+        }
+
+        #endregion
+
+        #region 系列
+
+        public async Task<List<MeShopColl>> GetAllColl(string hostAdmin)
+        {
+            List<MeShopColl> collList = null;
+            if (hostAdmin.IsNotNullOrEmpty())
+            {
+                Dictionary<string, string> authDict = await this.GetAuthDic(hostAdmin);
+                string postDataStr = $"select ID,Title,Type from product_collection where State=1";
+
+                string postUrl = $"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=0";
+                var postResult = await this.PayHttpClient.PostJson(postUrl, postDataStr, authDict, HttpClientExtension.CONTENT_TYPE_TEXT);
+
+                collList = JsonConvert.DeserializeObject<List<MeShopColl>>(postResult.Item2);
+            }
+            return collList ?? new List<MeShopColl>(0);
+        }
+
+        /// <summary>
+        /// 删除系列下产品
+        /// </summary>
+        /// <param name="hostAdmin"></param>
+        /// <param name="productIDS"></param>
+        /// <returns></returns>
+        public async Task<int> DeleteCollProduct(string hostAdmin, params long[] productIDS)
+        {
+            int result = 0;
+
+            if (hostAdmin.IsNotNullOrEmpty() && productIDS.Length > 0)
+            {
+                string updateSql = null;
+                try
+                {
+                    Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
+                    string inSql = string.Join(',', productIDS);
+                    updateSql = $"delete from product_collection_product where SPUID in ({inSql})";
+                    var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=1", updateSql, authDic, "text/plain");
+
+                    result = Convert.ToInt32(syncResult.Item2);
+                }
+                catch (Exception e)
+                {
+                    this.Logger.LogError(e, $"执行SQL异常,hostAdmin={hostAdmin},syncSql={updateSql}");
+                    throw;
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 添加系列下产品
+        /// </summary>
+        /// <param name="hostAdmin"></param>
+        /// <param name="collID"></param>
+        /// <param name="spuIDS"></param>
+        /// <returns></returns>
+        public async Task<int> AddCollProduct(string hostAdmin, long collID, params long[] spuIDS)
+        {
+            int result = 0;
+
+            if (hostAdmin.IsNotNullOrEmpty() && collID > 0 && spuIDS.Length > 0)
+            {
+                Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
+
+                string postData = JsonConvert.SerializeObject(new
+                {
+                    CollectionID = collID,
+                    CheckSpuIDs = spuIDS,
+                    OprateSpuIDs = new long[0]
+                });
+                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/Collection/oprateproduct", postData, authDic);
+
+                result = syncResult.Item1 == System.Net.HttpStatusCode.OK ? 1 : 0;
+            }
+
+            return result;
+        }
+
+
+        #endregion
+
+        #region Sql
 
         /// <summary>
         /// 同步用户到MeShop
@@ -231,26 +385,7 @@ namespace WebApplication1.Helper
             return tList ?? new List<T>(0);
         }
 
-        /// <summary>
-        /// 同步订单发货记录到MeShop
-        /// </summary>
-        /// <param name="hostAdmin"></param>
-        /// <param name="postData"></param>
-        /// <returns></returns>
-        public async Task<int> SyncOrderShipToShop(string hostAdmin, string postData)
-        {
-            int result = 0;
+        #endregion
 
-            if (hostAdmin.IsNotNullOrEmpty() && postData.IsNotNullOrEmpty())
-            {
-                Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
-                //部分发货
-                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/order/SetShipedState", postData, authDic);
-
-                result = syncResult.Item1 == System.Net.HttpStatusCode.OK ? 1 : 0;
-            }
-
-            return result;
-        }
     }
 }
