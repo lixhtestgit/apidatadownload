@@ -42,7 +42,7 @@ namespace WebApplication1.Controllers
 			TB_UserSendAddressOrderRepository userSendAddressOrderRepository,
 			ExcelHelper excelHelper,
 			MeShopHelper meShopHelper,
-			ILogger<TestController> logger)
+			ILogger<CmsDataExportController> logger)
 		{
 			this._baseRepository = baseRepository;
 			this._tbCountryRepository = tbCountryRepository;
@@ -56,16 +56,17 @@ namespace WebApplication1.Controllers
 			this._logger = logger;
 		}
 
-		/// <summary>
-		/// 复制CMS站点数据到独立做账站点订单表中
-		/// </summary>
-		/// <returns></returns>
-		[Route("CopyDataToSite")]
+        /// <summary>
+        /// 复制CMS站点数据到独立做账站点订单表中
+        /// api/CmsDataExport/CopyDataToSite
+        /// </summary>
+        /// <returns></returns>
+        [Route("CopyDataToSite")]
 		[HttpGet]
 		public async Task CopyDataToSite()
 		{
-			string beginDate = "2022-11-01";
-			string endDate = "2022-12-01";
+			string beginDate = "2022-12-01";
+			string endDate = "2023-01-01";
 
 			#region 需求1：排除指定站点（0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143）平均分配到对应10个站点中
 

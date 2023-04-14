@@ -36,7 +36,7 @@ namespace WebApplication1.Controllers
             IWebHostEnvironment webHostEnvironment,
             IHttpClientFactory httpClientFactory,
             ExcelHelper excelHelper,
-            ILogger<TestController> logger,
+            ILogger<MeShopCheckoutController> logger,
             ESSearchHelper eSSearchHelper,
             CheckoutBIZ checkoutBIZ)
         {

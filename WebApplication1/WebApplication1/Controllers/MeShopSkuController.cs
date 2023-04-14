@@ -31,7 +31,7 @@ namespace WebApplication1.Controllers
             IWebHostEnvironment webHostEnvironment,
             IHttpClientFactory httpClientFactory,
             ExcelHelper excelHelper,
-            ILogger<TestController> logger,
+            ILogger<MeShopSkuController> logger,
             MeShopHelper meShopHelper)
         {
             this.WebHostEnvironment = webHostEnvironment;

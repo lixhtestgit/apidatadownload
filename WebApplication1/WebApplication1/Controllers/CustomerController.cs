@@ -40,7 +40,7 @@ namespace WebApplication1.Controllers
             IWebHostEnvironment webHostEnvironment,
             IHttpClientFactory httpClientFactory,
             ExcelHelper excelHelper,
-            ILogger<TestController> logger)
+            ILogger<CustomerController> logger)
         {
             this.WebHostEnvironment = webHostEnvironment;
             this.PayHttpClient = httpClientFactory.CreateClient();
