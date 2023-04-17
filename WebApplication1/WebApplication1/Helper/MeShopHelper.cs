@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using WebApplication1.BIZ;
 using WebApplication1.Enum;
 using WebApplication1.Model.MeShop;
+using WebApplication1.Model.MeShop.Request;
 
 namespace WebApplication1.Helper
 {
@@ -357,6 +358,18 @@ namespace WebApplication1.Helper
 			return result;
 		}
 
+
+		#endregion
+
+		#region 用户
+
+		public async Task<MeShopUser> GetUser(string hostAdmin, string email)
+		{
+			string sql = $"select * from user_info where email='{email}'";
+
+			List<MeShopUser> userList = await this.SelectDataToShop<MeShopUser>(hostAdmin, sql);
+			return userList.FirstOrDefault();
+		}
 
 		#endregion
 
