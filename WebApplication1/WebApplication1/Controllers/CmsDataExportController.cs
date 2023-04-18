@@ -11,6 +11,7 @@ using WebApplication1.DB.Repository;
 using WebApplication1.Enum;
 using WebApplication1.Extension;
 using WebApplication1.Helper;
+using WebApplication1.Model.ExcelModel;
 
 namespace WebApplication1.Controllers
 {
@@ -56,21 +57,85 @@ namespace WebApplication1.Controllers
 			this._logger = logger;
 		}
 
-        /// <summary>
-        /// 复制CMS站点数据到独立做账站点订单表中
-        /// api/CmsDataExport/CopyDataToSite
-        /// </summary>
-        /// <returns></returns>
-        [Route("CopyDataToSite")]
+		/// <summary>
+		/// 根据表格还原表数据
+		/// api/CmsDataExport/linshi
+		/// </summary>
+		/// <returns></returns>
+		[Route("linshi")]
 		[HttpGet]
-		public async Task CopyDataToSite()
+		public async Task<IActionResult> linshi()
 		{
-			string beginDate = "2022-12-01";
+			List<TJ_TB_Order> linshiList = await this._tjOrderRepository.Select(EDBSiteName.CMS, m => m.OriginSiteID == 19 && m.AddTime > Convert.ToDateTime("2022-10-01") && m.AddTime<Convert.ToDateTime("2022-11-01"), null);
+
+			List<ExcelTBOrder> excelTBOrdersList = this._excelHelper.ReadTitleDataList<ExcelTBOrder>(@"C:\Users\lixianghong\Desktop\beddinginn12月订单导出.xlsx", new ExcelFileDescription());
+			excelTBOrdersList = excelTBOrdersList.FindAll(m => m.AddTime>Convert.ToDateTime("2022-12-22 22:17:15.000"));
+			List<TJ_TB_Order> dataList = new List<TJ_TB_Order>();
+
+			int linshiPositon = -1;
+			excelTBOrdersList.ForEach(m =>
+			{
+				linshiPositon++;
+				TJ_TB_Order linshiOrder = linshiList[linshiPositon];
+				TJ_TB_Order tbOrder = new TJ_TB_Order
+				{
+					ID = m.OriginID,
+					OriginID = m.OriginID,
+					ProductCount = 1,
+					AddTime = m.AddTime,
+					Tx = linshiOrder.Tx,
+					Price_Product = m.CurrencyPrice,
+					Price_Count = m.CurrencyPrice,
+					Price_PreCount = m.CurrencyPrice,
+					Price_PreCount1 = m.CurrencyPrice,
+					Shipping = 0,
+					State = 2,
+					UserID = linshiOrder.UserID,
+					UserEmail = linshiOrder.UserEmail,
+					IP = linshiOrder.IP,
+					Address1 = linshiOrder.Address1,
+					Address2 = linshiOrder.Address2,
+					CountryID = linshiOrder.CountryID,
+					PayTime = m.AddTime.AddMinutes(3),
+					PayType = 2,
+					IsFastOrder = 0,
+					FastID = 0,
+					IsComment = 0,
+					SiteID = 19,
+					OriginSiteID = 19,
+					RemarkState = 0,
+					IsDisputed = 0,
+					IsDanger = 0,
+					Currency = 0,
+					CurrencyName = "USD",
+					CurrencyRate = 1,
+					CurrencyPrice = m.CurrencyPrice,
+					OriginalPrice = m.CurrencyPrice
+				};
+				this._tjOrderRepository.Insert(EDBSiteName.CMS, tbOrder).Wait();
+			});
+
+			this._logger.LogInformation("订单处理完成！");
+			return Ok();
+		}
+
+
+		/// <summary>
+		/// 复制CMS站点数据到独立做账站点订单表中
+		/// api/CmsDataExport/CopyDataToSite
+		/// </summary>
+		/// <returns></returns>
+		[Route("CopyDataToSite")]
+		[HttpGet]
+		public async Task CopyDataToSiteByExcel()
+		{
+			string beginDate = "2022-10-01";
 			string endDate = "2023-01-01";
 
 			#region 需求1：排除指定站点（0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143）平均分配到对应10个站点中
-
-			string tjOrderSql1 = @$"SELECT u.Email UserEmail,
+			if (false)
+			{
+				string tjOrderSql1 = @$"SELECT top 200 u.Email UserEmail,
                             (SELECT SUM(ob.BuyCount) FROM dbo.TB_OrderBill ob WHERE ob.SiteID=o.SiteID AND ob.OrderID=o.ID) ProductCount,
                             a.CountryID,
                             o.* FROM dbo.TB_Order o
@@ -79,13 +144,13 @@ namespace WebApplication1.Controllers
                             LEFT JOIN dbo.TB_UserSendAddressOrder AS a WITH (NOLOCK) ON o.SiteID = a.SiteID AND a.OrderID = o.ID AND a.AddressID = o.Address1
                             WHERE o.AddTime>'{beginDate}' AND o.AddTime<'{endDate}' AND o.SiteID NOT IN (0,1,11,1363,18,19,195,27,34,35,36,37,41,43,6689,6874,6876,6880,6881,6916,7162,7163,7003,7143)
                             Order By o.AddTime";
-			List<TJ_TB_Order> awaitOrderJObjList1 = await this._baseRepository.QueryAsync<TJ_TB_Order>(EDBSiteName.CMS, tjOrderSql1);
+				List<TJ_TB_Order> awaitOrderJObjList1 = await this._baseRepository.QueryAsync<TJ_TB_Order>(EDBSiteName.CMS, tjOrderSql1);
 
-			int orderObjPosition1 = 0;
-			int orderObjTotalCount1 = awaitOrderJObjList1.Count;
+				int orderObjPosition1 = 0;
+				int orderObjTotalCount1 = awaitOrderJObjList1.Count;
 
-			//同步原始订单到新站点
-			Dictionary<int, int> siteZB = new Dictionary<int, int>
+				//同步原始订单到新站点
+				Dictionary<int, int> siteZB = new Dictionary<int, int>
 			{
 				{6546,23 },
 				{6938,23 },
@@ -100,91 +165,92 @@ namespace WebApplication1.Controllers
 				{7203,2 },
 				{7224,2 }
 			};
-			Dictionary<int, int> siteMaxOrderIDDic = new Dictionary<int, int>(12);
-			foreach (var item in siteZB)
-			{
-				int maxOrderID = await this._tjOrderRepository.GetMaxID(item.Key);
-				siteMaxOrderIDDic.Add(item.Key, maxOrderID);
-			}
-
-			Random random = new Random();
-
-			Func<TJ_TB_Order, Task> syncOrderToNewSiteFunc = async (orderObj) =>
-			{
-				try
+				Dictionary<int, int> siteMaxOrderIDDic = new Dictionary<int, int>(12);
+				foreach (var item in siteZB)
 				{
-					orderObjPosition1++;
-					this._logger.LogInformation($"正在同步需求1第{orderObjPosition1}/{orderObjTotalCount1}个订单...");
+					int maxOrderID = await this._tjOrderRepository.GetMaxID(item.Key);
+					siteMaxOrderIDDic.Add(item.Key, maxOrderID);
+				}
 
-					int fpSiteID = 0;
-					int randomI = random.Next(1, 101);
-					foreach (var item in siteZB)
+				Random random = new Random();
+
+				Func<TJ_TB_Order, Task> syncOrderToNewSiteFunc = async (orderObj) =>
+				{
+					try
 					{
-						randomI = randomI - item.Value;
-						if (randomI <= 0)
+						orderObjPosition1++;
+						this._logger.LogInformation($"正在同步需求1第{orderObjPosition1}/{orderObjTotalCount1}个订单...");
+
+						int fpSiteID = 0;
+						int randomI = random.Next(1, 101);
+						foreach (var item in siteZB)
 						{
-							fpSiteID = item.Key;
-							break;
+							randomI = randomI - item.Value;
+							if (randomI <= 0)
+							{
+								fpSiteID = item.Key;
+								break;
+							}
 						}
+
+						//添加订单
+						orderObj.OriginID = orderObj.ID;
+						orderObj.OriginSiteID = orderObj.SiteID;
+						orderObj.SiteID = fpSiteID;
+
+						int insertResult = 0;
+						int fpOrderID = 0;
+						do
+						{
+							try
+							{
+								lock (this._obj)
+								{
+									fpOrderID = siteMaxOrderIDDic[fpSiteID] + 1;
+									siteMaxOrderIDDic[fpSiteID] = fpOrderID;
+								}
+								orderObj.ID = fpOrderID;
+
+								//检测原始数据是否已经插入统计表
+								TJ_TB_Order tjTBOrder = await this._tjOrderRepository.First(EDBSiteName.CMS, m => m.OriginID == orderObj.OriginID && m.OriginSiteID == orderObj.OriginSiteID);
+								if (tjTBOrder != null)
+								{
+									insertResult = 1;
+								}
+								else
+								{
+									insertResult = await this._tjOrderRepository.Insert(EDBSiteName.CMS, orderObj);
+								}
+							}
+							catch (Exception)
+							{
+							}
+						} while (insertResult == 0);
 					}
-
-					//添加订单
-					orderObj.OriginID = orderObj.ID;
-					orderObj.OriginSiteID = orderObj.SiteID;
-					orderObj.SiteID = fpSiteID;
-
-					int insertResult = 0;
-					int fpOrderID = 0;
-					do
+					catch (Exception)
 					{
-						try
-						{
-							lock (this._obj)
-							{
-								fpOrderID = siteMaxOrderIDDic[fpSiteID] + 1;
-								siteMaxOrderIDDic[fpSiteID] = fpOrderID;
-							}
-							orderObj.ID = fpOrderID;
+						throw;
+					}
+				};
 
-							//检测原始数据是否已经插入统计表
-							TJ_TB_Order tjTBOrder = await this._tjOrderRepository.First(EDBSiteName.CMS, m => m.OriginID == orderObj.OriginID && m.OriginSiteID == orderObj.OriginSiteID);
-							if (tjTBOrder != null)
-							{
-								insertResult = 1;
-							}
-							else
-							{
-								insertResult = await this._tjOrderRepository.Insert(EDBSiteName.CMS, orderObj);
-							}
-						}
-						catch (Exception)
-						{
-						}
-					} while (insertResult == 0);
-				}
-				catch (Exception)
+				int waitObjIndex1 = 0;
+				bool allIsSync1 = true;
+				List<Task> syncTaskList1 = new List<Task>(10);
+				do
 				{
-					throw;
-				}
-			};
-
-			int waitObjIndex1 = 0;
-			bool allIsSync1 = true;
-			List<Task> syncTaskList1 = new List<Task>(10);
-			do
-			{
-				allIsSync1 = true;
-				if (syncTaskList1.Count < 10 && waitObjIndex1 <= orderObjTotalCount1 - 1)
-				{
-					Task syncTask = syncOrderToNewSiteFunc(awaitOrderJObjList1[waitObjIndex1]);
-					syncTaskList1.Add(syncTask);
-					waitObjIndex1++;
-				}
-				//检测异步方法是否全部执行完毕
-				allIsSync1 = syncTaskList1.Exists(m => m.IsCompleted == false) ? false : true;
-				//移除已完成任务，安排下一对象同步
-				syncTaskList1.RemoveAll(x => x.IsCompleted == true);
-			} while (allIsSync1 == false || waitObjIndex1 < orderObjTotalCount1);
+					allIsSync1 = true;
+					if (syncTaskList1.Count < 10 && waitObjIndex1 <= orderObjTotalCount1 - 1)
+					{
+						Task syncTask = syncOrderToNewSiteFunc(awaitOrderJObjList1[waitObjIndex1]);
+						syncTaskList1.Add(syncTask);
+						waitObjIndex1++;
+					}
+					//检测异步方法是否全部执行完毕
+					allIsSync1 = syncTaskList1.Exists(m => m.IsCompleted == false) ? false : true;
+					//移除已完成任务，安排下一对象同步
+					syncTaskList1.RemoveAll(x => x.IsCompleted == true);
+				} while (allIsSync1 == false || waitObjIndex1 < orderObjTotalCount1);
+			}
 
 			#endregion
 
@@ -260,19 +326,19 @@ namespace WebApplication1.Controllers
 				syncTaskList2.RemoveAll(x => x.IsCompleted == true);
 			} while (allIsSync2 == false || waitObjIndex2 < orderObjTotalCount2);
 
-            #endregion
+			#endregion
 
-            #region 需求3
+			#region 需求3
 
-            //执行SQL查询数据整理到Excel中：
-            var huizongSQL = @"
+			//执行SQL查询数据整理到Excel中：
+			var huizongSQL = @"
             SELECT ID, Name,
             (SELECT SUM(Price_PreCount1) FROM dbo.TJ_TB_Order WHERE SiteID = TB_Site.ID AND AddTime>= '2022-09-01' AND AddTime<'2022-10-01')[9月美金汇总]
             FROM TB_Site where ID IN(6546, 6691, 6738, 6903, 6938, 6983, 7027, 7203, 7204, 7207, 7211, 7224)
             ORDER BY ID
             ";
 
-            var xiangqingSQL = @"
+			var xiangqingSQL = @"
             select o.SiteID[站点ID],
                 (SELECT s.Name FROM dbo.TB_Site s WHERE s.ID=o.SiteID)[站点名称],
                 ID[订单ID],AddTime[创建时间],o.CurrencyName[币种名称],
@@ -285,9 +351,9 @@ namespace WebApplication1.Controllers
             ORDER by AddTime
             ";
 
-            #endregion
+			#endregion
 
-            this._logger.LogInformation("订单处理完成！");
+			this._logger.LogInformation("订单处理完成！");
 		}
 
 
@@ -330,7 +396,7 @@ namespace WebApplication1.Controllers
 					{
 						if (item.Email.Contains("@") && item.Email.Contains("."))
 						{
-							item.Email = item.Email?.Replace("\r\n", "").Replace(" ", "").Replace("'", "''").Replace("\\","") ?? "";
+							item.Email = item.Email?.Replace("\r\n", "").Replace(" ", "").Replace("'", "''").Replace("\\", "") ?? "";
 							if (item.RegDate < minRegisterDate)
 							{
 								item.RegDate = minRegisterDate;

@@ -27,5 +27,6 @@ namespace WebApplication1.DB.Repository
 
             return dataList.FirstOrDefault();
         }
-    }
+
+	}
 }
