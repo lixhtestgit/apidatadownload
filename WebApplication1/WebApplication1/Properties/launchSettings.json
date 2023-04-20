@@ -4,7 +4,7 @@
     "WebApplication1": {
       "commandName": "Project",
       "launchBrowser": true,
-      "launchUrl": "",
+      "launchUrl": "api/ProductImageMatch/AddProductColl",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },

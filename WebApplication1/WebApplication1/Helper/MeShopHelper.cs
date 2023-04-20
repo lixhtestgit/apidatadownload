@@ -272,7 +272,7 @@ namespace WebApplication1.Helper
 				skus[i] = $"'{skus[i]}'";
 			}
 			string inSql = string.Join(",", skus);
-			string sql = $"select DISTINCT SKU,CONCAT('https://cdn.meshopstore.com/s/files/{hostAdmin}',(select SRC from product_image where id=product_sku.ImageID)) ImageSrc from product_sku where ImageID>0 and SKU in ({inSql});";
+			string sql = $"select DISTINCT SKU,SPUID,CONCAT('https://cdn.meshopstore.com/s/files/{hostAdmin}',(select SRC from product_image where id=product_sku.ImageID)) ImageSrc from product_sku where ImageID>0 and SKU in ({inSql});";
 			List<MeShopSkuImage> skuImageList = await this.SelectDataToShop<MeShopSkuImage>(hostAdmin, sql);
 			return skuImageList;
 		}
