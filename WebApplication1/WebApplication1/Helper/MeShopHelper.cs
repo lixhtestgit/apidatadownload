@@ -330,7 +330,7 @@ namespace WebApplication1.Helper
 		}
 
 		/// <summary>
-		/// 添加系列下产品
+		/// 添加系列下产品（支持已添加过当前系列的产品）
 		/// </summary>
 		/// <param name="hostAdmin"></param>
 		/// <param name="collID"></param>
