@@ -59,7 +59,7 @@ namespace WebApplication1.Controllers
 		[HttpGet]
 		public async Task<IActionResult> SetProductState()
 		{
-			string dataSourceDirectoryPath = $@"C:\Users\lixianghong\Desktop\项总产品系列刷新\tid产品数据包\产品数据包";
+			string dataSourceDirectoryPath = $@"{this.WebHostEnvironment.ContentRootPath}\示例测试目录\产品\产品系列更新";
 			string saveFilePath = dataSourceDirectoryPath + "\\产品系列关系.xlsx";
 			string hostAdmin = "tidebuyshop";
 
@@ -95,7 +95,7 @@ namespace WebApplication1.Controllers
 					}
 					foreach (var productFile in productFiles)
 					{
-						currentExcelProductSpuList.AddRange(this.CsvHelper.Read<ExcelProductSpu>(productFile, new CsvFileDescription(0)));
+						currentExcelProductSpuList.AddRange(this.ExcelHelper.ReadTitleDataList<ExcelProductSpu>(productFile, new ExcelFileDescription(0)));
 					}
 
 					//从数据库中读取产品ID相关数据
@@ -152,8 +152,9 @@ namespace WebApplication1.Controllers
 					throw new Exception($"发现未匹配产品集合：{JsonConvert.SerializeObject(noMatchCollNameList)}");
 				}
 			}
+            allExcelProductSpuList.RemoveAll(m=>string.IsNullOrEmpty(m.SpuID));
 
-			long[] allSpuIDArray = allExcelProductSpuList.Select(m => Convert.ToInt64(m.SpuID)).Distinct().ToArray();
+            long[] allSpuIDArray = allExcelProductSpuList.Select(m => Convert.ToInt64(m.SpuID)).Distinct().ToArray();
 
 			this.Logger.LogInformation($"正在删除系列产品关系...");
 			await this.MeShopHelper.DeleteCollProduct(hostAdmin, allSpuIDArray);

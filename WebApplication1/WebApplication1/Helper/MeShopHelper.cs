@@ -47,8 +47,8 @@ namespace WebApplication1.Helper
 			{"wigsbuyshop", new { Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
 			{"janewigshop", new { Email = "chenfei@meshop.net", Password = "Meshop0823" } },
 			{"soomshop", new { Email = "shpopgo@163.com", Password = "709%sop230" } },
-			{"tidebuyshop", new { Email = "chenfei@meshop.net", Password = "Bpo02764mn" } }
-		};
+			{"tidebuyshop", new { Email = "chenfei@meshop.net", Password = "8LAop6734SW02pkl" } }
+        };
 
 		#region 授权
 

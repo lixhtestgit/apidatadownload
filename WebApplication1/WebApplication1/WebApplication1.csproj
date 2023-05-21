@@ -29,5 +29,10 @@
     <PackageReference Include="System.Data.SqlClient" Version="4.8.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="示例测试目录\产品\产品系列更新\goodsale\" />
+    <Folder Include="示例测试目录\产品\产品系列更新\" />
+  </ItemGroup>
+
 
 </Project>
