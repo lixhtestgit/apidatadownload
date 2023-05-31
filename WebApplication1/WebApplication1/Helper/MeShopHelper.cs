@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Threading.Tasks;
 using WebApplication1.BIZ;
 using WebApplication1.Enum;
+using WebApplication1.Extension;
 using WebApplication1.Model.MeShop;
 using WebApplication1.Model.MeShop.Request;
 
@@ -40,15 +41,16 @@ namespace WebApplication1.Helper
         /// </summary>
         public Dictionary<string, dynamic> ShopApiV1AuthUserDic = new Dictionary<string, dynamic>
         {
-            {"netstore", new { Email = "chenfei@meshop.net", Password = "Store78sp9" } },
-            {"tbdressshop", new { Email = "chenfei@meshop.net", Password = "Tsh64384hhpo" } },
-            {"ericdressfashion", new { Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
-            {"shoespieshop", new { Email = "chenfei@meshop.net", Password = "Meshop0823" } },
-            {"wigsbuyshop", new { Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
-            {"janewigshop", new { Email = "chenfei@meshop.net", Password = "Meshop0823" } },
-            {"soomshop", new { Email = "shpopgo@163.com", Password = "709%sop230" } },
-            {"tidebuyshop", new { Email = "chenfei@meshop.net", Password = "8LAop6734SW02pkl" } },
-            {"teamliu5", new { Email = "sellershop@126.com", Password = "12Meoslp7238nbv" } }
+            {"test0003", new { Domain = "runshopstore.com", Email = "tester@meshop.net", Password = "Tester123456" } },
+            {"netstore", new { Domain = "meshopstore.com", Email = "chenfei@meshop.net", Password = "Store78sp9" } },
+            {"tbdressshop", new { Domain = "meshopstore.com", Email = "chenfei@meshop.net", Password = "Tsh64384hhpo" } },
+            {"ericdressfashion", new { Domain = "meshopstore.com", Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
+            {"shoespieshop", new { Domain = "meshopstore.com", Email = "chenfei@meshop.net", Password = "Meshop0823" } },
+            {"wigsbuyshop", new { Domain = "meshopstore.com", Email = "chenfei@meshop.net", Password = "Chenfei@2022" } },
+            {"janewigshop", new { Domain = "meshopstore.com", Email = "chenfei@meshop.net", Password = "Meshop0823" } },
+            {"soomshop", new { Domain = "meshopstore.com", Email = "shpopgo@163.com", Password = "709%sop230" } },
+            {"tidebuyshop", new { Domain = "meshopstore.com", Email = "chenfei@meshop.net", Password = "8LAop6734SW02pkl" } },
+            {"teamliu5", new { Domain = "meshopstore.com", Email = "sellershop@126.com", Password = "12Meoslp7238nbv" } }
         };
 
         #region 授权
@@ -67,10 +69,11 @@ namespace WebApplication1.Helper
             }
             else
             {
+                string domain = this.ShopApiV1AuthUserDic[hostAdmin].Domain;
                 string loginEmail = this.ShopApiV1AuthUserDic[hostAdmin].Email;
                 string loginPwd = this.ShopApiV1AuthUserDic[hostAdmin].Password;
 
-                string authUrl = "https://sso.meshopstore.com/Auth/Login";
+                string authUrl = $"https://sso.{domain}/Auth/Login";
                 var loginResult = await this.PayHttpClient.PostForm(authUrl, postDict: new Dictionary<string, string>
                 {
                     {"email",loginEmail },
@@ -106,7 +109,9 @@ namespace WebApplication1.Helper
 
             if (hostAdmin.IsNotNullOrEmpty() && orderIDS.Length > 0)
             {
-                string postUrl = $"https://{hostAdmin}.meshopstore.com/api/v1/order/getorderlist";
+                IDictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
+
+                string postUrl = $"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/order/getorderlist";
                 dynamic postData = new
                 {
                     ID = new
@@ -120,9 +125,9 @@ namespace WebApplication1.Helper
                     }
                 };
                 string postDataStr = JsonConvert.SerializeObject(postData);
-                IDictionary<string, string> authDict = await this.GetAuthDic(hostAdmin);
 
-                var postResult = await this.PayHttpClient.PostJson(postUrl, postDataStr, authDict);
+
+                var postResult = await this.PayHttpClient.PostJson(postUrl, postDataStr, authDic);
 
                 JObject orderJObject = JObject.Parse(postResult.Item2);
                 if (orderJObject.SelectToken("success").ToObject<bool>())
@@ -146,9 +151,10 @@ namespace WebApplication1.Helper
 
             if (hostAdmin.IsNotNullOrEmpty() && orderID > 0)
             {
-                string orderDetailUrl = $"https://{hostAdmin}.meshopstore.com/api/v1/order/GetOrderDetailPageData?orderID={orderID}";
-                Dictionary<string, string> authDict = await this.GetAuthDic(hostAdmin);
-                var orderDetailResult = await this.PayHttpClient.Get(orderDetailUrl, authDict);
+                Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
+                string orderDetailUrl = $"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/order/GetOrderDetailPageData?orderID={orderID}";
+
+                var orderDetailResult = await this.PayHttpClient.Get(orderDetailUrl, authDic);
 
                 JObject orderJObject = JObject.Parse(orderDetailResult.Item2);
                 if (orderJObject.SelectToken("success").ToObject<bool>())
@@ -171,11 +177,11 @@ namespace WebApplication1.Helper
             List<MeShopOrderItem> meShopOrderItemList = null;
             if (orderIDS.Length > 0)
             {
-                string postUrl = $"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=0";
+                IDictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
+                string postUrl = $"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=0";
                 string postDataStr = $"select * from order_item where orderid in ({string.Join(',', orderIDS)})";
-                IDictionary<string, string> authDict = await this.GetAuthDic(hostAdmin);
 
-                var postResult = await this.PayHttpClient.PostJson(postUrl, postDataStr, authDict, HttpClientExtension.CONTENT_TYPE_TEXT);
+                var postResult = await this.PayHttpClient.PostJson(postUrl, postDataStr, authDic, HttpClientExtension.CONTENT_TYPE_TEXT);
 
                 meShopOrderItemList = JsonConvert.DeserializeObject<List<MeShopOrderItem>>(postResult.Item2);
             }
@@ -197,7 +203,7 @@ namespace WebApplication1.Helper
             {
                 Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
                 //部分发货
-                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/order/SetShipedState", postData, authDic);
+                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/order/SetShipedState", postData, authDic);
 
                 result = syncResult.Item1 == System.Net.HttpStatusCode.OK ? 1 : 0;
             }
@@ -231,6 +237,31 @@ namespace WebApplication1.Helper
         #region 产品
 
         /// <summary>
+        /// 获取所有产品列表
+        /// </summary>
+        /// <param name="hostAdmin"></param>
+        /// <returns></returns>
+        public async Task<List<MeShopSpuDB>> GetProductList(string hostAdmin)
+        {
+            string sql = $"select ID,SPU,Handle,State from product_spu where state!=-1";
+            List<MeShopSpuDB> dataList = await this.SelectDataToShop<MeShopSpuDB>(hostAdmin, sql);
+            return dataList;
+        }
+
+        /// <summary>
+        /// 获取所有产品列表
+        /// </summary>
+        /// <param name="hostAdmin"></param>
+        /// <param name="createDate"></param>
+        /// <returns></returns>
+        public async Task<List<MeShopSpuDB>> GetProductListByCreateTime(string hostAdmin, DateTime createDate)
+        {
+            string sql = $"select ID,SPU,Handle,State from product_spu where state!=-1 and createtime>'{createDate.ToString_yyyyMMddHHmmss()}'";
+            List<MeShopSpuDB> dataList = await this.SelectDataToShop<MeShopSpuDB>(hostAdmin, sql);
+            return dataList;
+        }
+
+        /// <summary>
         /// 获取系列下所有产品列表
         /// </summary>
         /// <param name="hostAdmin"></param>
@@ -238,7 +269,7 @@ namespace WebApplication1.Helper
         /// <returns></returns>
         public async Task<List<MeShopSpuDB>> GetProductListByCollID(string hostAdmin, long collID)
         {
-            string sql = $"select ID,SPU,Handle,State from product_spu where ID in (select SPUID from product_collection_product where CollectionID={collID})";
+            string sql = $"select ID,SPU,Handle,State from product_spu where state!=-1 and ID in (select SPUID from product_collection_product where CollectionID={collID})";
             List<MeShopSpuDB> dataList = await this.SelectDataToShop<MeShopSpuDB>(hostAdmin, sql);
             return dataList;
         }
@@ -264,7 +295,7 @@ namespace WebApplication1.Helper
                     State = productState
                 });
 
-                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/ProductManage/updateproductstate", postData, authDic);
+                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/ProductManage/updateproductstate", postData, authDic);
 
                 result = syncResult.Item1 == System.Net.HttpStatusCode.OK ? 1 : 0;
             }
@@ -286,7 +317,7 @@ namespace WebApplication1.Helper
                 skus[i] = $"'{skus[i]}'";
             }
             string inSql = string.Join(",", skus);
-            string sql = $"select DISTINCT SKU,SPUID,CONCAT('https://cdn.meshopstore.com/s/files/{hostAdmin}',(select SRC from product_image where id=product_sku.ImageID)) ImageSrc from product_sku where ImageID>0 and SKU in ({inSql});";
+            string sql = $"select DISTINCT SKU,SPUID,CONCAT('https://cdn.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/s/files/{hostAdmin}',(select SRC from product_image where id=product_sku.ImageID)) ImageSrc from product_sku where ImageID>0 and SKU in ({inSql});";
             List<MeShopSkuImage> skuImageList = await this.SelectDataToShop<MeShopSkuImage>(hostAdmin, sql);
             return skuImageList;
         }
@@ -300,11 +331,11 @@ namespace WebApplication1.Helper
             List<MeShopColl> collList = null;
             if (hostAdmin.IsNotNullOrEmpty())
             {
-                Dictionary<string, string> authDict = await this.GetAuthDic(hostAdmin);
+                Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
                 string postDataStr = $"select ID,Title,Type from product_collection where State=1";
 
-                string postUrl = $"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=0";
-                var postResult = await this.PayHttpClient.PostJson(postUrl, postDataStr, authDict, HttpClientExtension.CONTENT_TYPE_TEXT);
+                string postUrl = $"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=0";
+                var postResult = await this.PayHttpClient.PostJson(postUrl, postDataStr, authDic, HttpClientExtension.CONTENT_TYPE_TEXT);
 
                 collList = JsonConvert.DeserializeObject<List<MeShopColl>>(postResult.Item2);
             }
@@ -328,7 +359,7 @@ namespace WebApplication1.Helper
                 {
                     Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
                     updateSql = $"delete from product_collection_product where CollectionID in ({collID})";
-                    var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=1", updateSql, authDic, "text/plain");
+                    var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=1", updateSql, authDic, "text/plain");
 
                     result = Convert.ToInt32(syncResult.Item2);
                 }
@@ -360,7 +391,7 @@ namespace WebApplication1.Helper
                     Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
                     string inSql = string.Join(',', productIDS);
                     updateSql = $"delete from product_collection_product where SPUID in ({inSql})";
-                    var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=1", updateSql, authDic, "text/plain");
+                    var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=1", updateSql, authDic, "text/plain");
 
                     result = Convert.ToInt32(syncResult.Item2);
                 }
@@ -395,7 +426,7 @@ namespace WebApplication1.Helper
                     CheckSpuIDs = spuIDS,
                     OprateSpuIDs = new long[0]
                 });
-                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/Collection/oprateproduct", postData, authDic);
+                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/Collection/oprateproduct", postData, authDic);
 
                 result = syncResult.Item1 == System.Net.HttpStatusCode.OK ? 1 : 0;
             }
@@ -435,7 +466,7 @@ namespace WebApplication1.Helper
                 try
                 {
                     Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
-                    var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=1", syncSql, authDic, "text/plain");
+                    var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=1", syncSql, authDic, "text/plain");
 
                     result = Convert.ToInt32(syncResult.Item2);
                 }
@@ -455,7 +486,7 @@ namespace WebApplication1.Helper
             if (hostAdmin.IsNotNullOrEmpty() && syncSql.IsNotNullOrEmpty())
             {
                 Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
-                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.meshopstore.com/api/v1/webuser/importwebuserbysql?isInsert=0", syncSql, authDic, "text/plain");
+                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=0", syncSql, authDic, "text/plain");
 
                 tList = JArray.Parse(syncResult.Item2).ToObject<List<T>>();
             }

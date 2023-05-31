@@ -183,7 +183,7 @@ namespace WebApplication1.Controllers
         }
 
         /// <summary>
-        /// 修改产品状态
+        /// 删除产品并清理产品系列关系
         /// api/MeShopSpu/DelCollProduct
         /// </summary>
         /// <returns></returns>
@@ -191,19 +191,51 @@ namespace WebApplication1.Controllers
         [HttpGet]
         public async Task<IActionResult> DelCollProduct()
         {
-            string hostAdmin = "teamliu5";
-            string collName = "goodsale";
+            string hostAdmin = "tidebuyshop";
+            string collName = "";
 
-            List<MeShopColl> allCollList = await this.MeShopHelper.GetAllColl(hostAdmin);
-            MeShopColl currentColl = allCollList.FirstOrDefault(m => m.Title == collName);
+            List<MeShopSpuDB> spuList = null;
+            MeShopColl currentColl = null;
+            if (collName.IsNotNullOrEmpty())
+            {
+                List<MeShopColl> allCollList = await this.MeShopHelper.GetAllColl(hostAdmin);
+                currentColl = allCollList.FirstOrDefault(m => m.Title == collName);
 
-            List<MeShopSpuDB> spuList = await this.MeShopHelper.GetProductListByCollID(hostAdmin, currentColl.ID);
-            long[] spuIDS = spuList.Select(m => m.ID).ToArray();
-            int delCount = await this.MeShopHelper.SyncProductStateToShop(hostAdmin, EMeShopProductState.删除, spuIDS);
-            this.Logger.LogInformation($"正在删除系列产品...{delCount}个");
+                spuList = await this.MeShopHelper.GetProductListByCollID(hostAdmin, currentColl.ID);
+            }
+            else
+            {
+                spuList = await this.MeShopHelper.GetProductListByCreateTime(hostAdmin, Convert.ToDateTime("2023-5-29 03:00:00"));
+                //spuList = await this.MeShopHelper.GetProductList(hostAdmin);
+            }
 
-            delCount = await this.MeShopHelper.DeleteCollProductByCollID(hostAdmin, currentColl.ID);
-            this.Logger.LogInformation($"正在删除系列产品关系...{delCount}个");
+            List<long> spuIDS = spuList.Select(m => m.ID).Distinct().ToList();
+
+            int pageSize = 3000;
+            int page = 1;
+            long[] spuIDList;
+            int delCount = 0;
+            do
+            {
+                spuIDList = spuIDS.Skip((page - 1) * pageSize).Take(pageSize).ToArray();
+                if (spuIDList != null && spuIDList.Length > 0)
+                {
+                    delCount = await this.MeShopHelper.SyncProductStateToShop(hostAdmin, EMeShopProductState.删除, spuIDList);
+                    this.Logger.LogInformation($"正在删除系列产品...{(page - 1) * pageSize + spuIDList.Length}/{spuIDS.Count}个");
+                }
+
+                if (collName.IsNotNullOrEmpty())
+                {
+                    delCount = await this.MeShopHelper.DeleteCollProductByCollID(hostAdmin, currentColl.ID);
+                    this.Logger.LogInformation($"正在删除系列产品关系...{(page - 1) * pageSize + spuIDList.Length}/{spuIDS.Count}个");
+                }
+                else
+                {
+                    delCount = await this.MeShopHelper.DeleteCollProductByProductID(hostAdmin, spuIDList);
+                    this.Logger.LogInformation($"正在删除系列产品关系...{(page - 1) * pageSize + spuIDList.Length}/{spuIDS.Count}个");
+                }
+                page++;
+            } while (spuIDList.Length == pageSize);
 
             this.Logger.LogInformation($"最后记得手动同步一下所有产品到ES，程序同步可能会出现中断，遗漏等问题...");
 
