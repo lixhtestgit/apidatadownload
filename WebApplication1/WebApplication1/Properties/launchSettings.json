@@ -4,7 +4,7 @@
     "WebApplication1": {
       "commandName": "Project",
       "launchBrowser": true,
-      "launchUrl": "api/MeShopSpu/DelCollProduct",
+      "launchUrl": "api/MeShopCheckout/",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },

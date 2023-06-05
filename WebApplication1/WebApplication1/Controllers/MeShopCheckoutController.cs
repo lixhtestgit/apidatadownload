@@ -55,32 +55,47 @@ namespace WebApplication1.Controllers
         /// <returns></returns>
         [Route("")]
         [HttpGet]
-        public async Task<IActionResult> ESSearchOrderPayType()
+        public async Task<IActionResult> ESSearchOrderByCheckout()
         {
-            #region 通过手动收集弃单集合
+            #region 收集数据源1：通过手动收集弃单集合
             //string[] checkoutGuidArray = new string[] {
             //    "036135ee-5174-47b1-9aa4-5dd2f7c9d303","059684cd-9ea8-4239-8b46-c3d31d7e89b9","2434fe89-9f40-4cb5-8c0f-8a1ca9460983","57132ecc-1308-48ae-83f3-305da3690951","79f9ea18-e0e9-4538-9649-d6cde3556266","7fe01ce5-fce8-4d8d-a230-406511f34fe3","a2ae7972-947d-4f4c-a539-3a5d7b70efb7","adb4fc45-08df-4b6b-85c2-45b189269174","b7aee623-6796-4764-a131-913dbaad9575","bd7d3dc1-8f6b-4b52-855c-f31445fe8217","c0198dc4-0edc-43a0-9765-4dbddfd5b45a","c5a4431e-86a7-4f4e-82da-1013f2acf41a","efbfdb54-50bd-42f3-a22e-0734c9da1ece","fa0d410a-a7fe-4161-9640-0d379cbfb36d"
             //};
             //List<CheckoutOrder> dataList = await this.GetESCheckoutOrderList(checkoutGuidArray);
             #endregion
 
-            #region 通过弃单导出文件收集弃单集合
+            #region 收集数据源2：通过API收集弃单集合
+            string shopDomain = "teamliu5.meshopstore.com";
+            string email = "sellershop@126.com";
+            string pwd = "12Meoslp7238nbv";
+            DateTime beginDate = Convert.ToDateTime("2023-06-04 10:00:00");
+            DateTime endDate = Convert.ToDateTime("2023-06-04 16:00:00");
+            List<CheckoutOrder> dataList = await this.CheckoutBIZ.GetList(shopDomain, email, pwd, beginDate, endDate, new int[] { -1, 0, 1 });
+            #endregion
 
-            string contentRootPath = this.WebHostEnvironment.ContentRootPath;
-            string testFilePath = $@"{contentRootPath}\示例测试目录\弃单\待刷失败原因弃单.xlsx";
+            #region 收集数据源3：通过弃单导出文件收集弃单集合
 
-            string filePath = $@"{contentRootPath}\示例测试目录\弃单\待刷失败原因弃单_收集数据{DateTime.Now.ToString("yyyyMMddHHmmss")}.xlsx";
+            //string testFilePath = $@"{contentRootPath}\示例测试目录\弃单\待刷失败原因弃单.xlsx";
+            //List<CheckoutOrder> dataList = this.ExcelHelper.ReadTitleDataList<CheckoutOrder>(testFilePath, new ExcelFileDescription(0));
 
-            List<CheckoutOrder> dataList = this.ExcelHelper.ReadTitleDataList<CheckoutOrder>(testFilePath, new ExcelFileDescription(0));
+            #endregion
+
+            #region 分析失败原因1：通过弃单导出文件收集弃单集合
 
             //通过ES分析失败原因
             await this.GetESCheckoutOrderList(dataList);
+
+            #endregion
+
+            #region 分析失败原因2：通过支付日志文件分析失败原因
 
             //通过支付日志文件分析失败原因
             //string payLogFilePath = $@"{contentRootPath}\示例测试目录\支付公司导出订单\pacyhost.log";
             //this.UpdateOrderPayDataByFile(payLogFilePath, dataList);
             #endregion
 
+            string contentRootPath = this.WebHostEnvironment.ContentRootPath;
+            string filePath = $@"{contentRootPath}\示例测试目录\弃单\待刷失败原因弃单_收集数据{DateTime.Now.ToString("yyyyMMddHHmmss")}.xlsx";
             IWorkbook workbook = ExcelHelper.CreateOrUpdateWorkbook(dataList);
             ExcelHelper.SaveWorkbookToFile(workbook, filePath);
 
@@ -151,7 +166,7 @@ namespace WebApplication1.Controllers
         /// </summary>
         /// <param name="checkoutGuidArray"></param>
         /// <returns></returns>
-        public async Task GetESCheckoutOrderList(List<CheckoutOrder> checkoutOrderList)
+        private async Task GetESCheckoutOrderList(List<CheckoutOrder> checkoutOrderList)
         {
             //通过ES更新查询支付方式
             int position = 1;
@@ -237,6 +252,7 @@ namespace WebApplication1.Controllers
                     //获取结果和原因
                     this.UpdatePayTypeAndCreateOrderResult(model, sessionIDLog);
                     this.UpdatePayTypeAndPayResult(model, sessionIDLog);
+                    this.UpdatePayAccount(model, sessionIDLog);
 
                     return "1";
                 });
@@ -355,6 +371,29 @@ namespace WebApplication1.Controllers
 
         }
 
+        /// <summary>
+        /// 更新收款账号
+        /// </summary>
+        /// <param name="checkoutOrder"></param>
+        /// <param name="sessionIDLog"></param>
+        private void UpdatePayAccount(CheckoutOrder checkoutOrder, string sessionIDLog)
+        {
+            string payAccountName = null;
+            if (sessionIDLog.Contains("HomeController,Index,1_收到调度转发请求", StringComparison.OrdinalIgnoreCase))
+            {
+                payAccountName = new Regex("(?<=\"MerchantCode\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                if (!string.IsNullOrEmpty(payAccountName))
+                {
+                    checkoutOrder.ESPayAccountList.Add(payAccountName);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 更新支付方式和创建订单结果
+        /// </summary>
+        /// <param name="checkoutOrder"></param>
+        /// <param name="sessionIDLog"></param>
         private void UpdatePayTypeAndCreateOrderResult(CheckoutOrder checkoutOrder, string sessionIDLog)
         {
             bool createOrderResult = false;
@@ -367,6 +406,9 @@ namespace WebApplication1.Controllers
                 if (sessionIDLog.Contains("PP"))
                 {
                     payType = "PayPal";
+                    //获取日志
+                    checkoutOrder.ESCreateOrderResultLogList.Add(sessionIDLog);
+
                     result = new Regex("(?<=\"issue\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
                     if (string.IsNullOrEmpty(result))
                     {
@@ -376,6 +418,9 @@ namespace WebApplication1.Controllers
                 else if (sessionIDLog.Contains("PayEaseDirect"))
                 {
                     payType = "PayEaseDirect";
+                    //获取日志
+                    checkoutOrder.ESCreateOrderResultLogList.Add(sessionIDLog);
+
                     result = new Regex("(?<=\"orderInfo\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
                     if (string.IsNullOrEmpty(result))
                     {
@@ -385,8 +430,23 @@ namespace WebApplication1.Controllers
                 else if (sessionIDLog.Contains("PacyPayHosted"))
                 {
                     payType = "PacyPayHosted";
-                    result = new Regex("(?<=\"respMsg\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
-                    if (result == "Success")
+                    //获取日志
+                    checkoutOrder.ESCreateOrderResultLogList.Add(sessionIDLog);
+
+                    result = new Regex("(?<=\"status\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                    if (result == "S")
+                    {
+                        createOrderResult = true;
+                    }
+                }
+                else if (sessionIDLog.Contains("PacyPayDirect"))
+                {
+                    payType = "PacyPayDirect";
+                    //获取日志
+                    checkoutOrder.ESCreateOrderResultLogList.Add(sessionIDLog);
+
+                    result = new Regex("(?<=\"status\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                    if (result == "S")
                     {
                         createOrderResult = true;
                     }
@@ -394,6 +454,9 @@ namespace WebApplication1.Controllers
                 else if (sessionIDLog.Contains("Paytm"))
                 {
                     payType = "Paytm";
+                    //获取日志
+                    checkoutOrder.ESCreateOrderResultLogList.Add(sessionIDLog);
+
                     result = new Regex("(?<=\"resultMsg\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
                     if (result == "Success")
                     {
@@ -403,6 +466,9 @@ namespace WebApplication1.Controllers
                 else if (sessionIDLog.Contains("Unlimint"))
                 {
                     payType = "Unlimint";
+                    //获取日志
+                    checkoutOrder.ESCreateOrderResultLogList.Add(sessionIDLog);
+
                     result = new Regex("(?<=\"message\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
                     if (result.IsNullOrEmpty())
                     {
@@ -435,6 +501,11 @@ namespace WebApplication1.Controllers
             }
         }
 
+        /// <summary>
+        /// 更新支付方式和支付结果
+        /// </summary>
+        /// <param name="checkoutOrder"></param>
+        /// <param name="sessionIDLog"></param>
         private void UpdatePayTypeAndPayResult(CheckoutOrder checkoutOrder, string sessionIDLog)
         {
             string payType = null;
@@ -445,7 +516,7 @@ namespace WebApplication1.Controllers
             if (sessionIDLog.Contains("PP_4002_CaptureOrder_Result", StringComparison.OrdinalIgnoreCase))
             {
                 payType = "PayPal";
-                //获取创建订单结果日志
+                //获取日志
                 checkoutOrder.ESPayResultLogList.Add(sessionIDLog);
 
                 result = new Regex("(?<=\"issue\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
@@ -495,6 +566,29 @@ namespace WebApplication1.Controllers
                     result = new Regex("(?<=\"respMsg\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
 
                     if (pacyPayHostedState.Equals("S", StringComparison.OrdinalIgnoreCase))
+                    {
+                        payResult = true;
+                    }
+                    else
+                    {
+                        //如果respMsg获取不到数据，再从reason中获取
+                        if (result.IsNullOrEmpty())
+                        {
+                            result = new Regex("(?<=\"reason\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                        }
+                    }
+                }
+                else if (sessionIDLog.Contains("PacyPayDirect", StringComparison.OrdinalIgnoreCase))
+                {
+                    payType = "PacyPayDirect";
+
+                    //获取创建订单结果日志
+                    checkoutOrder.ESPayResultLogList.Add(sessionIDLog);
+
+                    string pacyPayDirectState = new Regex("(?<=\"status\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+                    result = new Regex("(?<=\"respMsg\":\")[^\"]+(?=\")").Match(sessionIDLog).Value;
+
+                    if (pacyPayDirectState.Equals("S", StringComparison.OrdinalIgnoreCase))
                     {
                         payResult = true;
                     }

@@ -14,6 +14,7 @@ namespace WebApplication1.Model
             this.PayResultList = new List<string>(1);
             this.ESCreateOrderResultLogList = new List<string>(1);
             this.ESPayResultLogList = new List<string>(1);
+            this.ESPayAccountList = new List<string>(1);
         }
 
         [ExcelTitle("弃单号")]
@@ -57,6 +58,24 @@ namespace WebApplication1.Model
             }
         }
         public List<string> SessionIDList { get; set; }
+
+        [ExcelTitle("收款账号")]
+        public string ESPayAccount
+        {
+            get
+            {
+                if (this.ESPayAccountList == null || this.ESPayAccountList.Count == 0)
+                {
+                    return "无";
+                }
+                return string.Join(",", this.ESPayAccountList.Distinct());
+            }
+            set
+            {
+                this.ESPayAccountList = value.Split('\n').ToList();
+            }
+        }
+        public List<string> ESPayAccountList { get; set; }
 
         [ExcelTitle("创建订单结果")]
         public string CreateOrderResultShow
