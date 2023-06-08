@@ -192,7 +192,7 @@ namespace WebApplication1.Controllers
         public async Task<IActionResult> DelCollProduct()
         {
             string hostAdmin = "tidebuyshop";
-            string collName = "";
+            string collName = "googsale2";
 
             List<MeShopSpuDB> spuList = null;
             MeShopColl currentColl = null;
@@ -224,7 +224,7 @@ namespace WebApplication1.Controllers
                     this.Logger.LogInformation($"正在删除系列产品...{(page - 1) * pageSize + spuIDList.Length}/{spuIDS.Count}个");
                 }
 
-                if (collName.IsNotNullOrEmpty())
+                if (false && collName.IsNotNullOrEmpty())
                 {
                     delCount = await this.MeShopHelper.DeleteCollProductByCollID(hostAdmin, currentColl.ID);
                     this.Logger.LogInformation($"正在删除系列产品关系...{(page - 1) * pageSize + spuIDList.Length}/{spuIDS.Count}个");

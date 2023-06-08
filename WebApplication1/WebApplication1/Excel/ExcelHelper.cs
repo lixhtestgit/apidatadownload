@@ -625,7 +625,7 @@ namespace PPPayReportTools.Excel
                             for (int i = 0; i < row.Cells.Count; i++)
                             {
                                 cell = row.Cells[i];
-                                cellValue = cell.StringCellValue;
+                                cellValue = cell.ToString();
                                 if (titleMapperDic.ContainsKey(cellValue))
                                 {
                                     sheetTitleIndexPropertyDic.Add(i, titleMapperDic[cellValue]);
@@ -653,7 +653,7 @@ namespace PPPayReportTools.Excel
                                         if (excelTitleFieldMapper.IsCheckContentEmpty)
                                         {
                                             string cellValue = cell?.ToString();
-                                            if (cell.CellType == CellType.Formula)
+                                            if (cell != null && cell.CellType == CellType.Formula)
                                             {
                                                 cellValue = formulaEvaluator.Evaluate(cell).StringValue;
                                             }
