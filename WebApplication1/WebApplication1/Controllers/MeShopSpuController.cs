@@ -191,8 +191,8 @@ namespace WebApplication1.Controllers
         [HttpGet]
         public async Task<IActionResult> DelCollProduct()
         {
-            string hostAdmin = "tidebuyshop";
-            string collName = "googsale2";
+            string hostAdmin = "teamliu5";
+            string collName = "goodsale5";
 
             List<MeShopSpuDB> spuList = null;
             MeShopColl currentColl = null;

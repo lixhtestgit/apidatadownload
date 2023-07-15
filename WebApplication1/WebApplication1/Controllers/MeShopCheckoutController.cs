@@ -65,18 +65,18 @@ namespace WebApplication1.Controllers
             #endregion
 
             #region 收集数据源2：通过API收集弃单集合
-            string shopDomain = "teamliu5.meshopstore.com";
-            string email = "sellershop@126.com";
-            string pwd = "12Meoslp7238nbv";
-            DateTime beginDate = Convert.ToDateTime("2023-06-04 10:00:00");
-            DateTime endDate = Convert.ToDateTime("2023-06-04 16:00:00");
-            List<CheckoutOrder> dataList = await this.CheckoutBIZ.GetList(shopDomain, email, pwd, beginDate, endDate, new int[] { -1, 0, 1 });
+            //string shopDomain = "teamliu5.meshopstore.com";
+            //string email = "sellershop@126.com";
+            //string pwd = "12Meoslp7238nbv";
+            //DateTime beginDate = Convert.ToDateTime("2023-07-14 04:00:00");
+            //DateTime endDate = Convert.ToDateTime("2023-07-15 04:00:00");
+            //List<CheckoutOrder> dataList = await this.CheckoutBIZ.GetList(shopDomain, email, pwd, beginDate, endDate, new int[] { -1, 0, 1 });
             #endregion
 
             #region 收集数据源3：通过弃单导出文件收集弃单集合
 
-            //string testFilePath = $@"{contentRootPath}\示例测试目录\弃单\待刷失败原因弃单.xlsx";
-            //List<CheckoutOrder> dataList = this.ExcelHelper.ReadTitleDataList<CheckoutOrder>(testFilePath, new ExcelFileDescription(0));
+            string testFilePath = $@"{this.WebHostEnvironment.ContentRootPath}\示例测试目录\弃单\待刷失败原因弃单.xlsx";
+            List<CheckoutOrder> dataList = this.ExcelHelper.ReadTitleDataList<CheckoutOrder>(testFilePath, new ExcelFileDescription(0));
 
             #endregion
 

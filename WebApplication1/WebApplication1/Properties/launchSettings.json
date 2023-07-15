@@ -4,7 +4,7 @@
     "WebApplication1": {
       "commandName": "Project",
       "launchBrowser": true,
-      "launchUrl": "api/PayPalEmail/GetAllEmail",
+      "launchUrl": "api/MeShopCheckout/",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
