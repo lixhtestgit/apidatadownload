@@ -32,7 +32,7 @@ namespace WebApplication1.ExcelCsv
             {
                 using (StreamReader streamReader = new StreamReader(filePath, fileDescription.Encoding))
                 {
-                    Dictionary<int, CsvFieldMapper> CsvFieldMapperDic = CsvFieldMapper.GetModelFieldMapper<T>().ToDictionary(m => m.CSVTitleIndex);
+                    List<CsvFieldMapper> CsvFieldMapperList = CsvFieldMapper.GetModelFieldMapper<T>();
                     string rawValue = null;
                     string[] rawValueArray = null;
                     PropertyInfo propertyInfo = null;
@@ -44,39 +44,54 @@ namespace WebApplication1.ExcelCsv
                     {
                         rawValue = streamReader.ReadLine();
 
-                        //标题行
-                        if (currentRawIndex > fileDescription.TitleRawIndex)
+                        if (!string.IsNullOrEmpty(rawValue))
                         {
-                            if (!string.IsNullOrEmpty(rawValue))
+                            //替换字符串含有分隔符为{分隔符}，最后再替换回来
+                            if (rawValue.Contains("\""))
                             {
-                                //替换字符串含有分隔符为{分隔符}，最后再替换回来
-                                if (rawValue.Contains("\""))
+                                isExistSplitChart = true;
+
+                                int yhBeginIndex = 0;
+                                int yhEndIndex = 0;
+                                string yhText = null;
+                                do
                                 {
-                                    isExistSplitChart = true;
+                                    yhBeginIndex = rawValue.GetIndexOfStr("\"", 1);
+                                    yhEndIndex = rawValue.GetIndexOfStr("\"", 2);
+                                    yhText = rawValue.Substring(yhBeginIndex, (yhEndIndex - yhBeginIndex + 1));
+                                    string newYHText = yhText.Replace("\"", "").Replace(fileDescription.SeparatorChar.ToString(), "{分隔符}");
+                                    rawValue = rawValue.Replace(yhText, newYHText);
+                                } while (rawValue.Contains("\""));
+                            }
 
-                                    int yhBeginIndex = 0;
-                                    int yhEndIndex = 0;
-                                    string yhText = null;
-                                    do
+                            rawValueArray = rawValue.Split(fileDescription.SeparatorChar);
+
+                            //标题行
+                            if (currentRawIndex == fileDescription.TitleRawIndex)
+                            {
+                                foreach (var CsvFieldMapper in CsvFieldMapperList)
+                                {
+                                    for (int i = 0; i < rawValueArray.Length; i++)
                                     {
-                                        yhBeginIndex = rawValue.GetIndexOfStr("\"", 1);
-                                        yhEndIndex = rawValue.GetIndexOfStr("\"", 2);
-                                        yhText = rawValue.Substring(yhBeginIndex, (yhEndIndex - yhBeginIndex + 1));
-                                        string newYHText = yhText.Replace("\"", "").Replace(fileDescription.SeparatorChar.ToString(), "{分隔符}");
-                                        rawValue = rawValue.Replace(yhText, newYHText);
-                                    } while (rawValue.Contains("\""));
+                                        if (rawValueArray[i].Equals(CsvFieldMapper.CSVTitle, StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            CsvFieldMapper.CSVTitleIndex = i;
+                                            break;
+                                        }
+                                    }
                                 }
-
-                                rawValueArray = rawValue.Split(fileDescription.SeparatorChar);
-
+                            }
+                            //内容行
+                            else if (currentRawIndex > fileDescription.TitleRawIndex)
+                            {
                                 t = new T();
                                 bool isExistException = false;
-                                foreach (var CsvFieldMapper in CsvFieldMapperDic)
+                                foreach (var CsvFieldMapper in CsvFieldMapperList)
                                 {
                                     try
                                     {
-                                        propertyInfo = CsvFieldMapper.Value.PropertyInfo;
-                                        propertyValue = rawValueArray[CsvFieldMapper.Key - 1];
+                                        propertyInfo = CsvFieldMapper.PropertyInfo;
+                                        propertyValue = rawValueArray[CsvFieldMapper.CSVTitleIndex];
                                         if (!string.IsNullOrEmpty(propertyValue))
                                         {
                                             if (isExistSplitChart && propertyValue.Contains("{分隔符}"))
@@ -84,7 +99,7 @@ namespace WebApplication1.ExcelCsv
                                                 propertyValue = propertyValue.Replace("{分隔符}", fileDescription.SeparatorChar.ToString());
                                             }
 
-                                            if (CsvFieldMapper.Value.IsCheckContentEmpty && propertyValue.IsNullOrEmpty())
+                                            if (CsvFieldMapper.IsCheckContentEmpty && propertyValue.IsNullOrEmpty())
                                             {
                                                 t = null;
                                                 break;
@@ -107,17 +122,16 @@ namespace WebApplication1.ExcelCsv
                                     tList.Add(t);
                                 }
                             }
-                            else
-                            {
-                                rawReadEnd = true;
-                            }
                         }
+                        else
+                        {
+                            rawReadEnd = true;
+                        }
+
                         currentRawIndex++;
                     } while (rawReadEnd == false);
                 }
             }
-
-
             return tList;
         }
 
@@ -154,7 +168,7 @@ namespace WebApplication1.ExcelCsv
                 string rawValue = null;
                 T t = null;
                 PropertyInfo propertyInfo = null;
-                int currentRawIndex = 1;
+                int currentRawIndex = 0;
                 int tIndex = 0;
 
                 using (StreamWriter streamWriter = new StreamWriter(path, false, fileDescription.Encoding))
@@ -168,7 +182,7 @@ namespace WebApplication1.ExcelCsv
 #if DEBUG
                             if (currentRawIndex % 10000 == 0)
                             {
-                                this._Logger.LogInformation($"已写入文件：{path}，数据量：{currentRawIndex}");
+                                this._Logger.LogInformation($"已写入文件：{path}，数据量：{currentRawIndex + 1}");
                             }
 #endif
 
@@ -224,7 +238,7 @@ namespace WebApplication1.ExcelCsv
                         }
                         catch (Exception e)
                         {
-                            this._Logger.LogWarning(e, $"(异常)Excel第{currentRawIndex}行，数据列表第{tIndex + 1}个数据写入失败！rawValue：{rawValue}");
+                            this._Logger.LogWarning(e, $"(异常)Excel第{currentRawIndex + 1}行，数据列表第{tIndex + 1}个数据写入失败！rawValue：{rawValue}");
                             throw;
                         }
 
@@ -270,7 +284,7 @@ namespace WebApplication1.ExcelCsv
                 string rawValue = null;
                 T t = default(T);
                 JProperty propertyInfo = null;
-                int currentRawIndex = 1;
+                int currentRawIndex = 0;
                 int tIndex = 0;
 
                 Dictionary<int, JProperty> indexPropertyDic = this.GetIndexPropertyDicFromJObject(tList.FirstOrDefault(), fieldNameAndShowNameDic.Keys.ToList());
@@ -286,7 +300,7 @@ namespace WebApplication1.ExcelCsv
 #if DEBUG
                             if (currentRawIndex % 10000 == 0)
                             {
-                                this._Logger.LogInformation($"已写入文件：{path}，数据量：{currentRawIndex}");
+                                this._Logger.LogInformation($"已写入文件：{path}，数据量：{currentRawIndex + 1}");
                             }
 #endif
 
@@ -338,7 +352,7 @@ namespace WebApplication1.ExcelCsv
                         }
                         catch (Exception e)
                         {
-                            this._Logger.LogWarning(e, $"(异常)Excel第{currentRawIndex}行，数据列表第{tIndex + 1}个数据写入失败！rawValue：{rawValue}");
+                            this._Logger.LogWarning(e, $"(异常)Excel第{currentRawIndex + 1}行，数据列表第{tIndex + 1}个数据写入失败！rawValue：{rawValue}");
                             throw;
                         }
 

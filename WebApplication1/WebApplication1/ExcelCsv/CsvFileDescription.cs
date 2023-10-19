@@ -4,10 +4,10 @@ namespace WebApplication1.ExcelCsv
 {
     public class CsvFileDescription
     {
-        public CsvFileDescription() : this(1)
+        public CsvFileDescription() : this(0)
         {
         }
-        public CsvFileDescription(int titleRawIndex) : this(',', titleRawIndex, Encoding.UTF8)
+        public CsvFileDescription(int titleRawIndex) : this(',', titleRawIndex, Encoding.ASCII)
         {
         }
         public CsvFileDescription(char separatorChar, int titleRawIndex, Encoding encoding)
@@ -27,7 +27,7 @@ namespace WebApplication1.ExcelCsv
         /// </summary>
         public char SeparatorChar { get; set; }
         /// <summary>
-        /// 标题所在行位置（默认为1，没有标题填0）
+        /// 标题所在行位置（默认为0，没有标题填-1）
         /// </summary>
         public int TitleRawIndex { get; set; }
 

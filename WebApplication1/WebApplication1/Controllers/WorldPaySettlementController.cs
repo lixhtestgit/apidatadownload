@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -56,6 +57,48 @@ namespace WebApplication1.Controllers
             List<WorldPaySettlementModel> filterSettlementDataList = allSettlementDataList.FindAll(m => filterOrderTXArray.Contains(m.TransactionID));
             IWorkbook workbook = this.ExcelHelper.CreateOrUpdateWorkbook(filterSettlementDataList);
             this.ExcelHelper.SaveWorkbookToFile(workbook, dataSourceDirectoryPath + @"\汇总.xlsx");
+        }
+
+        /// <summary>
+        /// 匹配网站交易
+        /// api/WorldPaySettlement/MatchWebsite
+        /// </summary>
+        [HttpGet("MatchWebsite")]
+        public void MatchWebsite()
+        {
+            string contentRootPath = this.WebHostEnvironment.ContentRootPath;
+
+            //收集支付公司交易信息
+            string websiteSourceFilePath = @$"{contentRootPath}\示例测试目录\支付公司导出订单\WP9月交易.xlsx";
+            List<WorldPayTranscationModel> websiteTranList = this.ExcelHelper.ReadTitleDataList<WorldPayTranscationModel>(websiteSourceFilePath, new ExcelFileDescription(0));
+
+            //收集网站交易信息
+            Dictionary<string, List<WorldPayWebsiteTranscationModel>> webTranDic = new Dictionary<string, List<WorldPayWebsiteTranscationModel>>();
+            string payCompanyTranFilePath = @$"{contentRootPath}\示例测试目录\支付公司导出订单\WP网站9月1-9月30日.xlsx";
+            IWorkbook payCompanyTranWorkbook = this.ExcelHelper.CreateWorkbook(payCompanyTranFilePath);
+            List<ISheet> payCompanyTranSheetList = this.ExcelHelper.GetSheetList(payCompanyTranWorkbook);
+            foreach (ISheet payCompanyTranSheet in payCompanyTranSheetList)
+            {
+                List<WorldPayWebsiteTranscationModel> webTranList = this.ExcelHelper.ReadTitleDataList<WorldPayWebsiteTranscationModel>(payCompanyTranSheet, new ExcelFileDescription(0));
+                webTranDic.Add(payCompanyTranSheet.SheetName, webTranList);
+            }
+
+            //匹配关系
+            foreach (WorldPayTranscationModel item in websiteTranList)
+            {
+                foreach (var webTranItem in webTranDic)
+                {
+                    WorldPayWebsiteTranscationModel worldPayWebsiteTranscation = webTranItem.Value.FirstOrDefault(m => (m.Tx?.Trim().ToLower() ?? "1") == (item.OrderCode?.Trim().ToLower() ?? "2"));
+                    if (worldPayWebsiteTranscation != null)
+                    {
+                        item.Website = webTranItem.Key;
+                        break;
+                    }
+                }
+            }
+
+            IWorkbook newWorkbook = this.ExcelHelper.CreateOrUpdateWorkbook(websiteTranList);
+            this.ExcelHelper.SaveWorkbookToFile(newWorkbook, @$"C:\Users\lixianghong\Desktop\WP9月交易匹配结果.xlsx");
         }
     }
 }

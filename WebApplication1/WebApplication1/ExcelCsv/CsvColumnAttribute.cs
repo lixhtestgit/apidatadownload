@@ -21,6 +21,8 @@
 
         public CsvColumnAttribute(bool isCheckEmpty) : this(null, null, isCheckEmpty) { }
 
+        public CsvColumnAttribute(string title) : this(title, null, false) { }
+
         public CsvColumnAttribute(string title, string outputFormat) : this(title, outputFormat, false) { }
 
         public CsvColumnAttribute(string title, bool isCheckEmpty) : this(title, null, isCheckEmpty) { }
