@@ -16,7 +16,7 @@ namespace WebApplication1.DB.Repository
 
         public async Task<List<TB_UserSendAddressOrder>> GetModelByOrderID(int siteID, int orderID)
         {
-            List<TB_UserSendAddressOrder> dataList = await base.Select(EDBConnectionType.SqlServer, m => m.SiteID == siteID && m.OrderID == orderID);
+            List<TB_UserSendAddressOrder> dataList = await base.Select(EDBSiteName.CMS, m => m.SiteID == siteID && m.OrderID == orderID);
 
             return dataList;
         }

@@ -7,7 +7,7 @@ namespace WebApplication1.DB.CMS
     /// <summary>
     /// 统计_订单
     /// </summary>
-    [ClassMapper(EDBConnectionType.SqlServer, "dbo", "TJ_TB_Order")]
+    [ClassMapper(EDBSiteName.CMS, "dbo", "TJ_TB_Order")]
     public class TJ_TB_Order
     {
         [PropertyMapper]

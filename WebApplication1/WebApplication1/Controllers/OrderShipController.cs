@@ -8,12 +8,14 @@ using Newtonsoft.Json.Linq;
 using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using WebApplication1.BIZ;
 using WebApplication1.Helper;
-using WebApplication1.Model;
+using WebApplication1.Model.ExcelModel;
+using WebApplication1.Model.MeShop;
 
 namespace WebApplication1.Controllers
 {
@@ -24,14 +26,16 @@ namespace WebApplication1.Controllers
     [ApiController]
     public class OrderShipController : ControllerBase
     {
-        protected HttpClient PayHttpClient { get; set; }
-        public ExcelHelper ExcelHelper { get; set; }
-        public IWebHostEnvironment WebHostEnvironment { get; set; }
-        public ILogger Logger { get; set; }
-        public IConfiguration Configuration { get; set; }
-        public ESSearchHelper ESSearchHelper { get; set; }
-        public IMemoryCache MemoryCache { get; set; }
-        public AuthBIZ AuthBIZ { get; set; }
+        protected HttpClient PayHttpClient;
+        public ExcelHelper ExcelHelper;
+        public IWebHostEnvironment WebHostEnvironment;
+        public ILogger Logger;
+        public IConfiguration Configuration;
+        public ESSearchHelper ESSearchHelper;
+        public IMemoryCache MemoryCache;
+        public AuthBIZ AuthBIZ;
+
+        private MeShopHelper MeShopHelper;
 
         public OrderShipController(
             IHttpClientFactory httpClientFactory,
@@ -41,7 +45,8 @@ namespace WebApplication1.Controllers
             IConfiguration configuration,
             ESSearchHelper eSSearchHelper,
             IMemoryCache memoryCache,
-            AuthBIZ authBIZ)
+            AuthBIZ authBIZ,
+            MeShopHelper meShopHelper)
         {
             this.PayHttpClient = httpClientFactory.CreateClient();
             this.ExcelHelper = excelHelper;
@@ -51,6 +56,7 @@ namespace WebApplication1.Controllers
             this.ESSearchHelper = eSSearchHelper;
             this.MemoryCache = memoryCache;
             this.AuthBIZ = authBIZ;
+            this.MeShopHelper = meShopHelper;
         }
 
         /// <summary>
@@ -62,7 +68,7 @@ namespace WebApplication1.Controllers
         public async Task<IActionResult> ESSearchOrderPayType()
         {
             string filePath = @"C:\Users\lixianghong\Desktop\Test.xlsx";
-            List<OrderShip> orderShipList = await this.GetOrderShip();
+            List<MeShopOrderShip> orderShipList = await this.getOrderShip();
             IWorkbook workbook = ExcelHelper.CreateOrUpdateWorkbook(orderShipList);
             ExcelHelper.SaveWorkbookToFile(workbook, filePath);
 
@@ -71,7 +77,122 @@ namespace WebApplication1.Controllers
             return Ok();
         }
 
-        private async Task<List<OrderShip>> GetOrderShip()
+        /// <summary>
+        /// 发送Excel订单发货记录到MeShop站点
+        /// api/OrderShip/SendOrderShipToMeShop
+        /// </summary>
+        /// <returns></returns>
+        [Route("SendOrderShipToMeShop")]
+        [HttpGet]
+        public async Task SendOrderShipToMeShop()
+        {
+            string contentRootPath = this.WebHostEnvironment.ContentRootPath;
+            string waitSyncShipDirectoryPath = $@"{contentRootPath}\示例测试目录\订单发货专用文件夹";
+            string[] waitSyncShipFiles = Directory.GetFiles(waitSyncShipDirectoryPath);
+
+            int syncFilePosition = 0;
+            int syncTotalFileCount = waitSyncShipFiles.Length;
+
+            foreach (var waitSyncShipFilePath in waitSyncShipFiles)
+            {
+                syncFilePosition++;
+
+                List<ISheet> sheetList = this.ExcelHelper.GetSheetList(waitSyncShipFilePath);
+                foreach (ISheet sheet in sheetList)
+                {
+                    ExcelOrderShipFile currentFile = this.ExcelHelper.ReadCellData<ExcelOrderShipFile>(waitSyncShipFilePath, sheet.SheetName);
+                    string hostAdmin = currentFile.ShopUrl.Replace(" ", "").Replace("https://", "").Split('.')[0];
+
+                    //1-获取Excel发货订单数据
+                    List<ExcelOrderShip> allOrderShipList = this.ExcelHelper.ReadTitleDataList<ExcelOrderShip>(sheet, new ExcelFileDescription(1));
+                    long[] orderIDS = allOrderShipList.FindAll(m => m.OrderID > 0).Select(m => m.OrderID).Distinct().ToArray();
+
+                    //2-过滤已发货订单
+                    List<MeShopOrder> meshopOrderList = await this.MeShopHelper.GetOrderList(hostAdmin, orderIDS);
+                    long[] hadShipedOrders = meshopOrderList.FindAll(m => m.ShipState > 0).Select(m => m.ID).Distinct().ToArray();
+                    allOrderShipList.RemoveAll(m => hadShipedOrders.Contains(m.OrderID));
+                    orderIDS = allOrderShipList.Select(m => m.OrderID).Distinct().ToArray();
+
+                    //3-同步订单发货
+                    List<ExcelOrderShip> orderShipList = null;
+                    int orderIDIndex = 0;
+                    foreach (var orderID in orderIDS)
+                    {
+                        orderIDIndex++;
+                        if (orderIDIndex <= 0)
+                        {
+                            continue;
+                        }
+                        orderShipList = allOrderShipList.FindAll(m => m.OrderID == orderID);
+
+                        try
+                        {
+                            JObject orderShipItemJObj = new JObject();
+                            foreach (ExcelOrderShip orderShip in orderShipList)
+                            {
+                                orderShipItemJObj.Add(orderShip.OrderItemID.ToString(), orderShip.OrderItemProductCount);
+                            }
+
+                            dynamic orderShipBody = new
+                            {
+                                orderID = orderID,
+                                ShipNumber = orderShipList[0].ShipNo,
+                                ShipUrl = orderShipList[0].ShipNoSearchWebsite,
+                                FreightName = orderShipList[0].FreightName,
+                                OrderItemCounts = orderShipItemJObj
+                            };
+
+                            //尝试最多10次
+                            int syncResult = 0;
+                            for (int i = 0; i < 10; i++)
+                            {
+                                syncResult = await this.MeShopHelper.SyncOrderShipToShop(hostAdmin, JsonConvert.SerializeObject(orderShipBody));
+                                if (syncResult > 0)
+                                {
+                                    break;
+                                }
+                            }
+                            if (syncResult <= 0)
+                            {
+                                this.Logger.LogInformation($"同步第{syncFilePosition}/{syncTotalFileCount}个文件,sheetName={sheet.SheetName},第{orderIDIndex}/{orderIDS.Length}个订单发货文件...失败.orderID={orderID}");
+                            }
+                            else
+                            {
+                                this.Logger.LogInformation($"已同步第{syncFilePosition}/{syncTotalFileCount}个文件,sheetName={sheet.SheetName},第{orderIDIndex}/{orderIDS.Length}个订单发货记录...");
+                            }
+                        }
+                        catch (System.Exception e)
+                        {
+                            this.Logger.LogError(e, $"同步第{syncFilePosition}/{syncTotalFileCount}个文件,sheetName={sheet.SheetName},第{orderIDIndex}/{orderIDS.Length}个订单发货记录失败...");
+                            throw;
+                        }
+                    }
+
+                    //4-检测发货状态
+                    if (orderIDS.Length > 0)
+                    {
+                        List<MeShopOrder> awaitCheckMeshopOrderList = await this.MeShopHelper.GetOrderList(hostAdmin, orderIDS);
+                        List<MeShopOrderItem> awaitCheckMeShopOrderItemList = await this.MeShopHelper.GetOrderItemList(hostAdmin, orderIDS);
+                        foreach (MeShopOrder meShopOrder in awaitCheckMeshopOrderList)
+                        {
+                            bool allItemIsShiped = awaitCheckMeShopOrderItemList.FindAll(m => m.OrderID == meShopOrder.ID).All(m => m.ShipState == 2);
+                            if (allItemIsShiped && meShopOrder.ShipState != 2)
+                            {
+                                int execResult = await this.MeShopHelper.ExecSqlToShop(hostAdmin, $"update order_master set shipstate=2 where id={meShopOrder.ID}");
+                                this.Logger.LogInformation($"修复订单{meShopOrder.ID}主单发货状态与子单不同步问题：" + (execResult > 0 ? "成功" : "失败"));
+                            }
+                        }
+                    }
+                }
+            }
+            this.Logger.LogInformation($"同步结束.");
+        }
+
+        /// <summary>
+        /// 获取订单发货数据
+        /// </summary>
+        /// <returns></returns>
+        private async Task<List<MeShopOrderShip>> getOrderShip()
         {
             string shipOrderUrl = "https://namejiu.meshopstore.com/api/v1/order/getorderlist";
             Dictionary<string, string> headDic = await this.AuthBIZ.GetShopAuthDic("namejiu.meshopstore.com", "chenfei@meshop.net", "JISHUchenfei0411");
@@ -80,10 +201,10 @@ namespace WebApplication1.Controllers
                 ShipState = new { value = new int[] { 1, 2 } },
                 pager = new { PageNumber = 1, PageSize = 20000 }
             });
-            var shipOrderResult = await this.PayHttpClient.Post(shipOrderUrl, shipOrderPostData, headDic);
+            var shipOrderResult = await this.PayHttpClient.PostJson(shipOrderUrl, shipOrderPostData, headDic);
 
             JArray shipOrderJArray = JObject.Parse(shipOrderResult.Item2).SelectToken("data.Results").ToObject<JArray>() ?? new JArray();
-            List<OrderShip> orderShipList = new List<OrderShip>(shipOrderJArray.Count);
+            List<MeShopOrderShip> orderShipList = new List<MeShopOrderShip>(shipOrderJArray.Count);
             string orderDetailBaseUrl = "https://namejiu.meshopstore.com/api/v1/order/GetOrderDetailPageData?orderID={orderID}";
             string orderDetailUrl = null;
             string orderID = null;
@@ -92,9 +213,9 @@ namespace WebApplication1.Controllers
                 orderID = itemJObj.SelectToken("ID").ToObject<string>();
                 orderDetailUrl = orderDetailBaseUrl.Replace("{orderID}", orderID);
 
-                var orderDetailResult = await this.PayHttpClient.Post(orderDetailUrl, "", headDic);
+                var orderDetailResult = await this.PayHttpClient.PostJson(orderDetailUrl, "", headDic);
                 JArray orderItemListJArray = JObject.Parse(orderDetailResult.Item2).SelectToken("data.OrderItemList").ToObject<JArray>();
-                orderShipList.Add(new OrderShip
+                orderShipList.Add(new MeShopOrderShip
                 {
                     OrderID = orderID,
                     FreightNameList = orderItemListJArray.Select(m => m.SelectToken("FreightName").ToObject<string>()).ToList()
@@ -103,5 +224,8 @@ namespace WebApplication1.Controllers
 
             return orderShipList;
         }
+
+
+
     }
 }

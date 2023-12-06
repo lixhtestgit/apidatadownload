@@ -1,9 +1,6 @@
 ﻿using Autofac;
-using PPPayReportTools.Excel;
 using System.Reflection;
-using WebApplication1.BIZ;
 using WebApplication1.DB.Base;
-using WebApplication1.Helper;
 
 namespace WebApplication1
 {
@@ -23,15 +20,10 @@ namespace WebApplication1
             //获取当前程序集：Assembly.GetExecutingAssembly()
             //注册仓储程序集
             containerBuilder.RegisterAssemblyTypes(Assembly.GetExecutingAssembly())
-                   .Where(t => typeof(BaseRepository).IsAssignableFrom(t))
+                   .Where(t => typeof(BaseRepository).IsAssignableFrom(t) 
+                            || t.Name.EndsWith("Helper")
+                            || t.Name.EndsWith("BIZ"))
                    .InstancePerLifetimeScope();
-
-            containerBuilder.RegisterType<ConfigHelper>().InstancePerLifetimeScope();
-            containerBuilder.RegisterType<AuthBIZ>().InstancePerLifetimeScope();
-            containerBuilder.RegisterType<ExcelHelper>().InstancePerLifetimeScope();
-            containerBuilder.RegisterType<CheckoutBIZ>().InstancePerLifetimeScope();
-            containerBuilder.RegisterType<ESSearchHelper>().InstancePerLifetimeScope();
-            containerBuilder.RegisterType<MeShopHelper>().InstancePerLifetimeScope();
         }
     }
 }

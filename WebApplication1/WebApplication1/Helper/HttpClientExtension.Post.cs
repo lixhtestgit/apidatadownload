@@ -12,6 +12,8 @@ namespace System.Net.Http
         public const string CONTENT_TYPE_URLENCODED = "application/x-www-form-urlencoded";
 
         public const string CONTENT_TYPE_JSON = "application/json";
+        public const string CONTENT_TYPE_TEXT = "text/plain";
+
         /// <summary>
         /// POST方式发送信息(x-www-form-urlencoded字典格式)
         /// </summary>
@@ -21,7 +23,7 @@ namespace System.Net.Http
         /// <param name="headerDict">http头信息</param>
         /// <param name="contentType">内容格式类型，默认为：application/x-www-form-urlencoded</param>
         /// <returns></returns>
-        public static async Task<(HttpStatusCode, string)> Post(this HttpClient client, string url, IDictionary<string, string> postDict, IDictionary<string, string> headerDict, string contentType = CONTENT_TYPE_URLENCODED)
+        public static async Task<(HttpStatusCode, string)> PostForm(this HttpClient client, string url, IDictionary<string, string> postDict, IDictionary<string, string> headerDict, string contentType = CONTENT_TYPE_URLENCODED)
         {
             string responseText = null;
             HttpStatusCode statusCode = HttpStatusCode.OK;
@@ -67,9 +69,9 @@ namespace System.Net.Http
         /// <param name="headerDict">http头信息</param>
         /// <param name="contentType">内容格式类型，默认为：application/json</param>
         /// <returns></returns>
-        public static async Task<(HttpStatusCode, string)> Post(this HttpClient client, string url, string raw, string contentType = CONTENT_TYPE_JSON)
+        public static async Task<(HttpStatusCode, string)> PostJson(this HttpClient client, string url, string raw, string contentType = CONTENT_TYPE_JSON)
         {
-            return await client.Post(url, raw, null, contentType);
+            return await client.PostJson(url, raw, null, contentType);
         }
 
         /// <summary>
@@ -81,7 +83,7 @@ namespace System.Net.Http
         /// <param name="headerDict">http头信息</param>
         /// <param name="contentType">内容格式类型，默认为：application/json</param>
         /// <returns></returns>
-        public static async Task<(HttpStatusCode, string)> Post(this HttpClient client, string url, string raw, IDictionary<string, string> headerDict, string contentType = CONTENT_TYPE_JSON)
+        public static async Task<(HttpStatusCode, string)> PostJson(this HttpClient client, string url, string raw, IDictionary<string, string> headerDict, string contentType = CONTENT_TYPE_JSON)
         {
             string responseText = null;
             HttpStatusCode statusCode = HttpStatusCode.OK;

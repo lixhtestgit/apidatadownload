@@ -40,7 +40,7 @@ namespace WebApplication1.Controllers
             IWebHostEnvironment webHostEnvironment,
             IHttpClientFactory httpClientFactory,
             ExcelHelper excelHelper,
-            ILogger<TestController> logger)
+            ILogger<CustomerController> logger)
         {
             this.WebHostEnvironment = webHostEnvironment;
             this.PayHttpClient = httpClientFactory.CreateClient();
@@ -84,7 +84,7 @@ namespace WebApplication1.Controllers
                     List<Customer> allDataList = ExcelHelper.ReadTitleDataList<Customer>(fileName + "_未完成", new ExcelFileDescription());
                     try
                     {
-                        var getPageResult = await this.PayHttpClient.Post(dataListUrl, new Dictionary<string, string>
+                        var getPageResult = await this.PayHttpClient.PostForm(dataListUrl, new Dictionary<string, string>
                         {
                             {"_search","false" },
                             {"nd","1651849194124" },
@@ -131,8 +131,8 @@ namespace WebApplication1.Controllers
                         workbook = ExcelHelper.CreateOrUpdateWorkbook(allDataList);
                         ExcelHelper.SaveWorkbookToFile(workbook, fileName);
                     }
-                    catch (Exception e)
-                    {
+                    catch (Exception)
+					{
                         fileName += "_未完成";
                         workbook = ExcelHelper.CreateOrUpdateWorkbook(allDataList);
                         ExcelHelper.SaveWorkbookToFile(workbook, fileName);
@@ -215,7 +215,7 @@ namespace WebApplication1.Controllers
 
         public async Task<List<Customer>> GetPageCustomerList(string listUrl, int pageSize, int page)
         {
-            var currentPageList = await this.PayHttpClient.Post(listUrl, new Dictionary<string, string>
+            var currentPageList = await this.PayHttpClient.PostForm(listUrl, new Dictionary<string, string>
             {
                 {"_search","false" },
                 {"nd","1651849194124" },

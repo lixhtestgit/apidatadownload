@@ -5,17 +5,8 @@
     /// </summary>
     public enum EDBConnectionType
     {
-        /// <summary>
-        /// MySql
-        /// </summary>
-        MySql = 0,
-        /// <summary>
-        /// SqlServer
-        /// </summary>
-        SqlServer = 1,
-        /// <summary>
-        /// PostgreSQL
-        /// </summary>
-        PostgreSQL = 2,
+        MySql,
+        SqlServer,
+        PostgreSQL,
     }
 }

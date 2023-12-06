@@ -4,8 +4,7 @@
     "WebApplication1": {
       "commandName": "Project",
       "launchBrowser": true,
-      "launchUrl": "api/baodan/updatebd",
-      //api/PayNotify/PayCompanyOrderSync
+      "launchUrl": "api/WorldPaySettlement/MatchWebsite",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
