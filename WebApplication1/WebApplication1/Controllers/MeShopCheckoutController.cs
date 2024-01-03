@@ -171,13 +171,14 @@ namespace WebApplication1.Controllers
             //通过ES更新查询支付方式
             int position = 1;
             int totalCount = checkoutOrderList.Count;
-            int days = 14;
+            DateTime utcBeginDate = Convert.ToDateTime("2024-01-03 12:40:00");
+            DateTime utcEndDate = Convert.ToDateTime("2024-01-03 12:40:00");
             foreach (CheckoutOrder checkout in checkoutOrderList)
             {
                 if (checkout.CheckoutGuid.IsNotNullOrEmpty())
                 {
                     //查询支付方式
-                    await this.UpdateOrderPayDataByES(totalCount, position, checkout, days);
+                    await this.UpdateOrderPayDataByES(totalCount, position, checkout, utcBeginDate, utcEndDate);
                 }
 
                 position++;
@@ -193,7 +194,7 @@ namespace WebApplication1.Controllers
         /// <param name="model"></param>
         /// <param name="lastDays"></param>
         /// <returns></returns>
-        private async Task UpdateOrderPayDataByES(int totalCount, int position, CheckoutOrder model, int lastDays)
+        private async Task UpdateOrderPayDataByES(int totalCount, int position, CheckoutOrder model, DateTime utcBeginDate, DateTime utcEndDate)
         {
             #region 1-获取会话ID
 
@@ -215,7 +216,7 @@ namespace WebApplication1.Controllers
                         ]";
 
             List<string> sessionIDList = new List<string>(10);
-            await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个SessionID数据", "meshopstore.com", dataFilter, lastDays, log =>
+            await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个SessionID数据", "meshopstore.com", dataFilter, utcBeginDate, utcEndDate, log =>
             {
                 string sessionID = null;
                 if (log.Contains("token", StringComparison.OrdinalIgnoreCase))
@@ -247,7 +248,7 @@ namespace WebApplication1.Controllers
                                 }
                             ]";
 
-                await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个弃单会话结果数据", "meshopstore.com", dataFilter, lastDays, sessionIDLog =>
+                await this.ESSearchHelper.GetESLogList($"第{position}/{totalCount}个弃单会话结果数据", "meshopstore.com", dataFilter, utcBeginDate, utcEndDate, sessionIDLog =>
                 {
                     //获取结果和原因
                     this.UpdatePayTypeAndCreateOrderResult(model, sessionIDLog);

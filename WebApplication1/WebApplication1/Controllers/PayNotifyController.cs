@@ -88,7 +88,10 @@ namespace WebApplication1.Controllers
     }
 ]";
 
-            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"WP直连", "martstores.com", dataFilter, 17, log =>
+            DateTime utcBeginDate = Convert.ToDateTime("2024-01-03 12:40:00");
+            DateTime utcEndDate = Convert.ToDateTime("2024-01-03 12:40:00");
+
+            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"WP直连", "martstores.com", dataFilter, utcBeginDate, utcEndDate, log =>
              {
                  return "1";
              });
@@ -436,7 +439,11 @@ namespace WebApplication1.Controllers
                 ]";
 
                     int logDays = (int)(DateTime.Now - shopOrder.ShowCreateTime.AddHours(8)).TotalDays + 3;
-                    List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"获取调度数据", "meshopstore.com", dataFilter, logDays, log =>
+
+                    DateTime utcBeginDate = DateTime.UtcNow.AddDays(logDays * -1);
+                    DateTime utcEndDate = DateTime.UtcNow;
+
+                    List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"获取调度数据", "meshopstore.com", dataFilter, utcBeginDate, utcEndDate, log =>
                     {
                         return "1";
                     });
