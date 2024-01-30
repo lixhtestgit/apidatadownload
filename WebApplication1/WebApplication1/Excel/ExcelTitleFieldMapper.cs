@@ -8,7 +8,7 @@ namespace PPPayReportTools.Excel
     /// <summary>
     /// 标题字段映射类
     /// </summary>
-    internal class ExcelTitleFieldMapper
+    public class ExcelTitleFieldMapper
     {
         /// <summary>
         /// 属性信息

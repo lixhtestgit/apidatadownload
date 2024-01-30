@@ -373,7 +373,7 @@ namespace PPPayReportTools.Excel
         public ISheet GetSheet(IWorkbook workbook, string sheetName = null)
         {
             List<ISheet> sheetList = this.GetSheetList(workbook);
-            if (sheetName.IsNotNullOrEmpty())
+            if (!string.IsNullOrWhiteSpace(sheetName))
             {
                 return sheetList.FirstOrDefault(m => m.SheetName.Equals(sheetName, StringComparison.OrdinalIgnoreCase));
             }
@@ -382,11 +382,108 @@ namespace PPPayReportTools.Excel
 
         #endregion
 
+        #region 行对象
+
+        public IRow GetOrCreateRow(ISheet sheet, int rowIndex)
+        {
+            IRow row = null;
+            if (sheet != null)
+            {
+                row = sheet.GetRow(rowIndex);
+                if (row == null)
+                {
+                    row = sheet.CreateRow(rowIndex);
+                }
+            }
+            return row;
+        }
+
+        #endregion
+
+        #region 单元格对象
+
+        public ICell GetOrCreateCell(ISheet sheet, int rowIndex, int columnIndex)
+        {
+            ICell cell = null;
+
+            IRow row = this.GetOrCreateRow(sheet, rowIndex);
+            if (row != null)
+            {
+                cell = row.GetCell(columnIndex);
+                if (cell == null)
+                {
+                    cell = row.CreateCell(columnIndex);
+                }
+            }
+
+            return cell;
+        }
+
+        #endregion
+
         #region 读取Excel数据
 
         public List<T> ReadTitleDataList<T>(ISheet sheet, ExcelFileDescription excelFileDescription) where T : new()
         {
+            return this.ReadTitleDataList<T>(sheet, titleMapperList: null, excelFileDescription);
+        }
+
+        /// <summary>
+        /// 读取Excel数据1_手动提供属性信息和标题对应关系
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="filePath"></param>
+        /// <param name="fieldNameAndShowNameDic"></param>
+        /// <param name="excelFileDescription"></param>
+        /// <returns></returns>
+        public List<T> ReadTitleDataList<T>(string filePath, Dictionary<string, string> fieldNameAndShowNameDic, ExcelFileDescription excelFileDescription) where T : new()
+        {
+            //标题属性字典列表
+            List<ExcelTitleFieldMapper> titleMapperList = ExcelTitleFieldMapper.GetModelFieldMapper<T>(fieldNameAndShowNameDic);
+
+            List<T> tList = this._GetTList<T>(filePath, titleMapperList, excelFileDescription);
+            return tList ?? new List<T>(0);
+        }
+
+        /// <summary>
+        /// 读取Excel数据2_使用Excel标记特性和文件描述自动创建关系
+        /// </summary>
+        /// <param name="filePath"></param>
+        /// <param name="excelFileDescription"></param>
+        /// <returns></returns>
+        public List<T> ReadTitleDataList<T>(string filePath, ExcelFileDescription excelFileDescription) where T : new()
+        {
+            //标题属性字典列表
             List<ExcelTitleFieldMapper> titleMapperList = ExcelTitleFieldMapper.GetModelFieldMapper<T>();
+
+            List<T> tList = this._GetTList<T>(filePath, titleMapperList, excelFileDescription);
+            return tList ?? new List<T>(0);
+        }
+
+        private List<T> _GetTList<T>(string filePath, List<ExcelTitleFieldMapper> titleMapperList, ExcelFileDescription excelFileDescription) where T : new()
+        {
+            List<T> tList = new List<T>(1000);
+            if (!File.Exists(filePath))
+            {
+                return tList;
+            }
+
+            IWorkbook workbook = this.CreateWorkbook(filePath);
+            List<ISheet> sheetList = this.GetSheetList(workbook);
+            foreach (ISheet sheet in sheetList)
+            {
+                tList.AddRange(this.ReadTitleDataList<T>(sheet, titleMapperList, excelFileDescription));
+            }
+
+            return tList ?? new List<T>(0);
+        }
+
+        private List<T> ReadTitleDataList<T>(ISheet sheet, List<ExcelTitleFieldMapper> titleMapperList, ExcelFileDescription excelFileDescription) where T : new()
+        {
+            if (titleMapperList == null || titleMapperList.Count == 0)
+            {
+                titleMapperList = ExcelTitleFieldMapper.GetModelFieldMapper<T>();
+            }
 
             List<T> tList = new List<T>(500 * 10000);
             T t = default(T);
@@ -473,40 +570,59 @@ namespace PPPayReportTools.Excel
                         excelTitleFieldMapper = titleIndexItem.Value;
 
                         //没有数据的单元格默认为null
-                        string cellValue = cell?.ToString() ?? "";
                         propertyInfo = excelTitleFieldMapper.PropertyInfo;
-                        try
+                        if (propertyInfo != null && propertyInfo.CanWrite)
                         {
-                            if (excelTitleFieldMapper.IsCheckContentEmpty)
+                            try
                             {
-                                if (string.IsNullOrEmpty(cellValue))
+                                if (excelTitleFieldMapper.IsCheckContentEmpty)
                                 {
-                                    t = default(T);
-                                    break;
+                                    string cellValue = cell?.ToString();
+                                    if (cell != null && cell.CellType == CellType.Formula)
+                                    {
+                                        cellValue = formulaEvaluator.Evaluate(cell).StringValue;
+                                    }
+                                    if (string.IsNullOrEmpty(cellValue))
+                                    {
+                                        t = default(T);
+                                        break;
+                                    }
+                                }
+
+                                if (cell != null && !string.IsNullOrEmpty(cell.ToString()))
+                                {
+                                    if (excelTitleFieldMapper.IsCoordinateExpress || cell.CellType == CellType.Formula)
+                                    {
+                                        //读取含有表达式的单元格值
+                                        string cellValue = formulaEvaluator.Evaluate(cell).StringValue;
+                                        propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
+                                    }
+                                    else if (propertyInfo.PropertyType.IsEnum)
+                                    {
+                                        object enumObj = propertyInfo.PropertyType.InvokeMember(cell.ToString(), BindingFlags.GetField, null, null, null);
+                                        propertyInfo.SetValue(t, Convert.ChangeType(enumObj, propertyInfo.PropertyType));
+                                    }
+                                    else if (propertyInfo.PropertyType == typeof(DateTime))
+                                    {
+                                        try
+                                        {
+                                            propertyInfo.SetValue(t, Convert.ChangeType(cell.DateCellValue, propertyInfo.PropertyType));
+                                        }
+                                        catch (Exception)
+                                        {
+                                            propertyInfo.SetValue(t, Convert.ChangeType(cell.ToString(), propertyInfo.PropertyType));
+                                        }
+                                    }
+                                    else
+                                    {
+                                        propertyInfo.SetValue(t, Convert.ChangeType(cell.ToString(), propertyInfo.PropertyType));
+                                    }
                                 }
                             }
-
-                            if (excelTitleFieldMapper.IsCoordinateExpress || cell?.CellType == CellType.Formula)
+                            catch (Exception e)
                             {
-                                //读取含有表达式的单元格值
-                                cellValue = formulaEvaluator.Evaluate(cell).StringValue;
-                                propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
+                                this.Logger.LogError(e, $"sheetName_{sheet.SheetName},读取{currentRowIndex + 1}行内容失败！");
                             }
-                            else if (propertyInfo.PropertyType.IsEnum)
-                            {
-                                object enumObj = propertyInfo.PropertyType.InvokeMember(cellValue, BindingFlags.GetField, null, null, null);
-                                propertyInfo.SetValue(t, Convert.ChangeType(enumObj, propertyInfo.PropertyType));
-                            }
-                            else
-                            {
-                                propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
-                            }
-                        }
-                        catch (Exception)
-                        {
-                            this.Logger.LogDebug($"sheetName_{sheet.SheetName}读取{currentRowIndex + 1}行内容失败！");
-                            t = default(T);
-                            break;
                         }
                     }
                     if (t != null)
@@ -519,204 +635,6 @@ namespace PPPayReportTools.Excel
             return tList ?? new List<T>(0);
         }
 
-        /// <summary>
-        /// 读取Excel数据1_手动提供属性信息和标题对应关系
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="filePath"></param>
-        /// <param name="fieldNameAndShowNameDic"></param>
-        /// <param name="excelFileDescription"></param>
-        /// <returns></returns>
-        public List<T> ReadTitleDataList<T>(string filePath, Dictionary<string, string> fieldNameAndShowNameDic, ExcelFileDescription excelFileDescription) where T : new()
-        {
-            //标题属性字典列表
-            List<ExcelTitleFieldMapper> titleMapperList = ExcelTitleFieldMapper.GetModelFieldMapper<T>(fieldNameAndShowNameDic);
-
-            List<T> tList = this._GetTList<T>(filePath, titleMapperList, excelFileDescription);
-            return tList ?? new List<T>(0);
-        }
-
-        /// <summary>
-        /// 读取Excel数据2_使用Excel标记特性和文件描述自动创建关系
-        /// </summary>
-        /// <param name="filePath"></param>
-        /// <param name="excelFileDescription"></param>
-        /// <returns></returns>
-        public List<T> ReadTitleDataList<T>(string filePath, ExcelFileDescription excelFileDescription) where T : new()
-        {
-            //标题属性字典列表
-            List<ExcelTitleFieldMapper> titleMapperList = ExcelTitleFieldMapper.GetModelFieldMapper<T>();
-
-            List<T> tList = this._GetTList<T>(filePath, titleMapperList, excelFileDescription);
-            return tList ?? new List<T>(0);
-        }
-
-        private List<T> _GetTList<T>(string filePath, List<ExcelTitleFieldMapper> titleMapperList, ExcelFileDescription excelFileDescription) where T : new()
-        {
-            List<T> tList = new List<T>(500 * 10000);
-            if (!File.Exists(filePath))
-            {
-                return tList;
-            }
-
-            T t = default(T);
-            using (FileStream fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
-            {
-                IWorkbook workbook = null;
-                IFormulaEvaluator formulaEvaluator = null;
-
-                try
-                {
-                    workbook = new XSSFWorkbook(fileStream);
-                    formulaEvaluator = new XSSFFormulaEvaluator(workbook);
-                }
-                catch (Exception)
-                {
-                    workbook = new HSSFWorkbook(fileStream);
-                    formulaEvaluator = new HSSFFormulaEvaluator(workbook);
-                }
-
-                int sheetCount = workbook.NumberOfSheets;
-
-                int currentSheetIndex = 0;
-                int currentSheetRowTitleIndex = -1;
-                do
-                {
-                    var sheet = workbook.GetSheetAt(currentSheetIndex);
-
-                    //标题下标属性字典
-                    Dictionary<int, ExcelTitleFieldMapper> sheetTitleIndexPropertyDic = new Dictionary<int, ExcelTitleFieldMapper>(0);
-
-                    //如果没有设置标题行，则通过自动查找方法获取
-                    if (excelFileDescription.TitleRowIndex < 0)
-                    {
-                        string[] titleArray = titleMapperList.Select(m => m.ExcelTitle).ToArray();
-                        currentSheetRowTitleIndex = this.GetSheetTitleIndex(sheet, titleArray);
-                    }
-                    else
-                    {
-                        currentSheetRowTitleIndex = excelFileDescription.TitleRowIndex;
-                    }
-
-                    var rows = sheet.GetRowEnumerator();
-
-                    bool isHaveTitleIndex = false;
-                    //含有Excel行下标
-                    if (titleMapperList.Count > 0 && titleMapperList[0].ExcelTitleIndex >= 0)
-                    {
-                        isHaveTitleIndex = true;
-
-                        foreach (var titleMapper in titleMapperList)
-                        {
-                            sheetTitleIndexPropertyDic.Add(titleMapper.ExcelTitleIndex, titleMapper);
-                        }
-                    }
-
-                    PropertyInfo propertyInfo = null;
-                    int currentRowIndex = 0;
-
-                    while (rows.MoveNext())
-                    {
-                        IRow row = (IRow)rows.Current;
-                        currentRowIndex = row.RowNum;
-
-                        //到达标题行
-                        if (isHaveTitleIndex == false && currentRowIndex == currentSheetRowTitleIndex)
-                        {
-                            ICell cell = null;
-                            string cellValue = null;
-                            Dictionary<string, ExcelTitleFieldMapper> titleMapperDic = titleMapperList.ToDictionary(m => m.ExcelTitle);
-                            for (int i = 0; i < row.Cells.Count; i++)
-                            {
-                                cell = row.Cells[i];
-                                cellValue = cell.ToString();
-                                if (titleMapperDic.ContainsKey(cellValue))
-                                {
-                                    sheetTitleIndexPropertyDic.Add(i, titleMapperDic[cellValue]);
-                                }
-                            }
-                        }
-
-                        //到达内容行
-                        if (currentRowIndex > currentSheetRowTitleIndex)
-                        {
-                            t = new T();
-                            ExcelTitleFieldMapper excelTitleFieldMapper = null;
-                            foreach (var titleIndexItem in sheetTitleIndexPropertyDic)
-                            {
-                                ICell cell = row.GetCell(titleIndexItem.Key);
-
-                                excelTitleFieldMapper = titleIndexItem.Value;
-
-                                //没有数据的单元格默认为null
-                                propertyInfo = excelTitleFieldMapper.PropertyInfo;
-                                if (propertyInfo != null && propertyInfo.CanWrite)
-                                {
-                                    try
-                                    {
-                                        if (excelTitleFieldMapper.IsCheckContentEmpty)
-                                        {
-                                            string cellValue = cell?.ToString();
-                                            if (cell != null && cell.CellType == CellType.Formula)
-                                            {
-                                                cellValue = formulaEvaluator.Evaluate(cell).StringValue;
-                                            }
-                                            if (string.IsNullOrEmpty(cellValue))
-                                            {
-                                                t = default(T);
-                                                break;
-                                            }
-                                        }
-
-                                        if (cell != null && !string.IsNullOrEmpty(cell.ToString()))
-                                        {
-                                            if (excelTitleFieldMapper.IsCoordinateExpress || cell.CellType == CellType.Formula)
-                                            {
-                                                //读取含有表达式的单元格值
-                                                string cellValue = formulaEvaluator.Evaluate(cell).StringValue;
-                                                propertyInfo.SetValue(t, Convert.ChangeType(cellValue, propertyInfo.PropertyType));
-                                            }
-                                            else if (propertyInfo.PropertyType.IsEnum)
-                                            {
-                                                object enumObj = propertyInfo.PropertyType.InvokeMember(cell.ToString(), BindingFlags.GetField, null, null, null);
-                                                propertyInfo.SetValue(t, Convert.ChangeType(enumObj, propertyInfo.PropertyType));
-                                            }
-                                            else if (propertyInfo.PropertyType == typeof(DateTime))
-                                            {
-                                                try
-                                                {
-                                                    propertyInfo.SetValue(t, Convert.ChangeType(cell.DateCellValue, propertyInfo.PropertyType));
-                                                }
-                                                catch (Exception)
-                                                {
-                                                    propertyInfo.SetValue(t, Convert.ChangeType(cell.ToString(), propertyInfo.PropertyType));
-                                                }
-                                            }
-                                            else
-                                            {
-                                                propertyInfo.SetValue(t, Convert.ChangeType(cell.ToString(), propertyInfo.PropertyType));
-                                            }
-                                        }
-                                    }
-                                    catch (Exception e)
-                                    {
-                                        this.Logger.LogError(e, $"文件_{filePath}读取{currentRowIndex + 1}行内容失败！");
-                                    }
-                                }
-                            }
-                            if (t != null)
-                            {
-                                tList.Add(t);
-                            }
-                        }
-                    }
-
-                    currentSheetIndex++;
-
-                } while (currentSheetIndex + 1 <= sheetCount);
-            }
-            return tList ?? new List<T>(0);
-        }
 
         /// <summary>
         /// 获取文件单元格数据对象
