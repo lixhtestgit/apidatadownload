@@ -4,19 +4,17 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using WebApplication1.Extension;
 using WebApplication1.Helper;
 using WebApplication1.Model;
-using WebApplication1.Model.MeShop;
 using WebApplication1.Model.PayNotify;
 
 namespace WebApplication1.Controllers
@@ -53,6 +51,7 @@ namespace WebApplication1.Controllers
 
         /// <summary>
         /// ES搜索订单支付方式推送
+        /// api/PayNotify
         /// </summary>
         /// <returns></returns>
         [Route("")]
@@ -63,7 +62,7 @@ namespace WebApplication1.Controllers
     {
         ""multi_match"": {
             ""type"": ""phrase"",
-            ""query"": ""PAYSUCCESS-INFO-PROCESS"",
+            ""query"": ""MeShopPay收到转发支付结果请求"",
             ""lenient"": true
         }
     },
@@ -73,29 +72,15 @@ namespace WebApplication1.Controllers
                 {
                     ""multi_match"": {
                         ""type"": ""phrase"",
-                        ""query"": ""PayPal"",
+                        ""query"": ""PayResultV1SendRequestHelper"",
                         ""lenient"": true
                     }
                 },
                 {
-                    ""bool"": {
-                        ""should"": [
-                            {
-                                ""multi_match"": {
-                                    ""type"": ""phrase"",
-                                    ""query"": ""ericdress"",
-                                    ""lenient"": true
-                                }
-                            },
-                            {
-                                ""multi_match"": {
-                                    ""type"": ""phrase"",
-                                    ""query"": ""tbdress"",
-                                    ""lenient"": true
-                                }
-                            }
-                        ],
-                        ""minimum_should_match"": 1
+                    ""multi_match"": {
+                        ""type"": ""phrase"",
+                        ""query"": ""WorldPayDirect"",
+                        ""lenient"": true
                     }
                 }
             ]
@@ -103,7 +88,10 @@ namespace WebApplication1.Controllers
     }
 ]";
 
-            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"获取独立站支付成功数据", "meshopstore.com", dataFilter, 20, log =>
+            DateTime utcBeginDate = Convert.ToDateTime("2024-01-03 12:40:00");
+            DateTime utcEndDate = Convert.ToDateTime("2024-01-03 12:40:00");
+
+            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"WP直连", "martstores.com", dataFilter, utcBeginDate, utcEndDate, log =>
              {
                  return "1";
              });
@@ -113,6 +101,7 @@ namespace WebApplication1.Controllers
             string sessionID, notifyUrl;
             Regex sessionIDRegex = new Regex("(?<=\"token\":\")[a-z0-9]+(?=\")");
             Regex notifyUrlRegex = new Regex("(?<=\"NotifyUrl\":\")[^\"]+(?=\")");
+
             int position = 1;
             bool isSend = false;
             foreach (ESLog log in esLogList)
@@ -128,10 +117,33 @@ namespace WebApplication1.Controllers
                     notifyUrl += "?";
                 }
                 notifyUrl += "sessionID=" + sessionID;
+
+                //notifyUrl = "http://localhost:8001/Callback/WorldPayDirect/notification";
+
                 isSend = false;
                 do
                 {
-                    var postResult = await this.PayHttpClient.PostJson(notifyUrl, null);
+                    var postResult = (HttpStatusCode.OK, "");
+                    if (true)
+                    {
+                        postResult = await this.PayHttpClient.PostJson(notifyUrl, null);
+                    }
+                    else
+                    {
+                        string raw = $@"<?xml version=""1.0"" encoding=""UTF-8""?>
+<!DOCTYPE paymentService PUBLIC ""-//Worldpay//DTD Worldpay PaymentService v1//EN"" ""http://dtd.worldpay.com/paymentService_v1.dtd"">
+<paymentService version=""1.4"" merchantCode=""ARCMEADYNUSD"">
+  <notify>
+    <orderStatusEvent orderCode=""{sessionID}"">
+      <payment>
+        <lastEvent>REFUSED</lastEvent>
+      </payment>
+    </orderStatusEvent>
+  </notify>
+</paymentService>";
+                        postResult = await this.PayHttpClient.PostJson(notifyUrl, raw, HttpClientExtension.CONTENT_TYPE_XML);
+                    }
+
                     isSend = postResult.Item1 == System.Net.HttpStatusCode.OK;
                     this.Logger.LogInformation($"正在同步{position}/{totalCount}个异步通知消息到网站:{postResult.Item1},detail:{{notifyUrl={notifyUrl}}}");
                 } while (isSend == false);
@@ -279,7 +291,7 @@ namespace WebApplication1.Controllers
             foreach (CheckoutOrder checkoutOrder in checkoutOrderList)
             {
                 position++;
-                string payType= "Unlimint";
+                string payType = "Unlimint";
                 string errorReason = checkoutOrder.PayResultList.LastOrDefault().Replace("失败：", "").Replace("'", "''");
                 int execResult = await this.MeShopHelper.ExecSqlToShop(hostAdmin, $"update track_system set DataJSON='{{\"OrderErrorReason\":\"{errorReason}\",\"PayChannelName\":\"{payType}\"}}' where Type=2033 and TypeValueID={checkoutOrder.OrderID}");
                 if (execResult <= 0)
@@ -427,7 +439,11 @@ namespace WebApplication1.Controllers
                 ]";
 
                     int logDays = (int)(DateTime.Now - shopOrder.ShowCreateTime.AddHours(8)).TotalDays + 3;
-                    List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"获取调度数据", "meshopstore.com", dataFilter, logDays, log =>
+
+                    DateTime utcBeginDate = DateTime.UtcNow.AddDays(logDays * -1);
+                    DateTime utcEndDate = DateTime.UtcNow;
+
+                    List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"获取调度数据", "meshopstore.com", dataFilter, utcBeginDate, utcEndDate, log =>
                     {
                         return "1";
                     });

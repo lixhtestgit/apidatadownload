@@ -12,6 +12,7 @@ namespace System.Net.Http
         public const string CONTENT_TYPE_URLENCODED = "application/x-www-form-urlencoded";
 
         public const string CONTENT_TYPE_JSON = "application/json";
+        public const string CONTENT_TYPE_XML = "application/xml";
         public const string CONTENT_TYPE_TEXT = "text/plain";
 
         /// <summary>
