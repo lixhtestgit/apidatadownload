@@ -90,23 +90,26 @@ namespace WebApplication1.ExcelCsv
                                 {
                                     try
                                     {
-                                        propertyInfo = CsvFieldMapper.PropertyInfo;
-                                        propertyValue = rawValueArray[CsvFieldMapper.CSVTitleIndex];
-                                        if (!string.IsNullOrEmpty(propertyValue))
+                                        if (CsvFieldMapper.CSVTitleIndex >= 0 && CsvFieldMapper.CSVTitleIndex <= rawValueArray.Length - 1)
                                         {
-                                            if (isExistSplitChart && propertyValue.Contains("{分隔符}"))
+                                            propertyInfo = CsvFieldMapper.PropertyInfo;
+                                            propertyValue = rawValueArray[CsvFieldMapper.CSVTitleIndex];
+                                            if (!string.IsNullOrEmpty(propertyValue))
                                             {
-                                                propertyValue = propertyValue.Replace("{分隔符}", fileDescription.SeparatorChar.ToString());
-                                            }
+                                                if (isExistSplitChart && propertyValue.Contains("{分隔符}"))
+                                                {
+                                                    propertyValue = propertyValue.Replace("{分隔符}", fileDescription.SeparatorChar.ToString());
+                                                }
 
-                                            if (CsvFieldMapper.IsCheckContentEmpty && propertyValue.IsNullOrEmpty())
-                                            {
-                                                t = null;
-                                                break;
-                                            }
-                                            else
-                                            {
-                                                TypeHelper.SetPropertyValue(t, propertyInfo.Name, propertyValue);
+                                                if (CsvFieldMapper.IsCheckContentEmpty && propertyValue.IsNullOrEmpty())
+                                                {
+                                                    t = null;
+                                                    break;
+                                                }
+                                                else
+                                                {
+                                                    TypeHelper.SetPropertyValue(t, propertyInfo.Name, propertyValue);
+                                                }
                                             }
                                         }
                                     }

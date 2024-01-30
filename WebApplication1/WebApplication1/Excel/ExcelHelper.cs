@@ -455,6 +455,10 @@ namespace PPPayReportTools.Excel
                             sheetTitleIndexPropertyDic.Add(i, titleMapperDic[cellValue]);
                         }
                     }
+                    if (sheetTitleIndexPropertyDic.Count == 0)
+                    {
+                        break;
+                    }
                 }
 
                 //到达内容行

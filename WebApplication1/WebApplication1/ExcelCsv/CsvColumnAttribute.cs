@@ -19,6 +19,8 @@
         /// </summary>
         public bool IsCheckContentEmpty { get; set; }
 
+        public CsvColumnAttribute() : this(false) { }
+
         public CsvColumnAttribute(bool isCheckEmpty) : this(null, null, isCheckEmpty) { }
 
         public CsvColumnAttribute(string title) : this(title, null, false) { }

@@ -6,11 +6,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using WebApplication1.BIZ;
 using WebApplication1.Enum;
 using WebApplication1.Extension;
 using WebApplication1.Model.MeShop;
-using WebApplication1.Model.MeShop.Request;
 
 namespace WebApplication1.Helper
 {
@@ -229,7 +227,28 @@ namespace WebApplication1.Helper
 
             baseGeographyList = orderJObject.SelectToken("data").ToObject<List<BaseGeographyModel>>();
 
-            return baseGeographyList;
+            return baseGeographyList ?? new List<BaseGeographyModel>(0);
+        }
+
+        #endregion
+
+        #region 币种
+
+        /// <summary>
+        /// 获取国家省州列表
+        /// </summary>
+        /// <returns></returns>
+        public async Task<List<BaseCurrencyModel>> GetMSCurrency()
+        {
+            //获取接口基础币种
+            List<BaseCurrencyModel> baseCurrencyList = null;
+            var getResult = await this.PayHttpClient.Get("https://config.meshopstore.com/api/currency/GetCurrencyAll");
+
+            JObject orderJObject = JObject.Parse(getResult.Item2);
+
+            baseCurrencyList = orderJObject.SelectToken("data").ToObject<List<BaseCurrencyModel>>();
+
+            return baseCurrencyList ?? new List<BaseCurrencyModel>(0);
         }
 
         #endregion

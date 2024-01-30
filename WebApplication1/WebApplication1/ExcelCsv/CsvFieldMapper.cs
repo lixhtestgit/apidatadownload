@@ -36,7 +36,7 @@ namespace WebApplication1.ExcelCsv
 
             List<PropertyInfo> tPropertyInfoList = typeof(T).GetProperties().ToList();
             CsvColumnAttribute csvColumnAttribute = null;
-            int beginTitleIndex = 1;
+            int beginTitleIndex = 0;
             foreach (var tPropertyInfo in tPropertyInfoList)
             {
                 csvColumnAttribute = (CsvColumnAttribute)tPropertyInfo.GetCustomAttribute(typeof(CsvColumnAttribute));
