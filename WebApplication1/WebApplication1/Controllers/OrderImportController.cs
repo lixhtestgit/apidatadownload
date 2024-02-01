@@ -1,21 +1,14 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using PPPayReportTools.Excel;
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using WebApplication1.DB.Base;
-using WebApplication1.DB.CMS;
-using WebApplication1.DB.Repository;
-using WebApplication1.Enum;
-using WebApplication1.Extension;
 using WebApplication1.Helper;
 using WebApplication1.Model.ExcelModel;
 
 namespace WebApplication1.Controllers
 {
-	[Route("api/[controller]")]
+    [Route("api/[controller]")]
 	[ApiController]
 	public class OrderImportController : ControllerBase
 	{

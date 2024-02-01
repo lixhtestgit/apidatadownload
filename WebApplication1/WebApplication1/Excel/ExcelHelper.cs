@@ -606,11 +606,11 @@ namespace PPPayReportTools.Excel
                                     {
                                         try
                                         {
-                                            propertyInfo.SetValue(t, Convert.ChangeType(cell.DateCellValue, propertyInfo.PropertyType));
+                                            propertyInfo.SetValue(t, Convert.ChangeType(cell.ToString(), propertyInfo.PropertyType));
                                         }
                                         catch (Exception)
                                         {
-                                            propertyInfo.SetValue(t, Convert.ChangeType(cell.ToString(), propertyInfo.PropertyType));
+                                            propertyInfo.SetValue(t, Convert.ChangeType(cell.DateCellValue, propertyInfo.PropertyType));
                                         }
                                     }
                                     else
