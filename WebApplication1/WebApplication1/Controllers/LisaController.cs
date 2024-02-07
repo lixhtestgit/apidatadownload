@@ -46,15 +46,28 @@ namespace WebApplication1.Controllers
         [HttpGet]
         public async Task OrderShipFilter()
         {
-            //利用整理好的数据二次梳理
-            string dataDicPath = @$"C:\Users\lixianghong\Downloads\项总_beatyeyes_9月到24年1月";
-            string[] waitSyncShipFiles = Directory.GetFiles(dataDicPath);
-
+            //1-获取数据源
             List<ExcelOrderShipData_Lisa> orderShipDataCheckList = new List<ExcelOrderShipData_Lisa>();
+            string dataDicPath = @$"E:\公司小项目\弃单支付方式查询\apidatadownload\WebApplication1\WebApplication1\示例测试目录\lisa发货订单\项总_beatyeyes\数据源";
+            string[] waitSyncShipFiles = Directory.GetFiles(dataDicPath);
             foreach (string file in waitSyncShipFiles)
             {
                 orderShipDataCheckList.AddRange(this.ExcelHelper.ReadTitleDataList<ExcelOrderShipData_Lisa>(file, new ExcelFileDescription()));
             }
+
+            //2-获取已导出数据
+            List<ExcelOrderShipData_Lisa> hadUsedOrderShipDataCheckList = new List<ExcelOrderShipData_Lisa>();
+            dataDicPath = @$"E:\公司小项目\弃单支付方式查询\apidatadownload\WebApplication1\WebApplication1\示例测试目录\lisa发货订单\项总_beatyeyes\导出数据";
+            waitSyncShipFiles = Directory.GetFiles(dataDicPath);
+            foreach (string file in waitSyncShipFiles)
+            {
+                hadUsedOrderShipDataCheckList.AddRange(this.ExcelHelper.ReadTitleDataList<ExcelOrderShipData_Lisa>(file, new ExcelFileDescription()));
+            }
+
+            //3-移除已导出数据（注意上面的数据必须在同一店铺下）
+            List<string> hadUsedOrderIDList = hadUsedOrderShipDataCheckList.Select(m => m.OrderID).ToList();
+            orderShipDataCheckList.RemoveAll(m => hadUsedOrderIDList.Contains(m.OrderID));
+
 
             decimal limitSumTotalPrice = 50200;
             decimal sumTotalPrice = orderShipDataCheckList.Sum(m => m.TotalPayPrice);
@@ -70,7 +83,7 @@ namespace WebApplication1.Controllers
             }
 
             IWorkbook workBook = this.ExcelHelper.CreateOrUpdateWorkbook(orderShipDataCheckList);
-            this.ExcelHelper.SaveWorkbookToFile(workBook, @$"C:\Users\lixianghong\Downloads\项总_lisa提交支付公司订单发货记录_{DateTime.Now.ToString("HHmmss")}.xlsx");
+            this.ExcelHelper.SaveWorkbookToFile(workBook, @$"E:\公司小项目\弃单支付方式查询\apidatadownload\WebApplication1\WebApplication1\示例测试目录\lisa发货订单\项总_beatyeyes\导出数据\项总_lisa提交支付公司订单发货记录_{DateTime.Now.ToString("HHmmss")}.xlsx");
 
             await Task.CompletedTask;
         }
