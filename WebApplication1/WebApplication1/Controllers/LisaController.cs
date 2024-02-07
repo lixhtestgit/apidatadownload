@@ -82,6 +82,7 @@ namespace WebApplication1.Controllers
                 orderShipDataCheckList.RemoveAt(ranIndex);
             }
 
+            orderShipDataCheckList = orderShipDataCheckList.OrderBy(m => m.PayTime).ToList();
             IWorkbook workBook = this.ExcelHelper.CreateOrUpdateWorkbook(orderShipDataCheckList);
             this.ExcelHelper.SaveWorkbookToFile(workBook, @$"E:\公司小项目\弃单支付方式查询\apidatadownload\WebApplication1\WebApplication1\示例测试目录\lisa发货订单\项总_beatyeyes\导出数据\项总_lisa提交支付公司订单发货记录_{DateTime.Now.ToString("HHmmss")}.xlsx");
 
