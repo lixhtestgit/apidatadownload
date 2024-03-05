@@ -49,8 +49,9 @@ namespace WebApplication1.Controllers
             //1-获取数据源
             List<ExcelOrderShipData_Lisa> orderShipDataCheckList = new List<ExcelOrderShipData_Lisa>();
             string dataDicPath = @$"E:\公司小项目\弃单支付方式查询\apidatadownload\WebApplication1\WebApplication1\示例测试目录\lisa发货订单\项总_beatyeyes\数据源";
-            string[] waitSyncShipFiles = Directory.GetFiles(dataDicPath);
-            foreach (string file in waitSyncShipFiles)
+            List<string> waitSyncShipFileList = Directory.GetFiles(dataDicPath).ToList();
+            waitSyncShipFileList = waitSyncShipFileList.FindAll(f => f.Contains("24年") && (f.Contains("1月") || f.Contains("2月")));
+            foreach (string file in waitSyncShipFileList)
             {
                 orderShipDataCheckList.AddRange(this.ExcelHelper.ReadTitleDataList<ExcelOrderShipData_Lisa>(file, new ExcelFileDescription()));
             }
@@ -58,8 +59,8 @@ namespace WebApplication1.Controllers
             //2-获取已导出数据
             List<ExcelOrderShipData_Lisa> hadUsedOrderShipDataCheckList = new List<ExcelOrderShipData_Lisa>();
             dataDicPath = @$"E:\公司小项目\弃单支付方式查询\apidatadownload\WebApplication1\WebApplication1\示例测试目录\lisa发货订单\项总_beatyeyes\导出数据";
-            waitSyncShipFiles = Directory.GetFiles(dataDicPath);
-            foreach (string file in waitSyncShipFiles)
+            waitSyncShipFileList = Directory.GetFiles(dataDicPath).ToList();
+            foreach (string file in waitSyncShipFileList)
             {
                 hadUsedOrderShipDataCheckList.AddRange(this.ExcelHelper.ReadTitleDataList<ExcelOrderShipData_Lisa>(file, new ExcelFileDescription()));
             }
@@ -69,7 +70,7 @@ namespace WebApplication1.Controllers
             orderShipDataCheckList.RemoveAll(m => hadUsedOrderIDList.Contains(m.OrderID));
 
 
-            decimal limitSumTotalPrice = 50200;
+            decimal limitSumTotalPrice = 100200;
             decimal sumTotalPrice = orderShipDataCheckList.Sum(m => m.TotalPayPrice);
 
             Random random = new Random();
