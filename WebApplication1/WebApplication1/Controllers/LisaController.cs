@@ -67,8 +67,7 @@ namespace WebApplication1.Controllers
 
             //3-移除已导出数据（注意上面的数据必须在同一店铺下）
             List<string> hadUsedOrderIDList = hadUsedOrderShipDataCheckList.Select(m => m.OrderID).ToList();
-            orderShipDataCheckList.RemoveAll(m => hadUsedOrderIDList.Contains(m.OrderID));
-
+            orderShipDataCheckList.RemoveAll(m => hadUsedOrderIDList.Exists(useOrderID => m.OrderID.Contains(useOrderID, StringComparison.OrdinalIgnoreCase)));
 
             decimal limitSumTotalPrice = 100200;
             decimal sumTotalPrice = orderShipDataCheckList.Sum(m => m.TotalPayPrice);
