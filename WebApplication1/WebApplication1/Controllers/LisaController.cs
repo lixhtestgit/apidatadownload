@@ -50,10 +50,11 @@ namespace WebApplication1.Controllers
             List<ExcelOrderShipData_Lisa> orderShipDataCheckList = new List<ExcelOrderShipData_Lisa>();
             string dataDicPath = @$"E:\公司小项目\弃单支付方式查询\apidatadownload\WebApplication1\WebApplication1\示例测试目录\lisa发货订单\项总_beatyeyes\数据源";
             List<string> waitSyncShipFileList = Directory.GetFiles(dataDicPath).ToList();
-            waitSyncShipFileList = waitSyncShipFileList.FindAll(f => f.Contains("24年") && (f.Contains("1月") || f.Contains("2月") || f.Contains("3月")));
+            waitSyncShipFileList = waitSyncShipFileList.FindAll(f => f.Contains("24年") && (f.Contains("2月") || f.Contains("3月")));
             foreach (string file in waitSyncShipFileList)
             {
-                orderShipDataCheckList.AddRange(this.ExcelHelper.ReadTitleDataList<ExcelOrderShipData_Lisa>(file, new ExcelFileDescription()));
+                List<ExcelOrderShipData_Lisa> fileDataList = this.ExcelHelper.ReadTitleDataList<ExcelOrderShipData_Lisa>(file, new ExcelFileDescription());
+                orderShipDataCheckList.AddRange(fileDataList);
             }
 
             //2-获取已导出数据
@@ -62,12 +63,14 @@ namespace WebApplication1.Controllers
             waitSyncShipFileList = Directory.GetFiles(dataDicPath).ToList();
             foreach (string file in waitSyncShipFileList)
             {
-                hadUsedOrderShipDataCheckList.AddRange(this.ExcelHelper.ReadTitleDataList<ExcelOrderShipData_Lisa>(file, new ExcelFileDescription()));
+                List<ExcelOrderShipData_Lisa> fileDataList = this.ExcelHelper.ReadTitleDataList<ExcelOrderShipData_Lisa>(file, new ExcelFileDescription());
+                hadUsedOrderShipDataCheckList.AddRange(fileDataList);
             }
 
             //3-移除已导出数据（注意上面的数据必须在同一店铺下）
             List<string> hadUsedOrderIDList = hadUsedOrderShipDataCheckList.Select(m => m.OrderID).ToList();
-            orderShipDataCheckList.RemoveAll(m => hadUsedOrderIDList.Exists(useOrderID => m.OrderID.Contains(useOrderID, StringComparison.OrdinalIgnoreCase)));
+            orderShipDataCheckList.RemoveAll(m => hadUsedOrderIDList.Contains(m.OrderID));
+
 
             decimal limitSumTotalPrice = 100200;
             decimal sumTotalPrice = orderShipDataCheckList.Sum(m => m.TotalPayPrice);
