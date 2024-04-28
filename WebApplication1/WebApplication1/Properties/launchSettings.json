@@ -4,7 +4,7 @@
     "WebApplication1": {
       "commandName": "Project",
       "launchBrowser": true,
-      "launchUrl": "api/Lisa/OrderShipFilter",
+      "launchUrl": "api/MeShopNew/SaveMenu",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
