@@ -53,7 +53,7 @@ namespace WebApplication1.Controllers
             string filePath = $@"{contentRootPath}\示例测试目录\MeShopNew\权限整理11.xlsx";
 
             //清理旧数据
-            //await this.meShopNewHelper.ExecSqlToShop("meshop001", 0, "delete from base_permission where 1=1");
+            await this.meShopNewHelper.ExecSqlToShop("meshop001", 0, "delete from base_permission where 1=1");
 
             List<MeShopNewMenu> meShopNewMenuList = ExcelHelper.ReadTitleDataList<MeShopNewMenu>(filePath, new ExcelFileDescription());
             List<string> insertSqlList = new List<string>();
