@@ -31,6 +31,7 @@
 
   <ItemGroup>
     <Folder Include="示例测试目录\lisa发货订单\独立站_wigsbuyshop\数据源\" />
+    <Folder Include="示例测试目录\lisa发货订单\项总_beatyeyes\导出数据\" />
     <Folder Include="示例测试目录\产品\产品系列更新\goodsale\" />
     <Folder Include="示例测试目录\产品\产品系列更新\" />
     <Folder Include="示例测试目录\订单地址问题检测\" />
