@@ -15,6 +15,7 @@ using WebApplication1.BIZ;
 using WebApplication1.Extension;
 using WebApplication1.Helper;
 using WebApplication1.Model;
+using WebApplication1.Model.ExcelModel;
 
 namespace WebApplication1.Controllers
 {
@@ -116,45 +117,53 @@ namespace WebApplication1.Controllers
             string dataFilter = @"[
             {
                 ""multi_match"": {
-                    ""type"": ""best_fields"",
-                    ""query"": ""cbeht.top"",
+                    ""type"": ""phrase"",
+                    ""query"": ""UseePay_Direct"",
                     ""lenient"": true
                 }
             },
             {
-                ""multi_match"": {
-                    ""type"": ""phrase"",
-                    ""query"": ""meshop-8c2d5e72-meshop-shop-5555"",
-                    ""lenient"": true
+                ""bool"": {
+                    ""filter"": [
+                        {
+                            ""multi_match"": {
+                                ""type"": ""phrase"",
+                                ""query"": ""500000000012758"",
+                                ""lenient"": true
+                            }
+                        },
+                        {
+                            ""multi_match"": {
+                                ""type"": ""phrase"",
+                                ""query"": ""1_MeShop,收到异步通知"",
+                                ""lenient"": true
+                            }
+                        }
+                    ]
                 }
             }
         ]";
 
-            List<ESLog> esLogList = await this.ESSearchHelper.GetESNginxLogList($"xxx", "meshopstore.com", dataFilter, 1, log =>
+            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"xxx", "mystoresz.com", dataFilter, DateTime.UtcNow.AddDays(-7), DateTime.UtcNow, log =>
             {
                 return "1";
             });
+            List<ExcelESLog> excelESLogList = new List<ExcelESLog>();
 
-            Dictionary<string, int> nginxPageUrlCountDic = new Dictionary<string, int>(1000);
-
-            Regex payUrlRegex = new Regex("(?<=\"(POST|GET){1}\\s+)[^\\s]+(?=\\s+)", RegexOptions.IgnoreCase);
+            Regex tokenRegex = new Regex("(?<=\"token\":\")[^\"]+(?=\")");
 
             foreach (ESLog item in esLogList)
             {
-                string pagUrl = payUrlRegex.Match(item.Log).Value;
-                if (pagUrl.IsNotNullOrEmpty())
+                string token = tokenRegex.Match(item.Log).Value;
+                excelESLogList.Add(new ExcelESLog
                 {
-                    if (nginxPageUrlCountDic.ContainsKey(pagUrl))
-                    {
-                        nginxPageUrlCountDic[pagUrl]++;
-                    }
-                    else
-                    {
-                        nginxPageUrlCountDic.Add(pagUrl, 1);
-                    }
-                }
+                    Log = item.Log,
+                    SessionID = token,
+                    CartNo = ""
+                });
             }
-            var showSortArray = nginxPageUrlCountDic.OrderByDescending(m => m.Value).ToArray();
+            IWorkbook workbook = this.ExcelHelper.CreateOrUpdateWorkbook(excelESLogList);
+            this.ExcelHelper.SaveWorkbookToFile(workbook, @$"C:\Users\lixianghong\Desktop\log.xlsx");
 
             this.Logger.LogInformation($"任务结束.");
 
