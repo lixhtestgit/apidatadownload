@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Microsoft.VisualStudio.Web.CodeGenerators.Mvc.Controller;
+using Newtonsoft.Json.Linq;
 using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System;
@@ -115,52 +117,120 @@ namespace WebApplication1.Controllers
         public async Task<IActionResult> Test()
         {
             string dataFilter = @"[
-            {
-                ""multi_match"": {
-                    ""type"": ""phrase"",
-                    ""query"": ""UseePay_Direct"",
-                    ""lenient"": true
-                }
-            },
-            {
-                ""bool"": {
-                    ""filter"": [
-                        {
-                            ""multi_match"": {
-                                ""type"": ""phrase"",
-                                ""query"": ""500000000012758"",
-                                ""lenient"": true
+    {
+        ""multi_match"": {
+            ""type"": ""phrase"",
+            ""query"": ""/UseePay/v1/ResultPage"",
+            ""lenient"": true
+        }
+    },
+    {
+        ""bool"": {
+            ""should"": [
+                {
+                    ""multi_match"": {
+                        ""type"": ""phrase"",
+                        ""query"": ""kristalwigs"",
+                        ""lenient"": true
+                    }
+                },
+                {
+                    ""bool"": {
+                        ""should"": [
+                            {
+                                ""multi_match"": {
+                                    ""type"": ""phrase"",
+                                    ""query"": ""krystalwig"",
+                                    ""lenient"": true
+                                }
+                            },
+                            {
+                                ""bool"": {
+                                    ""should"": [
+                                        {
+                                            ""multi_match"": {
+                                                ""type"": ""phrase"",
+                                                ""query"": ""lanviwigs"",
+                                                ""lenient"": true
+                                            }
+                                        },
+                                        {
+                                            ""bool"": {
+                                                ""should"": [
+                                                    {
+                                                        ""multi_match"": {
+                                                            ""type"": ""phrase"",
+                                                            ""query"": ""wigsbuying"",
+                                                            ""lenient"": true
+                                                        }
+                                                    },
+                                                    {
+                                                        ""bool"": {
+                                                            ""should"": [
+                                                                {
+                                                                    ""multi_match"": {
+                                                                        ""type"": ""phrase"",
+                                                                        ""query"": ""wishinme"",
+                                                                        ""lenient"": true
+                                                                    }
+                                                                },
+                                                                {
+                                                                    ""multi_match"": {
+                                                                        ""type"": ""phrase"",
+                                                                        ""query"": ""kristalwigs"",
+                                                                        ""lenient"": true
+                                                                    }
+                                                                }
+                                                            ],
+                                                            ""minimum_should_match"": 1
+                                                        }
+                                                    }
+                                                ],
+                                                ""minimum_should_match"": 1
+                                            }
+                                        }
+                                    ],
+                                    ""minimum_should_match"": 1
+                                }
                             }
-                        },
-                        {
-                            ""multi_match"": {
-                                ""type"": ""phrase"",
-                                ""query"": ""1_MeShop,收到异步通知"",
-                                ""lenient"": true
-                            }
-                        }
-                    ]
+                        ],
+                        ""minimum_should_match"": 1
+                    }
                 }
-            }
-        ]";
+            ],
+            ""minimum_should_match"": 1
+        }
+    }
+]";
 
-            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"xxx", "mystoresz.com", dataFilter, DateTime.UtcNow.AddDays(-7), DateTime.UtcNow, log =>
+            List<ESLog> esLogList = await this.ESSearchHelper.GetESLogList($"xxx", "mystoresz.com", dataFilter, DateTime.UtcNow.AddDays(-14), DateTime.UtcNow, log =>
             {
                 return "1";
             });
             List<ExcelESLog> excelESLogList = new List<ExcelESLog>();
 
-            Regex tokenRegex = new Regex("(?<=\"token\":\")[^\"]+(?=\")");
+            //Regex tokenRegex = new Regex("(?<=\"(token|SessionID)\":\")[^\"]+(?=\")",RegexOptions.IgnoreCase);
+            Regex tokenRegex = new Regex("(?<=(ThreeDSMethodCallback)/)[^\\?]+(?=\\?)", RegexOptions.IgnoreCase);
 
+            //string logFlag = $"ThreeDS_1201_Params";
             foreach (ESLog item in esLogList)
             {
-                string token = tokenRegex.Match(item.Log).Value;
-                excelESLogList.Add(new ExcelESLog
+                if (true)
                 {
-                    Log = item.Log,
-                    SessionID = token,
-                    CartNo = ""
-                });
+                    string token = tokenRegex.Match(item.Log).Value;
+                    ExcelESLog excelES = excelESLogList.FirstOrDefault(m => m.SessionID == token);
+                    if (excelES == null)
+                    {
+                        excelES = new ExcelESLog
+                        {
+                            SessionID = token,
+                            LogTimeList = new List<DateTime>()
+                        };
+                        excelESLogList.Add(excelES);
+                    }
+
+                    excelES.LogTimeList.Add(item.LogTime);
+                }
             }
             IWorkbook workbook = this.ExcelHelper.CreateOrUpdateWorkbook(excelESLogList);
             this.ExcelHelper.SaveWorkbookToFile(workbook, @$"C:\Users\lixianghong\Desktop\log.xlsx");

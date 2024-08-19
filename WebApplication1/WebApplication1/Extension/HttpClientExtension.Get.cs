@@ -17,6 +17,7 @@ namespace System.Net.Http
         {
             string responseText = null;
             HttpStatusCode statusCode = HttpStatusCode.OK;
+
             using (HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, url))
             {
                 if (headerDict?.Count > 0)
@@ -26,30 +27,27 @@ namespace System.Net.Http
                         request.Headers.Add(pair.Key, pair.Value);
                     }
                 }
-                using (var cancellationToken = new CancellationTokenSource(MILLISECONDS_DELAY))
+                using (HttpResponseMessage response = await client.SendAsync(request))
                 {
-                    using (HttpResponseMessage response = await client.SendAsync(request, cancellationToken.Token))
+                    statusCode = response.StatusCode;
+                    try
                     {
-                        statusCode = response.StatusCode;
-                        try
-                        {
-                            responseText = await response.Content.ReadAsStringAsync();
-                        }
-                        catch (Exception ex)
-                        {
-                            responseText = ex.ToString();
-                        }
-
-                        //移除responseMessage.ToString()获取失败消息的方法，该方法会丢失部分错误数据
-                        //if (responseMessage.IsSuccessStatusCode)
-                        //{
-                        //    responseText = await responseMessage.Content.ReadAsStringAsync();
-                        //}
-                        //else
-                        //{
-                        //    responseText = responseMessage.ToString();
-                        //}
+                        responseText = await response.Content.ReadAsStringAsync();
                     }
+                    catch (Exception ex)
+                    {
+                        responseText = ex.ToString();
+                    }
+
+                    //移除responseMessage.ToString()获取失败消息的方法，该方法会丢失部分错误数据
+                    //if (responseMessage.IsSuccessStatusCode)
+                    //{
+                    //    responseText = await responseMessage.Content.ReadAsStringAsync();
+                    //}
+                    //else
+                    //{
+                    //    responseText = responseMessage.ToString();
+                    //}
                 }
             }
             return (statusCode, responseText);

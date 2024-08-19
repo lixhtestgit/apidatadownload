@@ -179,7 +179,7 @@ namespace WebApplication1.Helper
                 string postUrl = $"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=0";
                 string postDataStr = $"select * from order_item where orderid in ({string.Join(',', orderIDS)})";
 
-                var postResult = await this.PayHttpClient.PostJson(postUrl, postDataStr, authDic, HttpClientExtension.CONTENT_TYPE_TEXT);
+                var postResult = await this.PayHttpClient.PostText(postUrl, postDataStr, authDic);
 
                 meShopOrderItemList = JsonConvert.DeserializeObject<List<MeShopOrderItem>>(postResult.Item2);
             }
@@ -354,7 +354,7 @@ namespace WebApplication1.Helper
                 string postDataStr = $"select ID,Title,Type from product_collection where State=1";
 
                 string postUrl = $"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=0";
-                var postResult = await this.PayHttpClient.PostJson(postUrl, postDataStr, authDic, HttpClientExtension.CONTENT_TYPE_TEXT);
+                var postResult = await this.PayHttpClient.PostText(postUrl, postDataStr, authDic);
 
                 collList = JsonConvert.DeserializeObject<List<MeShopColl>>(postResult.Item2);
             }
@@ -378,7 +378,7 @@ namespace WebApplication1.Helper
                 {
                     Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
                     updateSql = $"delete from product_collection_product where CollectionID in ({collID})";
-                    var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=1", updateSql, authDic, "text/plain");
+                    var syncResult = await this.PayHttpClient.PostText($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=1", updateSql, authDic);
 
                     result = Convert.ToInt32(syncResult.Item2);
                 }
@@ -410,7 +410,7 @@ namespace WebApplication1.Helper
                     Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
                     string inSql = string.Join(',', productIDS);
                     updateSql = $"delete from product_collection_product where SPUID in ({inSql})";
-                    var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=1", updateSql, authDic, "text/plain");
+                    var syncResult = await this.PayHttpClient.PostText($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=1", updateSql, authDic);
 
                     result = Convert.ToInt32(syncResult.Item2);
                 }
@@ -485,7 +485,7 @@ namespace WebApplication1.Helper
                 try
                 {
                     Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
-                    var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=1", syncSql, authDic, "text/plain");
+                    var syncResult = await this.PayHttpClient.PostText($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=1", syncSql, authDic);
 
                     result = Convert.ToInt32(syncResult.Item2);
                 }
@@ -505,7 +505,7 @@ namespace WebApplication1.Helper
             if (hostAdmin.IsNotNullOrEmpty() && syncSql.IsNotNullOrEmpty())
             {
                 Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
-                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=0", syncSql, authDic, "text/plain");
+                var syncResult = await this.PayHttpClient.PostText($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/v1/webuser/importwebuserbysql?isInsert=0", syncSql, authDic);
 
                 tList = JArray.Parse(syncResult.Item2).ToObject<List<T>>();
             }

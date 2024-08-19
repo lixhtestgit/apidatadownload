@@ -97,7 +97,7 @@ namespace WebApplication1.Helper
                 {
                     //Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
                     Dictionary<string, string> authDic = null;
-                    var syncResult = await this.PayHttpClient.PostJson($"http://localhost:5555/api/userinfo/importwebuserbysql?signKey=3075b02398744c14a913d47f73d2e621&isShopDB={isShopDB}&isInsert=1", syncSql, authDic, "text/plain");
+                    var syncResult = await this.PayHttpClient.PostText($"http://localhost:5555/api/userinfo/importwebuserbysql?signKey=3075b02398744c14a913d47f73d2e621&isShopDB={isShopDB}&isInsert=1", syncSql, authDic);
 
                     result = Convert.ToInt32(syncResult.Item2);
                 }
@@ -118,7 +118,7 @@ namespace WebApplication1.Helper
             {
                 //Dictionary<string, string> authDic = await this.GetAuthDic(hostAdmin);
                 Dictionary<string, string> authDic = null;
-                var syncResult = await this.PayHttpClient.PostJson($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/userinfo/importwebuserbysql?signKey=3075b02398744c14a913d47f73d2e621&isShopDB={isShopDB}&isInsert=0", syncSql, authDic, "text/plain");
+                var syncResult = await this.PayHttpClient.PostText($"https://{hostAdmin}.{this.ShopApiV1AuthUserDic[hostAdmin].Domain}/api/userinfo/importwebuserbysql?signKey=3075b02398744c14a913d47f73d2e621&isShopDB={isShopDB}&isInsert=0", syncSql, authDic);
 
                 tList = JArray.Parse(syncResult.Item2).ToObject<List<T>>();
             }

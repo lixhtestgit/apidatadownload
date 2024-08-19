@@ -19,6 +19,7 @@ namespace WebApplication1.Helper
         public ESSearchHelper(IHttpClientFactory httpClientFactory, ILogger<ESSearchHelper> logger)
         {
             this.PayHttpClient = httpClientFactory.CreateClient();
+            this.PayHttpClient.Timeout = TimeSpan.FromSeconds(300);
             this.Logger = logger;
         }
 
@@ -31,7 +32,7 @@ namespace WebApplication1.Helper
         /// <param name="beginHours"></param>
         /// <param name="logTypeFunc"></param>
         /// <returns></returns>
-        public async Task<List<ESLog>> GetESLogList(string logFlag, string esRootDomain, string dataFilter, DateTime utcBeginDate,DateTime utcEndDate, Func<string, string> logTypeFunc)
+        public async Task<List<ESLog>> GetESLogList(string logFlag, string esRootDomain, string dataFilter, DateTime utcBeginDate, DateTime utcEndDate, Func<string, string> logTypeFunc)
         {
             List<ESLog> logList = new List<ESLog>(100);
 
@@ -73,9 +74,10 @@ namespace WebApplication1.Helper
             Dictionary<string, string> postHeaderDic = new Dictionary<string, string>
             {
                 {"kbn-xsrf", "true" },
-                {"Cookie","fpestid=3321JyHDFhjvOaG4OA-KVmf3BA5U1jOU0Ju3pq7Ry9dDIGgze3gmS2kWR1ojW5HQ6vcgAg; forterToken=5be0fc0308f24c55832ff0d8ba700ac0_1701004934131__UDF43-m4_11ck; _sp_id.36e3=9b6b2b63-7663-4289-b4a5-d7f36e7f9647.1698075342.4.1704295100.1701179456.a47b7116-aa58-4902-b687-9f856d7164bf; sid=Fe26.2**5f9e3da6be07558ee284b3a96986ba13ddeb4e5ed19206d21800a1d803b61c07*ejD0pXExIL6lrEq2AuqgnQ*IEKAx395tAh5DQ4lSMo1MK1GUSC56InLi812fFwIVMQx68d2GfxW3rmGW5CvNyC959VBXwvjJgzDPrM85MlZAKiBx5QbwWnKJzY_9qDyOXg58L6EsL_AQvUPuBwCoQIaywUtMbcsGwyol5gSfLaiCA8WqSYPHNSOtKAFju1WAEMxGsL1nlroV8s-bTBfVmvys6hYUe6oim0-_9XaiTbL5tqz77H9nt-uz0el3pqWfkucQxRtDog7sAnkz-ujP5S5**07864a10fe323f149915e48ca880637f27dd8cfea47685ee9d53b77df42e9beb*u8MG24irsel_YDzmlZKzCvcLGjSHhU9zA7dp965prW8" }
+                {"Cookie","_gcl_au=1.1.942372824.1713955206; _fbp=fb.1.1713955207447.932788562; fpestid=RdOPKQLD26tbLJGb9S3Fcn0jUBcN9TtTfpYI98kjxkIHat23_PlaNMKKQHgvLtW7JArGkg; _cc_id=e8b6345ed8eccf81314ebd32ec946bb7; _sp_id.da82=f6ea6b3f-f5ae-4caa-bf74-ddfdc3cd5452.1713955206.22.1719303944.1719300365.8a1282c1-29ac-4f16-9d95-4589de8abee7; ph_phc_FK3gUI6MTOHJ6IIqb519luwpYPYC3ZYm3hGC5KpEQU8_posthog=%7B%22distinct_id%22%3A%2201901466-63f7-761d-8431-bc74437e8f83%22%2C%22%24sesid%22%3A%5B1719303946474%2C%2201904e6b-f6ac-7515-99f4-129f8a6b04a7%22%2C1719302616748%5D%7D; sid=Fe26.2**a28b2361933d039c7b4fb758659a2370123591cc897be79d44ee68bf5e41e469*U_zb1Lzt23ArujpVn8X0vQ*a9knsAqap0P0zmiP9k_XfCgix2dUiNVapacQLqdyHEVZVz3FgCh6uhz1QsAsgPzcNDnT0pOP-MGIBjWeX44dPWMwm73_EsOu0Csg4IVONpuRN7iNmTzN6ZzCpOkvBJmB7KTB0ckjUqkYnWi96J351yiYN5a2pzIyCiDwPYN486_oTE1c05VcO3wSdWa8A8eqdi_0a9kmUzfFZ4N5cqh6aRO_rs9uUDcvXxROtpZCjxmBTDLh4HkhZcqTn7Y5yDmf**eb40772a22f48b5e5562beff24fa9b8306979c13e3d0f962e5a757a57ef89e81*0g6VCpxScA4Vw5mLnzbeWEENOVGyvAIx1B2BKerngBg" }
             };
-            string responseResult2 = (await this.PayHttpClient.PostJson(postUrl, body, headerDict: postHeaderDic)).Item2;
+            //string responseResult2 = (await this.PayHttpClient.PostJson(postUrl, body, headerDict: postHeaderDic)).Item2;
+            string responseResult2 = "";
             JArray hitJArray = JObject.Parse(responseResult2).SelectToken("hits.hits")?.ToObject<JArray>();
             foreach (JObject item in hitJArray)
             {
@@ -91,12 +93,15 @@ namespace WebApplication1.Helper
                 log = log.Replace("\\", "");
                 string type = logTypeFunc(log);
 
+                DateTime logTime = item.SelectToken("_source.@timestamp").ToObject<DateTime>();
+
                 if (!string.IsNullOrEmpty(type))
                 {
                     logList.Add(new ESLog
                     {
                         Type = type,
                         Log = log,
+                        LogTime = logTime,
                         ESResponse = responseResult2.Length > 32767 ? responseResult2.Substring(0, 32767) : responseResult2
                     });
                 }
@@ -234,5 +239,7 @@ namespace WebApplication1.Helper
         public string Type { get; set; }
         public string Log { get; set; }
         public string ESResponse { get; set; }
+
+        public DateTime LogTime { get; set; }
     }
 }

@@ -141,7 +141,7 @@ namespace WebApplication1.Controllers
     </orderStatusEvent>
   </notify>
 </paymentService>";
-                        postResult = await this.PayHttpClient.PostJson(notifyUrl, raw, HttpClientExtension.CONTENT_TYPE_XML);
+                        postResult = await this.PayHttpClient.PostXml(notifyUrl, raw);
                     }
 
                     isSend = postResult.Item1 == System.Net.HttpStatusCode.OK;
