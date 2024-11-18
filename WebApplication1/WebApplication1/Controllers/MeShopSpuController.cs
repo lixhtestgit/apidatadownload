@@ -9,14 +9,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using WebApplication1.Enum;
 using WebApplication1.ExcelCsv;
 using WebApplication1.Helper;
-using WebApplication1.Model;
 using WebApplication1.Model.ExcelModel;
 using WebApplication1.Model.MeShop;
-using static WebApplication1.Enum.EMeShopOrder;
 
 namespace WebApplication1.Controllers
 {
@@ -33,6 +32,7 @@ namespace WebApplication1.Controllers
         public CsvHelper CsvHelper;
         public ILogger Logger;
         public MeShopHelper MeShopHelper;
+        private readonly MeShopNewHelper meShopNewHelper;
 
         public MeShopSpuController(
             IWebHostEnvironment webHostEnvironment,
@@ -40,7 +40,8 @@ namespace WebApplication1.Controllers
             ExcelHelper excelHelper,
             CsvHelper csvHelper,
             ILogger<MeShopSpuController> logger,
-            MeShopHelper meShopHelper)
+            MeShopHelper meShopHelper,
+            MeShopNewHelper meShopNewHelper)
         {
             this.WebHostEnvironment = webHostEnvironment;
             this.PayHttpClient = httpClientFactory.CreateClient();
@@ -48,6 +49,7 @@ namespace WebApplication1.Controllers
             this.CsvHelper = csvHelper;
             this.Logger = logger;
             this.MeShopHelper = meShopHelper;
+            this.meShopNewHelper = meShopNewHelper;
         }
 
         /// <summary>
@@ -243,5 +245,58 @@ namespace WebApplication1.Controllers
 
             return Ok();
         }
+
+        /// <summary>
+        /// 删除产品并清理产品系列关系
+        /// api/MeShopSpu/UpdateHandle
+        /// </summary>
+        /// <returns></returns>
+        [Route("UpdateHandle")]
+        [HttpGet]
+        public async Task<IActionResult> UpdateHandle()
+        {
+            List<SpuUpdateHandle> spuHandleList = this.ExcelHelper.ReadTitleDataList<SpuUpdateHandle>(@"C:\Users\lixianghong\Desktop\null_.xlsx", new ExcelFileDescription());
+            List<string> updateSqlList = new List<string>(spuHandleList.Count);
+
+            Regex updateRegex = new Regex("[^\\w]+");
+            Regex gangRegex = new Regex("[-]{2,}");
+
+            string updateSql = null;
+            int execCount = 0;
+
+            int index = 0;
+            int totalCount = spuHandleList.Count;
+            foreach (var item in spuHandleList)
+            {
+                index++;
+                item.Handle = updateRegex.Replace(item.Handle, "-");
+                item.Handle = gangRegex.Replace(item.Handle, "-").ToLower();
+                updateSqlList.Add($"update product_spu set handle='{item.Handle}' where spuid='{item.SpuID}';");
+
+                if (updateSqlList.Count == 100)
+                {
+                    updateSql = string.Join("", updateSqlList);
+                    execCount = await this.meShopNewHelper.ExecSqlToShop("thepowers", 1, updateSql);
+                    Console.WriteLine($"执行{index}/{totalCount}结果：{execCount}");
+                    updateSqlList.Clear();
+                }
+            }
+
+            updateSql = string.Join("", updateSqlList);
+            execCount = await this.meShopNewHelper.ExecSqlToShop("thepowers", 1, updateSql);
+            Console.WriteLine($"执行{totalCount}/{totalCount}结果：{execCount}");
+
+            return Ok();
+        }
+    }
+
+    public class SpuUpdateHandle
+    {
+        [ExcelTitle("spuid")]
+        public string SpuID { get; set; }
+        [ExcelTitle("title")]
+        public string Title { get; set; }
+        [ExcelTitle("handle")]
+        public string Handle { get; set; }
     }
 }
