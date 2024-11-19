@@ -1,5 +1,4 @@
 ﻿using Autofac;
-using MyPaymentHelper.Helper;
 using System.Reflection;
 using WebApplication1.DB.Base;
 
@@ -18,7 +17,6 @@ namespace WebApplication1
         public void ConfigureContainer(ContainerBuilder containerBuilder)
         {
             containerBuilder.RegisterType<BaseRepository>().InstancePerLifetimeScope();
-            containerBuilder.RegisterType<DDHelper>().InstancePerLifetimeScope();
             //获取当前程序集：Assembly.GetExecutingAssembly()
             //注册仓储程序集
             containerBuilder.RegisterAssemblyTypes(Assembly.GetExecutingAssembly())
