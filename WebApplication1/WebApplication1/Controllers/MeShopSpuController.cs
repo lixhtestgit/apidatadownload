@@ -257,6 +257,7 @@ namespace WebApplication1.Controllers
         {
             List<SpuUpdateHandle> spuHandleList = this.ExcelHelper.ReadTitleDataList<SpuUpdateHandle>(@"C:\Users\lixianghong\Desktop\null_.xlsx", new ExcelFileDescription());
             List<string> updateSqlList = new List<string>(spuHandleList.Count);
+            List<string> spuList = new List<string>(spuHandleList.Count);
 
             Regex updateRegex = new Regex("[^\\w]+");
             Regex gangRegex = new Regex("[-]{2,}");
@@ -266,25 +267,31 @@ namespace WebApplication1.Controllers
 
             int index = 0;
             int totalCount = spuHandleList.Count;
+            bool syncResult = false;
+            string hostAdmin = "thepowers";
             foreach (var item in spuHandleList)
             {
                 index++;
-                item.Handle = updateRegex.Replace(item.Handle, "-");
+                item.Handle = updateRegex.Replace(item.Title, "-");
                 item.Handle = gangRegex.Replace(item.Handle, "-").ToLower();
                 updateSqlList.Add($"update product_spu set handle='{item.Handle}' where spuid='{item.SpuID}';");
+                spuList.Add(item.SpuID);
 
                 if (updateSqlList.Count == 100)
                 {
                     updateSql = string.Join("", updateSqlList);
-                    execCount = await this.meShopNewHelper.ExecSqlToShop("thepowers", 1, updateSql);
-                    Console.WriteLine($"执行{index}/{totalCount}结果：{execCount}");
+                    execCount = await this.meShopNewHelper.ExecSqlToShop(hostAdmin, 1, updateSql);
+                    syncResult = await this.meShopNewHelper.SyncProductDataToES(hostAdmin, spuList);
+                    Console.WriteLine($"执行{index}/{totalCount}结果：{execCount},同步ES结果：{syncResult}");
                     updateSqlList.Clear();
+                    spuList.Clear();
                 }
             }
 
             updateSql = string.Join("", updateSqlList);
             execCount = await this.meShopNewHelper.ExecSqlToShop("thepowers", 1, updateSql);
-            Console.WriteLine($"执行{totalCount}/{totalCount}结果：{execCount}");
+            syncResult = await this.meShopNewHelper.SyncProductDataToES(hostAdmin, spuList);
+            Console.WriteLine($"执行{totalCount}/{totalCount}结果：{execCount},同步ES结果：{syncResult}");
 
             return Ok();
         }
