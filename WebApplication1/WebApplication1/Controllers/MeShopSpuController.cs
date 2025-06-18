@@ -274,6 +274,7 @@ namespace WebApplication1.Controllers
                 index++;
                 item.Handle = updateRegex.Replace(item.Title, "-");
                 item.Handle = gangRegex.Replace(item.Handle, "-").ToLower();
+                item.Handle = item.Handle.Trim('-');
                 updateSqlList.Add($"update product_spu set handle='{item.Handle}' where spuid='{item.SpuID}';");
                 spuList.Add(item.SpuID);
 
