@@ -47,10 +47,10 @@ namespace WebApplication1.Model.ExcelModel
         public string SyncProductImgs { get; set; }
 
         /// <summary>
-        /// 需同步的产品FayBuy地址
+        /// 需同步的产品KayBuy地址
         /// </summary>
         [ExcelTitle("Kaybuy链接")]
-        public string SyncProductFayBuyUrl { get; set; }
+        public string SyncProductKayBuyUrl { get; set; }
 
         /// <summary>
         /// 需同步的产品标题

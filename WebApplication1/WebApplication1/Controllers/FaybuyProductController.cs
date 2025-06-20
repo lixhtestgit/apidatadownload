@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Npgsql.Internal.TypeHandlers;
 using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System;
@@ -11,6 +13,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using WebApplication1.Helper;
 using WebApplication1.Model.ExcelModel;
 
 namespace WebApplication1.Controllers
@@ -47,7 +50,7 @@ namespace WebApplication1.Controllers
         [HttpGet]
         public async Task Test()
         {
-            List<ExcelFayBuyProduct> aaList = this.ExcelHelper.ReadTitleDataList<ExcelFayBuyProduct>(@$"C:\Users\lixianghong\Desktop\allchinafinds-合并.xlsx", new ExcelFileDescription());
+            List<ExcelFayBuyProduct> aaList = this.ExcelHelper.ReadTitleDataList<ExcelFayBuyProduct>(@$"C:\Users\lixianghong\Desktop\allchinafinds.xlsx", new ExcelFileDescription());
 
             int lastValidDataCount, validDataCount = 0;
             int currentExecCount = 1;
@@ -83,18 +86,97 @@ namespace WebApplication1.Controllers
             } while (validDataCount > lastValidDataCount);
 
             IWorkbook workbook = this.ExcelHelper.CreateOrUpdateWorkbook(aaList);
-            this.ExcelHelper.SaveWorkbookToFile(workbook, @$"C:\Users\lixianghong\Desktop\allchinafinds-合并_{DateTime.Now.ToString("HHmmss")}.xlsx");
+            this.ExcelHelper.SaveWorkbookToFile(workbook, @$"C:\Users\lixianghong\Desktop\allchinafinds_{DateTime.Now.ToString("HHmmss")}.xlsx");
 
             await Task.CompletedTask;
+        }
+
+        /// <summary>
+        /// api/FaybuyProduct/EmportMd
+        /// </summary>
+        /// <returns></returns>
+        [Route("EmportMd")]
+        [HttpGet]
+        public async Task EmportMd()
+        {
+            List<ExcelFayBuyProduct> aaList = this.ExcelHelper.ReadTitleDataList<ExcelFayBuyProduct>(@$"C:\Users\lixianghong\Desktop\allchinafinds-合并_133920.xlsx", new ExcelFileDescription());
+
+            int itemIndex = 0;
+            int totalCount = aaList.Count;
+            foreach (var item in aaList)
+            {
+                itemIndex++;
+
+                Console.WriteLine($"正在处理第{itemIndex}/{totalCount}条数据...");
+
+                if (string.IsNullOrWhiteSpace(item.SyncProductPrice))
+                {
+                    continue;
+                }
+
+                List<string> categoryNameList = new List<string>(1);
+                if (string.IsNullOrWhiteSpace(item.Category_url))
+                {
+                    categoryNameList.Add("Shoes");
+                }
+                else
+                {
+                    string categoryName = item.Category_url.Split("product-category/")[1].Split("/")[0];
+
+                    //分隔-单词，将首字母转大写，改为/拼接
+                    List<string> categoryNameArray = categoryName.Split('-').ToList();
+                    categoryNameArray = categoryNameArray.Select(x => x[0].ToString().ToUpper() + x.Substring(1).ToLower()).ToList();
+
+                    categoryName = string.Join("/", categoryNameArray);
+
+                    categoryNameList.Add(categoryName);
+                }
+
+                decimal cnyRate = (decimal)0.14;
+                decimal usdPrice = Math.Round(TypeParseHelper.StrToDecimal(item.SyncProductPrice) * cnyRate, 2);
+
+                string itemMDStr = $@"+++
+name = ""{item.Title}""
+categories = {JsonConvert.SerializeObject(categoryNameList)}
+price = {usdPrice}
+image = ""{item.SyncProductImgs}""
+kaybuyUrl = ""{item.SyncProductKayBuyUrl}""
++++";
+
+                string productID = item.Url?.Split("id=")[1].Split("&")[0] ?? "";
+
+                //淘宝
+                bool isTB = item.Url?.Contains("&source=TB") ?? false;
+                //微店
+                bool isWD = item.Url?.Contains("&source=WD") ?? false;
+                //1688
+                bool is1688 = item.Url?.Contains("&source=AL") ?? false;
+
+                string platformName = isTB ? "TB" : (isWD ? "WD" : (is1688 ? "AL" : ""));
+
+                string itemFilePath = @$"C:\Users\lixianghong\Desktop\allchinafinds-合并\{platformName}_{productID}.md";
+                if (!System.IO.File.Exists(itemFilePath))
+                {
+                    await System.IO.File.WriteAllTextAsync(itemFilePath, itemMDStr);
+                }
+            }
         }
 
         private async Task ExecUpdateDataAsync(ConcurrentQueue<ExcelFayBuyProduct> modelQueue, ConcurrentBag<string> execedList, int totalCount)
         {
             while (modelQueue.TryDequeue(out ExcelFayBuyProduct item))
             {
-                execedList.Add(item.Url);
-
                 Console.WriteLine($"正在查询第{execedList.Count}/{totalCount}个产品,Url={item.Url}");
+
+                string productID = item.Url?.Split("id=")[1].Split("&")[0] ?? "";
+
+                if (execedList.Contains(productID))
+                {
+                    execedList.Add(productID);
+                    continue;
+                }
+
+                execedList.Add(productID);
 
                 bool isPass = false;
                 if (item == null || string.IsNullOrWhiteSpace(item.Url))
@@ -109,8 +191,6 @@ namespace WebApplication1.Controllers
                     isPass = true;
                 }
 
-                string productID = item.Url?.Split("id=")[1].Split("&")[0] ?? "";
-
                 //淘宝
                 bool isTB = item.Url?.Contains("&source=TB") ?? false;
                 //微店
@@ -120,15 +200,15 @@ namespace WebApplication1.Controllers
 
                 if (isTB)
                 {
-                    item.SyncProductFayBuyUrl = $"https://kaybuy.com/User/Shop/DetailsNewTB.aspx?urlid={productID}&type=12";
+                    item.SyncProductKayBuyUrl = $"https://kaybuy.com/User/Shop/DetailsNewTB.aspx?urlid={productID}&type=12";
                 }
                 else if (isWD)
                 {
-                    item.SyncProductFayBuyUrl = $"https://kaybuy.com/User/Shop/DetailsWeidian.aspx?urlid={productID}&type=14";
+                    item.SyncProductKayBuyUrl = $"https://kaybuy.com/User/Shop/DetailsWeidian.aspx?urlid={productID}&type=14";
                 }
                 else if (is1688)
                 {
-                    item.SyncProductFayBuyUrl = $"https://kaybuy.com/User/Shop/Details1688.aspx?urlid={productID}&type=7";
+                    item.SyncProductKayBuyUrl = $"https://kaybuy.com/User/Shop/Details1688.aspx?urlid={productID}&type=7";
                 }
 
                 if (isPass == false)
