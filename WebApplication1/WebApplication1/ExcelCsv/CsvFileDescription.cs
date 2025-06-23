@@ -7,7 +7,7 @@ namespace WebApplication1.ExcelCsv
         public CsvFileDescription() : this(0)
         {
         }
-        public CsvFileDescription(int titleRawIndex) : this(',', titleRawIndex, Encoding.ASCII)
+        public CsvFileDescription(int titleRawIndex) : this(',', titleRawIndex, Encoding.UTF8)
         {
         }
         public CsvFileDescription(char separatorChar, int titleRawIndex, Encoding encoding)

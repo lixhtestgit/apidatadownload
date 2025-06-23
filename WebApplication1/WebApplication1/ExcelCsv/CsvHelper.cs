@@ -165,7 +165,7 @@ namespace WebApplication1.ExcelCsv
 
                 int dataCount = tList.Count;
                 Dictionary<int, CsvFieldMapper> fieldMapperDic = CsvFieldMapper.GetModelFieldMapper<T>().ToDictionary(m => m.CSVTitleIndex);
-                int titleCount = fieldMapperDic.Keys.Max();
+                int titleCount = fieldMapperDic.Keys.Count();
                 string[] rawValueArray = new string[titleCount];
                 StringBuilder rawValueBuilder = new StringBuilder();
                 string rawValue = null;
@@ -207,7 +207,7 @@ namespace WebApplication1.ExcelCsv
                                     //写入标题行
                                     if (currentRawIndex == fileDescription.TitleRawIndex)
                                     {
-                                        rawValueArray[fieldMapperItem.Key - 1] = fieldMapperItem.Value.CSVTitle;
+                                        rawValueArray[fieldMapperItem.Key] = fieldMapperItem.Value.CSVTitle;
                                     }
                                     //真正的数据从标题行下一行开始写
                                     else
@@ -231,7 +231,7 @@ namespace WebApplication1.ExcelCsv
                                             {
                                                 formatValue = $"\"{formatValue}\"";
                                             }
-                                            rawValueArray[fieldMapperItem.Key - 1] = formatValue;
+                                            rawValueArray[fieldMapperItem.Key] = formatValue;
                                         }
                                     }
                                 }

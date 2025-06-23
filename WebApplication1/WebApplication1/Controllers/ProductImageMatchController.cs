@@ -4,7 +4,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,11 +11,10 @@ using System.Threading.Tasks;
 using WebApplication1.Enum;
 using WebApplication1.Helper;
 using WebApplication1.Model.MeShop;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace WebApplication1.Controllers
 {
-	[Route("api/ProductImageMatch")]
+    [Route("api/ProductImageMatch")]
 	[ApiController]
 	public class ProductImageMatchController : ControllerBase
 	{
