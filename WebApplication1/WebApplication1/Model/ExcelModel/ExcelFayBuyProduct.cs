@@ -5,28 +5,16 @@ namespace WebApplication1.Model.ExcelModel
     public class ExcelFayBuyProduct
     {
         /// <summary>
-        /// 图片
+        /// 品类
         /// </summary>
-        [ExcelTitle("img", true)]
-        public string Img { get; set; }
+        [ExcelTitle("category_url")]
+        public string Category_url { get; set; }
 
         /// <summary>
         /// 产品地址
         /// </summary>
         [ExcelTitle("url")]
         public string Url { get; set; }
-
-        /// <summary>
-        /// 标题
-        /// </summary>
-        [ExcelTitle("title")]
-        public string Title { get; set; }
-
-        /// <summary>
-        /// 系列地址
-        /// </summary>
-        [ExcelTitle("category_url")]
-        public string Category_url { get; set; }
 
         /// <summary>
         /// 需同步的产品价格

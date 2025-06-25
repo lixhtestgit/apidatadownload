@@ -26,6 +26,7 @@
     <PackageReference Include="Npgsql" Version="6.0.6" />
     <PackageReference Include="NPOI" Version="2.4.1" />
     <PackageReference Include="RestSharp" Version="107.3.0" />
+    <PackageReference Include="Supabase" Version="1.1.1" />
     <PackageReference Include="System.Data.SqlClient" Version="4.8.3" />
   </ItemGroup>
 
