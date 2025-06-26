@@ -354,7 +354,11 @@ namespace WebApplication1.ExcelCsv
                                             //如果属性值含有分隔符，则使用双引号包裹
                                             if (formatValue.Contains(fileDescription.SeparatorChar.ToString()))
                                             {
-                                                formatValue = $"\"{formatValue.Replace("\"", "\"\"")}\"";
+                                                if (formatValue.Contains("\""))
+                                                {
+                                                    formatValue = formatValue.Replace("\"", "\"\"");
+                                                }
+                                                formatValue = $"\"{formatValue}\"";
                                             }
                                             rawValueArray[fieldIndex] = formatValue;
                                         }
