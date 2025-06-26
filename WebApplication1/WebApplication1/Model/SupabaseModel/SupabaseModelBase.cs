@@ -1,4 +1,5 @@
-﻿using Supabase.Postgrest.Models;
+﻿using Supabase.Postgrest.Attributes;
+using Supabase.Postgrest.Models;
 using System;
 
 namespace WebApplication1.Model.SupabaseModel
@@ -8,6 +9,7 @@ namespace WebApplication1.Model.SupabaseModel
         /// <summary>
         /// 主键
         /// </summary>
+        [Column("id")]
         public Guid Id { get; set; }
     }
 }

@@ -39,7 +39,6 @@ namespace WebApplication1.ExcelCsv
                     string propertyValue = null;
                     bool rawReadEnd = false;
 
-                    bool isExistSplitChart = false;
                     do
                     {
                         rawValue = streamReader.ReadLine();
@@ -49,19 +48,26 @@ namespace WebApplication1.ExcelCsv
                             //替换字符串含有分隔符为{分隔符}，最后再替换回来
                             if (rawValue.Contains("\""))
                             {
-                                isExistSplitChart = true;
+                                rawValue = rawValue.Replace("\"\"", "{引号}");
 
+                                int yhExecCount = 0;
                                 int yhBeginIndex = 0;
                                 int yhEndIndex = 0;
                                 string yhText = null;
                                 do
                                 {
-                                    yhBeginIndex = rawValue.GetIndexOfStr("\"", 1);
-                                    yhEndIndex = rawValue.GetIndexOfStr("\"", 2);
-                                    yhText = rawValue.Substring(yhBeginIndex, (yhEndIndex - yhBeginIndex + 1));
-                                    string newYHText = yhText.Replace("\"", "").Replace(fileDescription.SeparatorChar.ToString(), "{分隔符}");
-                                    rawValue = rawValue.Replace(yhText, newYHText);
-                                } while (rawValue.Contains("\""));
+                                    yhBeginIndex = rawValue.GetIndexOfStr("\"", (yhExecCount * 2) + 1);
+                                    yhEndIndex = rawValue.GetIndexOfStr("\"", (yhExecCount * 2) + 2);
+
+                                    if (yhBeginIndex > -1 && yhEndIndex > -1)
+                                    {
+                                        yhText = rawValue.Substring(yhBeginIndex, (yhEndIndex - yhBeginIndex + 1));
+                                        string newYHText = yhText.Replace(fileDescription.SeparatorChar.ToString(), "{分隔符}");
+                                        rawValue = rawValue.Replace(yhText, newYHText);
+                                    }
+
+                                    yhExecCount++;
+                                } while (yhBeginIndex > -1);
                             }
 
                             rawValueArray = rawValue.Split(fileDescription.SeparatorChar);
@@ -69,13 +75,15 @@ namespace WebApplication1.ExcelCsv
                             //标题行
                             if (currentRawIndex == fileDescription.TitleRawIndex)
                             {
-                                foreach (var CsvFieldMapper in CsvFieldMapperList)
+                                foreach (var csvFieldMapper in CsvFieldMapperList)
                                 {
+                                    csvFieldMapper.CSVTitleIndex = -1;
+
                                     for (int i = 0; i < rawValueArray.Length; i++)
                                     {
-                                        if (rawValueArray[i].Equals(CsvFieldMapper.CSVTitle, StringComparison.OrdinalIgnoreCase))
+                                        if (rawValueArray[i].Equals(csvFieldMapper.CSVTitle, StringComparison.OrdinalIgnoreCase))
                                         {
-                                            CsvFieldMapper.CSVTitleIndex = i;
+                                            csvFieldMapper.CSVTitleIndex = i;
                                             break;
                                         }
                                     }
@@ -96,10 +104,9 @@ namespace WebApplication1.ExcelCsv
                                             propertyValue = rawValueArray[CsvFieldMapper.CSVTitleIndex];
                                             if (!string.IsNullOrEmpty(propertyValue))
                                             {
-                                                if (isExistSplitChart && propertyValue.Contains("{分隔符}"))
-                                                {
-                                                    propertyValue = propertyValue.Replace("{分隔符}", fileDescription.SeparatorChar.ToString());
-                                                }
+                                                propertyValue = propertyValue.Trim('"');
+                                                propertyValue = propertyValue.Replace("{引号}", "\"");
+                                                propertyValue = propertyValue.Replace("{分隔符}", fileDescription.SeparatorChar.ToString());
 
                                                 if (CsvFieldMapper.IsCheckContentEmpty && propertyValue.IsNullOrEmpty())
                                                 {
@@ -229,6 +236,10 @@ namespace WebApplication1.ExcelCsv
                                             //如果属性值含有分隔符，则使用双引号包裹
                                             if (formatValue.Contains(fileDescription.SeparatorChar.ToString()))
                                             {
+                                                if (formatValue.Contains("\""))
+                                                {
+                                                    formatValue = formatValue.Replace("\"", "\"\"");
+                                                }
                                                 formatValue = $"\"{formatValue}\"";
                                             }
                                             rawValueArray[fieldMapperItem.Key] = formatValue;
@@ -343,7 +354,7 @@ namespace WebApplication1.ExcelCsv
                                             //如果属性值含有分隔符，则使用双引号包裹
                                             if (formatValue.Contains(fileDescription.SeparatorChar.ToString()))
                                             {
-                                                formatValue = $"\"{formatValue}\"";
+                                                formatValue = $"\"{formatValue.Replace("\"", "\"\"")}\"";
                                             }
                                             rawValueArray[fieldIndex] = formatValue;
                                         }

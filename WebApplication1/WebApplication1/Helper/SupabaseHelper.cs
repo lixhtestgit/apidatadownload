@@ -37,6 +37,16 @@ namespace WebApplication1.Helper
         }
 
         /// <summary>
+        /// 根据Url查询
+        /// </summary>
+        /// <returns></returns>
+        public async Task<SupabaseProducts> SelectByUrlAsync(string url)
+        {
+            var result = await this.client.From<SupabaseProducts>().Where(x => x.Link == url).Get();
+            return result.Model;
+        }
+
+        /// <summary>
         /// 分页查询
         /// </summary>
         /// <typeparam name="T"></typeparam>
@@ -83,6 +93,16 @@ namespace WebApplication1.Helper
               .From<T>()
               .Where(x => x.Id == id)
               .Delete();
+            return true;
+        }
+
+        /// <summary>
+        /// 根据时间
+        /// </summary>
+        /// <returns></returns>
+        public async Task<bool> DeleteByTimeAsync(DateTime beginTime)
+        {
+            await this.client.From<SupabaseProducts>().Where(x => x.CreateTime > beginTime).Delete();
             return true;
         }
     }
