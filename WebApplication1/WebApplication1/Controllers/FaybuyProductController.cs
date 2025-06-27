@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using WebApplication1.ExcelCsv;
@@ -32,16 +33,19 @@ namespace WebApplication1.Controllers
         private readonly IWebHostEnvironment WebHostEnvironment;
         public ILogger Logger;
         private readonly SupabaseHelper supabaseHelper;
+        private readonly GoogleTranslateHelper googleTranslateHelper;
 
         public FaybuyProductController(
             CsvHelper csvHelper,
             IWebHostEnvironment webHostEnvironment,
             IHttpClientFactory httpClientFactory,
             ILogger<OrderShipController> logger,
-            SupabaseHelper supabaseHelper)
+            SupabaseHelper supabaseHelper,
+            GoogleTranslateHelper googleTranslateHelper)
         {
             this.Logger = logger;
             this.supabaseHelper = supabaseHelper;
+            this.googleTranslateHelper = googleTranslateHelper;
             this.csvHelper = csvHelper;
             this.httpClient = httpClientFactory.CreateClient();
             this.WebHostEnvironment = webHostEnvironment;
@@ -126,9 +130,9 @@ namespace WebApplication1.Controllers
         public async Task SyncToSupabaseDB()
         {
             //清理最近5小时数据
-            //await this.supabaseHelper.DeleteByTimeAsync(DateTime.UtcNow.AddHours(-5));
+            await this.supabaseHelper.DeleteByTimeAsync(DateTime.UtcNow.AddHours(-8));
 
-            string dataSourceFilePath = @$"C:\Users\lixianghong\Desktop\012911_待处理.csv";
+            string dataSourceFilePath = @$"C:\Users\lixianghong\Desktop\153712_待处理.csv";
             List<ExcelFayBuyProduct> aaList = this.csvHelper.Read<ExcelFayBuyProduct>(dataSourceFilePath, new CsvFileDescription());
 
             int itemIndex = 0;
@@ -142,14 +146,22 @@ namespace WebApplication1.Controllers
                 try
                 {
                     bool isExist = (await this.supabaseHelper.SelectByUrlAsync(item.SyncProductKayBuyUrl)) != null;
+
                     if (isExist == false)
                     {
                         if (TypeParseHelper.StrToDecimal(item.SyncProductPrice) > 0)
                         {
+                            string enTitle = item.SyncProductTitle;
+                            bool isHaveChinese = Regex.IsMatch(enTitle, @"[\u4e00-\u9fff]");
+                            if (isHaveChinese)
+                            {
+                                enTitle = await this.googleTranslateHelper.Translate(item.SyncProductTitle);
+                            }
+
                             SupabaseProducts newData = new SupabaseProducts
                             {
                                 Id = Guid.NewGuid(),
-                                Title = item.SyncProductTitle,
+                                Title = enTitle,
                                 Price = TypeParseHelper.StrToDecimal(item.SyncProductPrice),
                                 OriginalPrice = TypeParseHelper.StrToDecimal(item.SyncProductOriginPrice),
                                 Category = JsonHelper.ConvertStrToJson<string[]>(item.Category_url),

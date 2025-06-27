@@ -233,6 +233,9 @@ namespace WebApplication1.ExcelCsv
                                                 formatValue = propertyValue.ToString();
                                             }
 
+                                            //如果含有换行符，替换为空格
+                                            formatValue = formatValue.Replace("\r\n"," ").Replace("\r", " ").Replace("\n", " ");
+
                                             //如果属性值含有分隔符，则使用双引号包裹
                                             if (formatValue.Contains(fileDescription.SeparatorChar.ToString()))
                                             {
