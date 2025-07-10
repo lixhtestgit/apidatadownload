@@ -10,6 +10,7 @@ namespace WebApplication1.Model.SupabaseModel
         /// 主键
         /// </summary>
         [Column("id")]
+        [PrimaryKey]
         public Guid Id { get; set; }
     }
 }

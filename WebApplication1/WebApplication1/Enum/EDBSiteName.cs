@@ -3,8 +3,6 @@
 	public enum EDBSiteName
 	{
 		CMS,
-		TBDress,
-		EricDress,
-		WigsBuy
+		Kaybuy
 	}
 }

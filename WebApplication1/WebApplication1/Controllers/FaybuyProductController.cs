@@ -3,8 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using NPOI.SS.UserModel;
-using PPPayReportTools.Excel;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -14,6 +12,8 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
+using WebApplication1.DB.CMS;
+using WebApplication1.DB.Repository;
 using WebApplication1.ExcelCsv;
 using WebApplication1.Helper;
 using WebApplication1.Model.ExcelModel;
@@ -34,6 +34,7 @@ namespace WebApplication1.Controllers
         public ILogger Logger;
         private readonly SupabaseHelper supabaseHelper;
         private readonly GoogleTranslateHelper googleTranslateHelper;
+        private readonly Wd_PromotionLinkRepository wd_PromotionLinkRepository;
 
         public FaybuyProductController(
             CsvHelper csvHelper,
@@ -41,11 +42,13 @@ namespace WebApplication1.Controllers
             IHttpClientFactory httpClientFactory,
             ILogger<OrderShipController> logger,
             SupabaseHelper supabaseHelper,
-            GoogleTranslateHelper googleTranslateHelper)
+            GoogleTranslateHelper googleTranslateHelper,
+            Wd_PromotionLinkRepository wd_PromotionLinkRepository)
         {
             this.Logger = logger;
             this.supabaseHelper = supabaseHelper;
             this.googleTranslateHelper = googleTranslateHelper;
+            this.wd_PromotionLinkRepository = wd_PromotionLinkRepository;
             this.csvHelper = csvHelper;
             this.httpClient = httpClientFactory.CreateClient();
             this.WebHostEnvironment = webHostEnvironment;
@@ -183,6 +186,159 @@ namespace WebApplication1.Controllers
                     Console.WriteLine($"同步失败：Url=,{item.SyncProductKayBuyUrl},{e.Message}");
                 }
             }
+
+            Console.WriteLine("处理结束...");
+        }
+
+        /// <summary>
+        /// api/FaybuyProduct/UpdateUrlForSupabaseDB
+        /// 更新Supabase数据库中Url域名
+        /// </summary>
+        /// <returns></returns>
+        [Route("UpdateUrlForSupabaseDB")]
+        [HttpGet]
+        public async Task UpdateUrlForSupabaseDB()
+        {
+            bool isEnd = false;
+            int pageIndex = 1;
+            int pageSize = 100;
+
+            int execCount = 0;
+
+            do
+            {
+                try
+                {
+                    List<SupabaseProducts> pageDataList = await this.supabaseHelper.PageAsync<SupabaseProducts>(pageIndex, pageSize);
+
+                    foreach (SupabaseProducts item in pageDataList)
+                    {
+                        execCount++;
+                        this.Logger.LogInformation($"正在同步第{execCount}个产品Url...");
+
+                        Uri itemUrlUri = new Uri(item.Link);
+                        var queryString = HttpUtility.ParseQueryString(itemUrlUri.Query);
+
+                        string productID = queryString.Get("urlid");
+                        if (string.IsNullOrWhiteSpace(productID))
+                        {
+                            continue;
+                        }
+
+                        queryString.Remove("urlid");
+                        queryString.Remove("type");
+                        string newQueryStr = queryString.ToString();
+
+                        if (item.Link.Contains("DetailsNewTB", StringComparison.OrdinalIgnoreCase))
+                        {
+                            item.Link = $"https://kaybuy.com/product/taobao/{productID}";
+                        }
+                        else if (item.Link.Contains("weidian", StringComparison.OrdinalIgnoreCase))
+                        {
+                            item.Link = $"https://kaybuy.com/product/weidian/{productID}";
+                        }
+                        else if (item.Link.Contains("1688", StringComparison.OrdinalIgnoreCase))
+                        {
+                            item.Link = $"https://kaybuy.com/product/1688/{productID}";
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(newQueryStr))
+                        {
+                            item.Link += $"?{newQueryStr}";
+                        }
+
+                        await this.supabaseHelper.UpdateAsync(item);
+                    }
+
+                    if (pageDataList.Count == 0)
+                    {
+                        isEnd = true;
+                    }
+
+                    pageIndex++;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"同步失败：{e.Message}");
+                }
+            } while (isEnd == false);
+
+            Console.WriteLine("处理结束...");
+        }
+
+        /// <summary>
+        /// api/FaybuyProduct/UpdateUrlForKaybuyDB
+        /// 更新Kaybuy数据库中Url域名
+        /// </summary>
+        /// <returns></returns>
+        [Route("UpdateUrlForKaybuyDB")]
+        [HttpGet]
+        public async Task UpdateUrlForKaybuyDB()
+        {
+            bool isEnd = false;
+            int pageIndex = 1;
+            int pageSize = 10;
+
+            int execCount = 0;
+
+            do
+            {
+                try
+                {
+                    var pageResult = await this.wd_PromotionLinkRepository.GetPageAsync(pageIndex, pageSize);
+                    List<Wd_PromotionLink> pageDataList = pageResult.Item1;
+
+                    foreach (Wd_PromotionLink item in pageDataList)
+                    {
+                        execCount++;
+                        this.Logger.LogInformation($"正在同步第{execCount}个产品Url...");
+
+                        Uri itemUrlUri = new Uri(item.Wt_Url);
+                        var queryString = HttpUtility.ParseQueryString(itemUrlUri.Query);
+
+                        string productID = queryString.Get("urlid");
+                        if (string.IsNullOrWhiteSpace(productID))
+                        {
+                            continue;
+                        }
+
+                        queryString.Remove("urlid");
+                        queryString.Remove("type");
+                        string newQueryStr = queryString.ToString();
+
+                        if (item.Wt_Url.Contains("DetailsNewTB", StringComparison.OrdinalIgnoreCase))
+                        {
+                            item.Wt_Url = $"https://kaybuy.com/product/taobao/{productID}";
+                        }
+                        else if (item.Wt_Url.Contains("weidian", StringComparison.OrdinalIgnoreCase))
+                        {
+                            item.Wt_Url = $"https://kaybuy.com/product/weidian/{productID}";
+                        }
+                        else if (item.Wt_Url.Contains("1688", StringComparison.OrdinalIgnoreCase))
+                        {
+                            item.Wt_Url = $"https://kaybuy.com/product/1688/{productID}";
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(newQueryStr))
+                        {
+                            item.Wt_Url += $"?{newQueryStr}";
+                        }
+
+                        await this.wd_PromotionLinkRepository.UpdateAsync(item);
+                    }
+
+                    if (pageDataList.Count == 0)
+                    {
+                        isEnd = true;
+                    }
+
+                    pageIndex++;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"同步失败：{e.Message}");
+                }
+            } while (isEnd == false);
 
             Console.WriteLine("处理结束...");
         }

@@ -16,7 +16,7 @@ namespace WebApplication1.DB.Repository
 
         public async Task<int> GetMaxID(int siteID)
         {
-            int data = (int)await base.ExecuteScalar(EDBSiteName.CMS, $"SELECT ISNULL(MAX(ID),0) from dbo.TJ_TB_Order WHERE SiteID={siteID}", null);
+            int data = (int)await base.ExecuteScalarAsync(EDBSiteName.CMS, $"SELECT ISNULL(MAX(ID),0) from dbo.TJ_TB_Order WHERE SiteID={siteID}", null);
 
             return data;
         }

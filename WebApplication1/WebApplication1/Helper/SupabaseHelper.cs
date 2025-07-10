@@ -1,5 +1,4 @@
-﻿using NPOI.SS.Formula.Functions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using WebApplication1.Model.SupabaseModel;
@@ -53,7 +52,7 @@ namespace WebApplication1.Helper
         /// <returns></returns>
         public async Task<List<T>> PageAsync<T>(int page, int pageSize) where T : SupabaseModelBase, new()
         {
-            var result = await this.client.From<T>().Range((page - 1) * pageSize, page * pageSize).Get();
+            var result = await this.client.From<T>().Range((page - 1) * pageSize, (page * pageSize) - 1).Get();
             return result.Models;
         }
 

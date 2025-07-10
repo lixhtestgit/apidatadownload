@@ -312,7 +312,7 @@ namespace WebApplication1.DB.Base
 		/// <param name="sql"></param>
 		/// <param name="param"></param>
 		/// <returns></returns>
-		public async Task<object> ExecuteScalar(EDBSiteName siteName, string sql, object param)
+		public async Task<object> ExecuteScalarAsync(EDBSiteName siteName, string sql, object param)
 		{
 			object firstData = null;
 
@@ -332,7 +332,7 @@ namespace WebApplication1.DB.Base
 		/// <param name="siteName"></param>
 		/// <param name="tModel"></param>
 		/// <returns></returns>
-		public async Task<int> Update<T>(EDBSiteName siteName, T tModel)
+		public async Task<int> UpdateAsync<T>(EDBSiteName siteName, T tModel)
 		{
 			int result = 0;
 			if (tModel != null)
@@ -351,7 +351,7 @@ namespace WebApplication1.DB.Base
 		/// <param name="siteName"></param>
 		/// <param name="primaryPropertyValue"></param>
 		/// <returns></returns>
-		public async Task<int> Delete<T>(EDBSiteName siteName, object primaryPropertyValue)
+		public async Task<int> DeleteAsync<T>(EDBSiteName siteName, object primaryPropertyValue)
 		{
 			int result = 0;
 			if (primaryPropertyValue != null)
@@ -373,7 +373,7 @@ namespace WebApplication1.DB.Base
 		/// <param name="siteName"></param>
 		/// <param name="tModel"></param>
 		/// <returns></returns>
-		public async Task<int> Delete<T>(EDBSiteName siteName, T tModel)
+		public async Task<int> DeleteAsync<T>(EDBSiteName siteName, T tModel)
 		{
 			int result = 0;
 			if (tModel != null)
@@ -395,7 +395,7 @@ namespace WebApplication1.DB.Base
 		/// <param name="siteName"></param>
 		/// <param name="expression"></param>
 		/// <returns></returns>
-		public async Task<int> Delete<T>(EDBSiteName siteName, Expression<Func<T, bool>> expression)
+		public async Task<int> DeleteAsync<T>(EDBSiteName siteName, Expression<Func<T, bool>> expression)
 		{
 			int result = 0;
 			if (expression != null)
@@ -415,7 +415,7 @@ namespace WebApplication1.DB.Base
 		/// <param name="where"></param>
 		/// <param name="param"></param>
 		/// <returns></returns>
-		public async Task<int> Count<T>(EDBSiteName siteName, string where, object param)
+		public async Task<int> CountAsync<T>(EDBSiteName siteName, string where, object param)
 		{
 			DBMapperHelper.DBMapperTable dBMapper = DBMapperHelper.GetModelMapper<T>(siteName);
 
@@ -426,7 +426,7 @@ namespace WebApplication1.DB.Base
 			}
 
 			string countSql = $"select count(1) from {dBMapper.SchemaName}.{dBMapper.TableName} {whereSql}";
-			int count = Convert.ToInt32(await this.ExecuteScalar(siteName, countSql, param));
+			int count = Convert.ToInt32(await this.ExecuteScalarAsync(siteName, countSql, param));
 			return count;
 		}
 
@@ -441,7 +441,7 @@ namespace WebApplication1.DB.Base
 		/// <param name="sortFiled"></param>
 		/// <param name="param"></param>
 		/// <returns></returns>
-		public async Task<(List<T>, int)> GetList<T>(EDBSiteName siteName, int pageIndex, int pageSize, string where, string sortFiled, object param = null)
+		public async Task<(List<T>, int)> GetPageAsync<T>(EDBSiteName siteName, int pageIndex, int pageSize, string where, string sortFiled, object param = null)
 		{
 			if (pageIndex <= 0 || pageSize <= 0)
 			{
@@ -455,7 +455,7 @@ namespace WebApplication1.DB.Base
 			string sql = string.Empty;
 			string tableName = dBMapper.TableName;
 			string orderSql = string.Empty;
-			int recordCount = await this.Count<T>(siteName, where, param);
+			int recordCount = await this.CountAsync<T>(siteName, where, param);
 			if (!string.IsNullOrWhiteSpace(sortFiled))
 			{
 				orderSql = "ORDER BY " + sortFiled;
@@ -586,7 +586,7 @@ namespace WebApplication1.DB.Base
 		/// <returns></returns>
 		public async Task<int> Update(EDBSiteName siteName, T entity)
 		{
-			return await base.Update(siteName, entity);
+			return await base.UpdateAsync(siteName, entity);
 		}
 
 		/// <summary>
@@ -597,7 +597,7 @@ namespace WebApplication1.DB.Base
 		/// <returns></returns>
 		public async Task<int> Delete(EDBSiteName siteName, TKey ID)
 		{
-			return await base.Delete(siteName, ID);
+			return await base.DeleteAsync(siteName, ID);
 		}
 
 		/// <summary>
@@ -608,7 +608,7 @@ namespace WebApplication1.DB.Base
 		/// <returns></returns>
 		public async Task<int> Delete(EDBSiteName siteName, T entity)
 		{
-			return await base.Delete(siteName, entity);
+			return await base.DeleteAsync(siteName, entity);
 		}
 
 		/// <summary>
@@ -619,7 +619,7 @@ namespace WebApplication1.DB.Base
 		/// <returns></returns>
 		public async Task<int> Delete(EDBSiteName siteName, Expression<Func<T, bool>> whereExpress)
 		{
-			return await base.Delete(siteName, whereExpress);
+			return await base.DeleteAsync(siteName, whereExpress);
 		}
 	}
 }

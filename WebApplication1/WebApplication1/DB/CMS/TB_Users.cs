@@ -5,9 +5,6 @@ using WebApplication1.Enum;
 namespace WebApplication1.DB.CMS
 {
     [ClassMapper(EDBSiteName.CMS, "dbo", "TB_Users")]
-	[ClassMapper(EDBSiteName.TBDress, "dbo", "user_info")]
-	[ClassMapper(EDBSiteName.EricDress, "dbo", "user_info")]
-	[ClassMapper(EDBSiteName.WigsBuy, "dbo", "user_info")]
 	public class TB_Users
     {
         [PropertyMapper]
