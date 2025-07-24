@@ -2,20 +2,21 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using NPOI.SS.Formula.Functions;
+using Newtonsoft.Json.Linq;
 using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.Common;
 using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
-using WebApplication1.Extension;
+using WebApplication1.DB.MeShop;
+using WebApplication1.DB.Repository;
 using WebApplication1.Helper;
-using WebApplication1.Model;
 using WebApplication1.Model.MeShopNew;
+using static Supabase.Postgrest.Constants;
+using static WebApplication1.Enum.EMeShopOrder;
 
 namespace WebApplication1.Controllers
 {
@@ -30,6 +31,9 @@ namespace WebApplication1.Controllers
         protected HttpClient PayHttpClient;
         public ExcelHelper ExcelHelper;
         private readonly MeShopNewHelper meShopNewHelper;
+        private readonly MeShopNewOrderMasterRepository meShopNewOrderMasterRepository;
+        private readonly MeShopNewOrderItemRepository meShopNewOrderItemRepository;
+        private readonly MeShopNewOrderAddressRepository meShopNewOrderAddressRepository;
         public ILogger Logger;
 
         public MeShopNewController(
@@ -37,12 +41,18 @@ namespace WebApplication1.Controllers
             IHttpClientFactory httpClientFactory,
             ExcelHelper excelHelper,
             MeShopNewHelper meShopNewHelper,
+            MeShopNewOrderMasterRepository meShopNewOrderMasterRepository,
+            MeShopNewOrderItemRepository meShopNewOrderItemRepository,
+            MeShopNewOrderAddressRepository meShopNewOrderAddressRepository,
             ILogger<MeShopCheckoutController> logger)
         {
             this.WebHostEnvironment = webHostEnvironment;
             this.PayHttpClient = httpClientFactory.CreateClient();
             this.ExcelHelper = excelHelper;
             this.meShopNewHelper = meShopNewHelper;
+            this.meShopNewOrderMasterRepository = meShopNewOrderMasterRepository;
+            this.meShopNewOrderItemRepository = meShopNewOrderItemRepository;
+            this.meShopNewOrderAddressRepository = meShopNewOrderAddressRepository;
             this.Logger = logger;
         }
 
@@ -135,6 +145,307 @@ namespace WebApplication1.Controllers
             {
                 throw;
             }
+
+            return Ok();
+        }
+
+        /// <summary>
+        /// 批量同步假发订单
+        /// api/MeShopNew/BatchSyncWigsbuyshopOrder
+        /// </summary>
+        /// <returns></returns>
+        [Route("BatchSyncWigsbuyshopOrder")]
+        [HttpGet]
+        public async Task<IActionResult> BatchSyncWigsbuyshopOrder()
+        {
+            //DELETE from order_address where OrderID in (select id from order_master where CreateTime > '2024-01-01' and CreateTime<'2025-01-01');
+            //DELETE from order_item where OrderID in (select id from order_master where CreateTime > '2024-01-01' and CreateTime<'2025-01-01');
+            //DELETE from order_master where CreateTime > '2024-01-01' and CreateTime<'2025-01-01';
+
+
+            //select A.CreateTime '月份',Count(1) '订单总量',SUM(TotalPayPrice) '订单总金额',SUM(TotalPayPrice) / Count(1) '平均客单价' from(
+            //select date_format(CreateTime, '%Y-%m') CreateTime, TotalPayPrice, 1 from order_master where state in (2, 4)
+            //) A GROUP BY A.CreateTime
+
+            //设置已付款中1315个已取消订单
+            if (false)
+            {
+                List<long> setCanceledOrderIDList = new List<long>();
+
+                int canceled = 1299;
+
+                List<long> orderIDList = (await this.meShopNewOrderMasterRepository.QueryAsync<long>(Enum.EDBSiteName.Wigsbuyshop, $"select id from order_master where state in (2,4) and CreateTime<'2025-01-01'"));
+
+                Random random = new Random();
+
+                do
+                {
+                    int ranIndex = random.Next(0, orderIDList.Count);
+                    long ranOrderID = orderIDList[ranIndex];
+
+                    if (!setCanceledOrderIDList.Contains(ranOrderID))
+                    {
+                        setCanceledOrderIDList.Add(ranOrderID);
+                    }
+                } while (setCanceledOrderIDList.Count < canceled);
+
+                string updateSql = $"update order_master set state=5 where id in ({string.Join(',', setCanceledOrderIDList)})";
+                await this.meShopNewOrderMasterRepository.ExecuteAsync(Enum.EDBSiteName.Wigsbuyshop, updateSql, null);
+            }
+
+            //设置已付款中4000个发货订单
+            if (false)
+            {
+                List<long> setShipedOrderIDList = new List<long>();
+
+                int shiped = 4000;
+
+                List<long> orderIDList = (await this.meShopNewOrderMasterRepository.QueryAsync<long>(Enum.EDBSiteName.Wigsbuyshop, $"select id from order_master where state in (2,4) and FulfillmentState=0 and CreateTime<'2025-01-01'"));
+
+                Random random = new Random();
+
+                do
+                {
+                    int ranIndex = random.Next(0, orderIDList.Count);
+                    long ranOrderID = orderIDList[ranIndex];
+
+                    if (!setShipedOrderIDList.Contains(ranOrderID))
+                    {
+                        setShipedOrderIDList.Add(ranOrderID);
+                    }
+                } while (setShipedOrderIDList.Count < shiped);
+
+                string updateSql = $"update order_master set FulfillmentState=2 where id in ({string.Join(',', setShipedOrderIDList)})";
+                await this.meShopNewOrderMasterRepository.ExecuteAsync(Enum.EDBSiteName.Wigsbuyshop, updateSql, null);
+            }
+
+            //设置已付款订单全部位已完成
+            if (false)
+            {
+                List<long> orderIDList = (await this.meShopNewOrderMasterRepository.QueryAsync<long>(Enum.EDBSiteName.Wigsbuyshop, $"select id from order_master where state in (2) and CreateTime<'2025-01-01'"));
+
+                string updateSql = $"update order_master set state=4 where id in ({string.Join(',', orderIDList)})";
+                await this.meShopNewOrderMasterRepository.ExecuteAsync(Enum.EDBSiteName.Wigsbuyshop, updateSql, null);
+            }
+
+            //同步2025年数据到2024年
+            if (false)
+            {
+                DateTime syncBeinTime = TypeParseHelper.StrToDateTime("2025-01-01");
+                List<Order_master> syncOrderMasterList = await this.meShopNewOrderMasterRepository.SelectAsync<Order_master>(Enum.EDBSiteName.Wigsbuyshop, m => m.State == 2 && m.CreateTime > syncBeinTime);
+                syncOrderMasterList = syncOrderMasterList.OrderByDescending(m => m.CreateTime).ToList();
+
+                long[] syncOrderIDS = syncOrderMasterList.Select(m => m.ID).ToArray();
+
+                List<Order_address> syncOrderAddressList = await this.meShopNewOrderMasterRepository.SelectAsync<Order_address>(Enum.EDBSiteName.Wigsbuyshop, m => syncOrderIDS.Contains(m.OrderID));
+                List<Order_item> syncOrderItemList = await this.meShopNewOrderMasterRepository.SelectAsync<Order_item>(Enum.EDBSiteName.Wigsbuyshop, m => syncOrderIDS.Contains(m.OrderID));
+
+                Func<int, int, decimal, int, Task> execMonthFunc = async (execYear, execMonth, syncPreOrderUSDPirce, syncSumOrderCount) =>
+                {
+                    //开始时间
+                    DateTime beginTime = TypeParseHelper.StrToDateTime($"{execYear}-{execMonth.ToString("00")}-01");
+                    //结束时间
+                    DateTime endTime = beginTime.AddMonths(1);
+
+                    Random random = new Random();
+                    decimal currentSyncSumTotalUSDPrice = 0;
+                    int currentSyncOrderCount = 0;
+                    long currentMinOrderID = TypeParseHelper.StrToInt64(await this.meShopNewOrderMasterRepository.ExecuteScalarAsync(Enum.EDBSiteName.Wigsbuyshop, $"select min(id) from order_master", null));
+
+                    DateTime currentOrderTime = endTime;
+
+                    do
+                    {
+                        List<Order_master> awaitInsertOrderList = new List<Order_master>(syncOrderMasterList.Count);
+                        List<Order_address> awaitInsertOrderAddressList = new List<Order_address>(syncOrderAddressList.Count);
+                        List<Order_item> awaitInsertOrderItemList = new List<Order_item>(syncOrderItemList.Count);
+
+                        foreach (Order_master syncOrderMaster in syncOrderMasterList)
+                        {
+                            if (currentSyncOrderCount >= syncSumOrderCount)
+                            {
+                                break;
+                            }
+
+                            decimal bs = syncPreOrderUSDPirce / syncOrderMaster.TotalPayPrice + random.Next(-10, 10) * (decimal)0.001;
+                            syncOrderMaster.TotalPayPrice *= bs;
+                            syncOrderMaster.TotalOriginalPrice *= bs;
+                            syncOrderMaster.ShipPrice *= bs;
+                            syncOrderMaster.TaxPrice *= bs;
+                            syncOrderMaster.TotalDiscount *= bs;
+                            syncOrderMaster.TotalPayCompanyDiscount *= bs;
+                            syncOrderMaster.CurrencyTotalPayPrice *= bs;
+
+                            double randomSeconds = (30 * 24 * 3600) / (double)syncSumOrderCount;
+                            currentOrderTime = currentOrderTime.AddSeconds(randomSeconds * -1);
+                            if (currentOrderTime < beginTime)
+                            {
+                                currentOrderTime = beginTime;
+                            }
+
+                            syncOrderMaster.CreateTime = currentOrderTime;
+                            syncOrderMaster.PayTime = syncOrderMaster.CreateTime.AddSeconds(19);
+                            syncOrderMaster.CancelTime = null;
+                            syncOrderMaster.CompleteTime = null;
+
+                            long originOrderID = syncOrderMaster.ID;
+
+                            currentMinOrderID--;
+                            syncOrderMaster.ID = currentMinOrderID;
+
+                            awaitInsertOrderList.Add(syncOrderMaster);
+
+                            if (syncOrderMaster.ID > 0)
+                            {
+                                currentSyncSumTotalUSDPrice += syncOrderMaster.TotalPayPrice;
+                                currentSyncOrderCount++;
+
+                                List<Order_address> currentOrderAddress = syncOrderAddressList.FindAll(m => m.OrderID == originOrderID);
+                                foreach (Order_address item in currentOrderAddress)
+                                {
+                                    item.ID = 0;
+                                    item.OrderID = syncOrderMaster.ID;
+                                }
+                                awaitInsertOrderAddressList.AddRange(currentOrderAddress);
+
+                                List<Order_item> currentOrderItemList = syncOrderItemList.FindAll(m => m.OrderID == originOrderID);
+                                foreach (Order_item item in currentOrderItemList)
+                                {
+                                    item.ID = 0;
+                                    item.OrderID = syncOrderMaster.ID;
+                                    item.SellPrice *= bs;
+                                    item.SplitPayPrice *= bs;
+                                }
+                                awaitInsertOrderItemList.AddRange(currentOrderItemList);
+
+                            }
+
+                            Console.WriteLine($"当前同步{execYear}年{execMonth}月订单量进度：{currentSyncOrderCount}/{syncSumOrderCount}");
+                        }
+
+                        await this.meShopNewOrderMasterRepository.InsertList(Enum.EDBSiteName.Wigsbuyshop, awaitInsertOrderList);
+                        await this.meShopNewOrderAddressRepository.InsertList(Enum.EDBSiteName.Wigsbuyshop, awaitInsertOrderAddressList);
+                        await this.meShopNewOrderItemRepository.InsertList(Enum.EDBSiteName.Wigsbuyshop, awaitInsertOrderItemList);
+
+                    } while (currentSyncOrderCount < syncSumOrderCount);
+                };
+
+
+                var monthExecList = new dynamic[] {
+                new {
+                    execYear = 2024,
+                    execMonth = 12,
+                    //需要同步的客单价
+                    syncPreOrderUSDPirce = 376.32,
+                    //需要同步的订单量
+                    syncSumOrderCount = 3284
+                },
+                new {
+                    execYear = 2024,
+                    execMonth = 11,
+                    //需要同步的客单价
+                    syncPreOrderUSDPirce = 398.75,
+                    //需要同步的订单量
+                    syncSumOrderCount = 5737
+                },
+                new {
+                    execYear = 2024,
+                    execMonth = 10,
+                    //需要同步的客单价
+                    syncPreOrderUSDPirce = 392.68,
+                    //需要同步的订单量
+                    syncSumOrderCount = 7025
+                },
+                new {
+                    execYear = 2024,
+                    execMonth = 9,
+                    //需要同步的客单价
+                    syncPreOrderUSDPirce = 359.17,
+                    //需要同步的订单量
+                    syncSumOrderCount = 3034
+                },
+                new {
+                    execYear = 2024,
+                    execMonth = 8,
+                    //需要同步的客单价
+                    syncPreOrderUSDPirce = 368.42,
+                    //需要同步的订单量
+                    syncSumOrderCount = 3138
+                },
+                new {
+                    execYear = 2024,
+                    execMonth = 7,
+                    //需要同步的客单价
+                    syncPreOrderUSDPirce = 352.89,
+                    //需要同步的订单量
+                    syncSumOrderCount = 2907
+                },
+                new {
+                    execYear = 2024,
+                    execMonth = 6,
+                    //需要同步的客单价
+                    syncPreOrderUSDPirce = 319.57,
+                    //需要同步的订单量
+                    syncSumOrderCount = 1430
+                },
+                new {
+                    execYear = 2024,
+                    execMonth = 5,
+                    //需要同步的客单价
+                    syncPreOrderUSDPirce = 335.64,
+                    //需要同步的订单量
+                    syncSumOrderCount = 2182
+                },
+                new {
+                    execYear = 2024,
+                    execMonth = 4,
+                    //需要同步的客单价
+                    syncPreOrderUSDPirce = 308.21,
+                    //需要同步的订单量
+                    syncSumOrderCount = 1387
+                },
+                new {
+                    execYear = 2024,
+                    execMonth = 3,
+                    //需要同步的客单价
+                    syncPreOrderUSDPirce = 325.46,
+                    //需要同步的订单量
+                    syncSumOrderCount = 1593
+                },
+                new {
+                    execYear = 2024,
+                    execMonth = 2,
+                    //需要同步的客单价
+                    syncPreOrderUSDPirce = 318.72,
+                    //需要同步的订单量
+                    syncSumOrderCount = 1452
+                },
+                new {
+                    execYear = 2024,
+                    execMonth = 1,
+                    //需要同步的客单价
+                    syncPreOrderUSDPirce = 312.58,
+                    //需要同步的订单量
+                    syncSumOrderCount = 1566
+                }
+            };
+
+                foreach (var item in monthExecList)
+                {
+                    JObject itemJobj = JObject.FromObject(item);
+                    int execYear = itemJobj.SelectToken("execYear").ToObject<int>();
+                    int execMonth = itemJobj.SelectToken("execMonth").ToObject<int>();
+                    decimal syncPreOrderUSDPirce = itemJobj.SelectToken("syncPreOrderUSDPirce").ToObject<decimal>();
+                    int syncSumOrderCount = itemJobj.SelectToken("syncSumOrderCount").ToObject<int>();
+
+                    await execMonthFunc(execYear, execMonth, syncPreOrderUSDPirce, syncSumOrderCount);
+
+                    Console.WriteLine($"执行{execMonth.ToString("00")}/{execYear}月份数据完成...");
+                    await Task.Delay(3000);
+                }
+            }
+
+            Console.WriteLine("执行结束");
 
             return Ok();
         }

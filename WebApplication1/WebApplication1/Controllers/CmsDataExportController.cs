@@ -219,7 +219,7 @@ namespace WebApplication1.Controllers
 								}
 								else
 								{
-									insertResult = await this._tjOrderRepository.Insert(EDBSiteName.CMS, orderObj);
+									insertResult = TypeParseHelper.StrToInt32(await this._tjOrderRepository.Insert(EDBSiteName.CMS, orderObj));
 								}
 							}
 							catch (Exception)
@@ -294,7 +294,7 @@ namespace WebApplication1.Controllers
 							}
 							else
 							{
-								insertResult = await this._tjOrderRepository.Insert(EDBSiteName.CMS, orderObj);
+								insertResult = TypeParseHelper.StrToInt32(await this._tjOrderRepository.Insert(EDBSiteName.CMS, orderObj));
 							}
 						}
 						catch (Exception)

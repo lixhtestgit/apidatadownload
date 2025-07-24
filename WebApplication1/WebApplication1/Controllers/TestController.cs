@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using WebApplication1.Helper;
 
 namespace WebApplication1.Controllers
 {
@@ -40,6 +41,12 @@ namespace WebApplication1.Controllers
         [HttpGet]
         public async Task Test()
         {
+            var a = AESHelperNew.Decrypt("P1GdwzaJQ3TXgsq9yuSHE3JR+afkTlKUke6NzDKys59QI+/PmLlk/qdm5FvVYCjaDbPHQNe0oled8Hg146vZaWeXY0PPxgSxXY+RxEmh9IHTkS1DfRY09XyzSuviS/VuOrmXeE/DTAFqmfS40gWRR/qu7WYAK5eOrgKQ0kDBwOzcW/Jgw3IjKToqPBEP4Hjc8zsJxRUvG/oxKiAp+x+ePYDT69GZPfhaDcW/NyurkS9/OSfKEhsZyXsLqjjmABtypPDdAEuCRFyZjK1tKldjSLZV0s96JzwmcjSGFXjfuGNpsEwGva5sO1UaRjTfvotw68Ghw4Ji9LbptCMET/UwcDqk3w/3/8lT4VFLqEZrW0hOCP3Nt1zO0nor6GR4htwWtLtSYSUWcvyM1UN23ynegVr/Tj81NmYLnajFv0OO0olMJ20Kdy9b9x3u4M7K9gkBgAFicCXJQeGqF0nrxAbySRD87OkVGAcJUPIX2yCBYviwaIgjlPuQoUtmG0uQ+uWBibH30mg1LSSGxmW77xdYHrqISufBPG9fhC8BpDQ6eVA5QT4qxjuxT5PzE8MuS3LCGUrf3a8fgAzRBhG8PRTCllJHhwOpVpx/62W8HjOe62lXgKxeL87NxQd0zFwfpZSpgKX8hOKdtrXUbOKPAjoNMv7B+/H/OQvHokgXNxxnu2D1/uKIqd8DrHdDXDaKptJJbaEx7y+wq/2fBO8ns8DwEL0j3KMd0AnbKE8gFiLQfGCW8agvmtDru3jAOINxsY+5YSJH5FRlt3L3IW3kiqL1RZFEXeepe2nF/bVl0w+cbUmx40kw/RnI8/Hk3PsqSZ5/Hx3MnoVPNNhhdNvHDJh9xPwnSRwWp3H7feoVycyLJuzKuNbMCjeRP11wPZpz85Xn");
+
+
+            var b1 = AESHelperNew.Encrypt("123");
+            var b2 = AESHelperNew.Decrypt(b1);
+
             List<TestCla> aaList = this.ExcelHelper.ReadTitleDataList<TestCla>(@$"C:\Users\lixianghong\Desktop\汇总2.xlsx", new ExcelFileDescription());
 
             IWorkbook workbook = this.ExcelHelper.CreateOrUpdateWorkbook(aaList);

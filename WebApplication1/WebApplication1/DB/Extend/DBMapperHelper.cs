@@ -297,7 +297,7 @@ namespace WebApplication1.DB.Extend
 				{
 					param = paramValue.ToString().Replace("'", "''");
 				}
-				if (paramValue is string)
+				if (paramValue is string || paramValue is Guid)
 				{
 					param = $"'{param}'";
 				}

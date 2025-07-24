@@ -165,9 +165,16 @@ namespace WebApplication1.ExcelCsv
                 {
                     fileDirectoryPath = path.Substring(0, path.LastIndexOf('/'));
                 }
+
                 if (!Directory.Exists(fileDirectoryPath))
                 {
                     Directory.CreateDirectory(fileDirectoryPath);
+                }
+
+                bool isAppendData = false;
+                if (File.Exists(path))
+                {
+                    isAppendData = true;
                 }
 
                 int dataCount = tList.Count;
@@ -181,7 +188,7 @@ namespace WebApplication1.ExcelCsv
                 int currentRawIndex = 0;
                 int tIndex = 0;
 
-                using (StreamWriter streamWriter = new StreamWriter(path, false, fileDescription.Encoding))
+                using (StreamWriter streamWriter = new StreamWriter(path, isAppendData, fileDescription.Encoding))
                 {
                     do
                     {
@@ -214,7 +221,10 @@ namespace WebApplication1.ExcelCsv
                                     //写入标题行
                                     if (currentRawIndex == fileDescription.TitleRawIndex)
                                     {
-                                        rawValueArray[fieldMapperItem.Key] = fieldMapperItem.Value.CSVTitle;
+                                        if (!isAppendData)
+                                        {
+                                            rawValueArray[fieldMapperItem.Key] = fieldMapperItem.Value.CSVTitle;
+                                        }
                                     }
                                     //真正的数据从标题行下一行开始写
                                     else
@@ -234,7 +244,7 @@ namespace WebApplication1.ExcelCsv
                                             }
 
                                             //如果含有换行符，替换为空格
-                                            formatValue = formatValue.Replace("\r\n"," ").Replace("\r", " ").Replace("\n", " ");
+                                            formatValue = formatValue.Replace("\r\n", " ").Replace("\r", " ").Replace("\n", " ");
 
                                             //如果属性值含有分隔符，则使用双引号包裹
                                             if (formatValue.Contains(fileDescription.SeparatorChar.ToString()))
@@ -251,7 +261,10 @@ namespace WebApplication1.ExcelCsv
                                 }
                                 rawValue = string.Join(fileDescription.SeparatorChar, rawValueArray);
                             }
-                            rawValueBuilder.Append(rawValue + "\r\n");
+                            if (!string.IsNullOrWhiteSpace(rawValue.Replace(fileDescription.SeparatorChar, ' ')))
+                            {
+                                rawValueBuilder.Append(rawValue + "\r\n");
+                            }
                         }
                         catch (Exception e)
                         {

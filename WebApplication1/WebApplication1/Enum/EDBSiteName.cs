@@ -3,6 +3,8 @@
 	public enum EDBSiteName
 	{
 		CMS,
-		Kaybuy
-	}
+		Kaybuy,
+		Wigsbuyshop,
+        NewDD
+    }
 }

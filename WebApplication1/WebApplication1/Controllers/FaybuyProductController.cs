@@ -87,7 +87,7 @@ namespace WebApplication1.Controllers
                 Task[] taskArray = new Task[theadCount];
                 for (int i = 0; i < theadCount; i++)
                 {
-                    taskArray[i] = this.ExecUpdateDataAsync(modelQueue, execedList, aaList.Count);
+                    taskArray[i] = this.ExecUpdateExcelDataAsync(modelQueue, execedList, aaList.Count);
                 }
 
                 await Task.WhenAll(taskArray);
@@ -267,6 +267,115 @@ namespace WebApplication1.Controllers
         }
 
         /// <summary>
+        /// api/FaybuyProduct/UpdateDescriptionForSupabaseDB
+        /// 更新Supabase数据库中描述
+        /// </summary>
+        /// <returns></returns>
+        [Route("UpdateDescriptionForSupabaseDB")]
+        [HttpGet]
+        public async Task UpdateDescriptionForSupabaseDB()
+        {
+            bool isEnd = false;
+            int pageIndex = 1;
+            int pageSize = 100;
+
+            int execCount = 0;
+            int updateedCount = 0;
+
+            do
+            {
+                try
+                {
+                    updateedCount = 0;
+
+                    List<SupabaseProducts> pageDataList = await this.supabaseHelper.PageAsync<SupabaseProducts>(pageIndex, pageSize);
+
+                    if (pageDataList.Count > 0)
+                    {
+                        foreach (SupabaseProducts item in pageDataList)
+                        {
+                            execCount++;
+
+                            Console.WriteLine($"正在处理第{execCount}个产品...");
+
+                            if (item == null
+                                || string.IsNullOrWhiteSpace(item.Link)
+                                || !string.IsNullOrWhiteSpace(item.Description))
+                            {
+                                //无效数据，跳过
+                                continue;
+                            }
+
+                            //淘宝
+                            bool isTB = (item.Link ?? "").Contains("taobao");
+                            //微店
+                            bool isWD = (item.Link ?? "").Contains("weidian");
+                            //1688
+                            bool is1688 = (item.Link ?? "").Contains("1688");
+
+                            if (!isTB && !isWD && !is1688)
+                            {
+                                continue;
+                            }
+
+                            //收集产品ID
+                            string productID = item.Link.Split('?')[0].Split('/').LastOrDefault();
+                            if (string.IsNullOrWhiteSpace(productID))
+                            {
+                                continue;
+                            }
+
+                            string requestUrl = string.Empty;
+
+                            if (isTB)
+                            {
+                                requestUrl = $"https://api-gw.onebound.cn/taobao/item_get?key=t3169987115&secret=7115cf6e&api_name=item_get&result_type=json&lang=en&cache=no&num_iid={productID}";
+                            }
+                            else if (isWD)
+                            {
+                                requestUrl = $"https://api-gw.onebound.cn/micro/item_get?key=t3169987115&secret=7115cf6e&api_name=item_get&result_type=json&lang=en&cache=no&num_iid={productID}";
+                            }
+                            else if (is1688)
+                            {
+                                requestUrl = $"https://api-gw.onebound.cn/1688/item_get?key=t3169987115&secret=7115cf6e&api_name=item_get&result_type=json&lang=en&cache=no&num_iid={productID}";
+                            }
+
+                            (HttpStatusCode, string) getResult = await this.httpClient.Get(requestUrl);
+                            JObject pJobj = JObject.Parse(getResult.Item2);
+
+                            item.Description = pJobj.SelectToken("item.desc")?.ToString();
+                            if (string.IsNullOrWhiteSpace(item.Description))
+                            {
+                                continue;
+                            }
+                            updateedCount++;
+                            item.Data = pJobj;
+                            bool updateResult = await this.supabaseHelper.UpdateAsync(item);
+                            if (!updateResult)
+                            {
+                                this.Logger.LogError($"更新产品失败,id={item.Id}");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        isEnd = true;
+                    }
+
+                    pageIndex++;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"同步失败：{e.Message}");
+                }
+            } while (isEnd == false);
+
+            Console.WriteLine($"成功更新产品：{updateedCount}个...");
+
+            Console.WriteLine("处理结束...");
+        }
+
+        /// <summary>
         /// api/FaybuyProduct/UpdateUrlForKaybuyDB
         /// 更新Kaybuy数据库中Url域名
         /// </summary>
@@ -343,7 +452,7 @@ namespace WebApplication1.Controllers
             Console.WriteLine("处理结束...");
         }
 
-        private async Task ExecUpdateDataAsync(ConcurrentQueue<ExcelFayBuyProduct> modelQueue, ConcurrentBag<string> execedList, int totalCount)
+        private async Task ExecUpdateExcelDataAsync(ConcurrentQueue<ExcelFayBuyProduct> modelQueue, ConcurrentBag<string> execedList, int totalCount)
         {
             while (modelQueue.TryDequeue(out ExcelFayBuyProduct item))
             {
