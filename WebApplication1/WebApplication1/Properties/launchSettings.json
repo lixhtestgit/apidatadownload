@@ -4,7 +4,7 @@
     "WebApplication1": {
       "commandName": "Project",
       "launchBrowser": true,
-      "launchUrl": "api/NewDD/ExportCI",
+      "launchUrl": "api/MoMoImage/ExecImage",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       },
