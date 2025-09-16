@@ -27,6 +27,7 @@ namespace WebApplication1.Controllers
         public ExcelHelper ExcelHelper;
         private readonly IWebHostEnvironment WebHostEnvironment;
         public ILogger Logger;
+        private Dictionary<string, byte[]> imgUrlDic = new Dictionary<string, byte[]>(100);
 
         public MoMoImageController(
             IHttpClientFactory httpClientFactory,
@@ -50,9 +51,9 @@ namespace WebApplication1.Controllers
         public async Task ExecImage()
         {
             //1-设置数据源
-            string dataDicPath = @$"E:\公司小项目\产品图片收集\数据源\9月上架品类-3-耳机和配件-数据整理.xlsx";
+            string dataDicPath = @$"E:\公司小项目\产品图片收集\数据源\9月上架品类-4-球鞋-数据整理.xlsx";
             //2-设置保存目录
-            string savePath = @"E:\公司小项目\产品图片收集\数据源\9月上架品类-3-耳机和配件";
+            string savePath = @"E:\公司小项目\产品图片收集\数据源\9月上架品类-4-球鞋";
 
             List<ExcelImageData_MoMo> fileDataList = this.ExcelHelper.ReadTitleDataList<ExcelImageData_MoMo>(dataDicPath, new ExcelFileDescription());
 
@@ -66,22 +67,27 @@ namespace WebApplication1.Controllers
 
                 string fileParentPath = @$"{savePath}\{item.Index}";
 
-                if (!Directory.Exists(fileParentPath))
-                {
-                    Directory.CreateDirectory(fileParentPath);
-                }
-
-                if (Directory.GetFiles(fileParentPath).Length > 0)
+                if (Directory.Exists(fileParentPath) && Directory.GetFiles(fileParentPath).Length > 0)
                 {
                     Console.WriteLine($"文件已下载,跳过...{fileParentPath}");
                     continue;
                 }
 
                 string itemHost = "https://" + item.ProductUrl.Split("https://")[1].Split("/")[0];
-                string[] imgUrls = item.Remark.Split('|').ToArray();
+                string[] imgUrls = item.Remark?.Split('|').ToArray() ?? new string[0];
                 string filePath = "";
                 string fileExtendName = "";
                 int filePosition = 1;
+
+                imgUrls = imgUrls.Distinct().ToArray();
+
+                if (imgUrls.Length > 0)
+                {
+                    if (!Directory.Exists(fileParentPath))
+                    {
+                        Directory.CreateDirectory(fileParentPath);
+                    }
+                }
 
                 foreach (string imgUrl in imgUrls)
                 {
@@ -114,6 +120,14 @@ namespace WebApplication1.Controllers
 
         private async Task Download(string webFileUrl, string filePath)
         {
+            //如果图片已下载，直接保存
+            if (this.imgUrlDic.ContainsKey(webFileUrl))
+            {
+                var imageBytes = this.imgUrlDic[webFileUrl];
+                System.IO.File.WriteAllBytes(filePath, imageBytes);
+                return;
+            }
+
             var client = new HttpClient();
             //client.DefaultRequestVersion = HttpVersion.Version11;
             client.DefaultRequestHeaders.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36");
@@ -137,6 +151,11 @@ namespace WebApplication1.Controllers
                 //移除尺寸标记
                 webFileUrl = webFileUrl.Replace("38,50_", "");
             }
+            else if (webFileUrl.Contains("stadiumgoods.com"))
+            {
+                //移除尺寸标记
+                webFileUrl = webFileUrl.Replace("38,50_", "");
+            }
 
             var request = new HttpRequestMessage(HttpMethod.Get, webFileUrl);
             var response = await client.SendAsync(request);
@@ -145,6 +164,7 @@ namespace WebApplication1.Controllers
             if (response.IsSuccessStatusCode)
             {
                 var imageBytes = await response.Content.ReadAsByteArrayAsync();
+                this.imgUrlDic.Add(webFileUrl, imageBytes);
                 System.IO.File.WriteAllBytes(filePath, imageBytes);
             }
         }
