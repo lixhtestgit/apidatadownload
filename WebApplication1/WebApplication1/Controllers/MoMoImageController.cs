@@ -51,9 +51,9 @@ namespace WebApplication1.Controllers
         public async Task ExecImage()
         {
             //1-设置数据源
-            string dataDicPath = @$"E:\公司小项目\产品图片收集\数据源\9月上架品类-4-球鞋-数据整理.xlsx";
+            string dataDicPath = @$"E:\公司小项目\产品图片收集\数据源\9月上架品类-5-橄榄球-数据整理.xlsx";
             //2-设置保存目录
-            string savePath = @"E:\公司小项目\产品图片收集\数据源\9月上架品类-4-球鞋";
+            string savePath = @"E:\公司小项目\产品图片收集\数据源\9月上架品类-5-橄榄球";
 
             List<ExcelImageData_MoMo> fileDataList = this.ExcelHelper.ReadTitleDataList<ExcelImageData_MoMo>(dataDicPath, new ExcelFileDescription());
 
@@ -118,6 +118,34 @@ namespace WebApplication1.Controllers
             Console.WriteLine($"任务结束...");
         }
 
+        /// <summary>
+        /// 订单发货数据过滤
+        /// api/MoMoImage/CollExcelProduct
+        /// </summary>
+        /// <returns></returns>
+        [Route("CollExcelProduct")]
+        [HttpGet]
+        public async Task CollExcelProduct()
+        {
+            await Task.CompletedTask;
+            //1-设置数据源
+            string dataDicPath = @$"C:\Users\lixianghong\Desktop\三方产品列表整理.xlsx";
+            //2-设置保存目录
+            string savePath = $@"C:\Users\lixianghong\Desktop\三方产品列表整理_{DateTime.Now.ToString("HHmmss")}.xlsx";
+
+            List<ExcelProductData_MoMo> fileDataList = this.ExcelHelper.ReadTitleDataList<ExcelProductData_MoMo>(dataDicPath, new ExcelFileDescription());
+
+            List<string> sqlList = new List<string>();
+
+            foreach (ExcelProductData_MoMo item in fileDataList)
+            {
+                sqlList.Add($"INSERT INTO dbo.Wd_ThirdProductList ( Wt_Title , Wt_Image , Wt_Price , Wt_OriginProductMall , Wt_OriginProductID , Wt_IsDelete , Wt_CurrentGuID , Wt_IsTrue , Wt_OrderID , Wt_AddTime) VALUES ( '{item.Wt_Title}' , '{item.Wt_Image}' , {item.Wt_Price} , '{item.Wt_OriginProductMall}' , '{item.Wt_OriginProductID}' , 0 , N'{Guid.NewGuid().ToString()}' , 1 , 0 , GETDATE())");
+            }
+
+            string sql = string.Join(";", sqlList);
+            Console.WriteLine(sql);
+        }
+
         private async Task Download(string webFileUrl, string filePath)
         {
             //如果图片已下载，直接保存
@@ -155,6 +183,11 @@ namespace WebApplication1.Controllers
             {
                 //移除尺寸标记
                 webFileUrl = webFileUrl.Replace("38,50_", "");
+            }
+            else if (webFileUrl.Contains("fansidea.com"))
+            {
+                //移除尺寸标记
+                webFileUrl = webFileUrl.Replace("_800x", "");
             }
 
             var request = new HttpRequestMessage(HttpMethod.Get, webFileUrl);
