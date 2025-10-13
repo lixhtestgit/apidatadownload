@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 using NPOI.SS.UserModel;
 using PPPayReportTools.Excel;
 using System;
@@ -11,6 +12,9 @@ using System.Net;
 using System.Net.Http;
 using System.Security.Authentication;
 using System.Threading.Tasks;
+using System.Web;
+using WebApplication1.DB.CMS;
+using WebApplication1.DB.Repository;
 using WebApplication1.Helper;
 using WebApplication1.Model.ExcelModel;
 
@@ -27,18 +31,82 @@ namespace WebApplication1.Controllers
         public ExcelHelper ExcelHelper;
         private readonly IWebHostEnvironment WebHostEnvironment;
         public ILogger Logger;
+        private readonly Lazy<Wd_ThirdProductListRepository> wd_ThirdProductListRepository;
         private Dictionary<string, byte[]> imgUrlDic = new Dictionary<string, byte[]>(100);
 
         public MoMoImageController(
             IHttpClientFactory httpClientFactory,
             ExcelHelper excelHelper,
             IWebHostEnvironment webHostEnvironment,
-            ILogger<OrderShipController> logger)
+            ILogger<OrderShipController> logger,
+            Lazy<Wd_ThirdProductListRepository> wd_ThirdProductListRepository)
         {
             this.PayHttpClient = httpClientFactory.CreateClient();
             this.Logger = logger;
+            this.wd_ThirdProductListRepository = wd_ThirdProductListRepository;
             this.ExcelHelper = excelHelper;
             this.WebHostEnvironment = webHostEnvironment;
+        }
+
+        /// <summary>
+        /// 微店店铺产品数据同步
+        /// api/MoMoImage/WeiDianShopProductSync?shopID=1677568739&collName=jersey
+        /// </summary>
+        /// <returns></returns>
+        [Route("WeiDianShopProductSync")]
+        [HttpGet]
+        public async Task WeiDianShopProductSync(string shopID, string collName)
+        {
+            string paramTemplate = "{\"shopId\":\"{shopID}\",\"tabId\":0,\"sortOrder\":\"desc\",\"offset\":{offset},\"limit\":20,\"from\":\"h5\",\"showItemTag\":true}";
+
+            int page = 1;
+            int pageSize = 20;
+
+            int currentPageSize = 0;
+
+            List<Wd_ThirdProductList> fileDataList = new List<Wd_ThirdProductList>();
+            do
+            {
+                int offset = (page - 1) * pageSize;
+                string param = paramTemplate.Replace("{shopID}", shopID).Replace("{offset}", offset.ToString());
+
+                string syncUrl = $"https://thor.weidian.com/decorate/shopDetail.tab.getItemList/1.0?param={HttpUtility.UrlEncode(param)}";
+
+                var getResult = await this.PayHttpClient.Get(syncUrl, new Dictionary<string, string>
+                {
+                    { "Referer", "https://weidian.com/" }
+                });
+                JObject jObj = JObject.Parse(getResult.Item2);
+                JArray pageList = jObj.SelectToken("result.itemList").ToObject<JArray>();
+                currentPageSize = pageList.Count;
+
+                if (currentPageSize > 0)
+                {
+                    foreach (JObject item in pageList)
+                    {
+                        fileDataList.Add(new Wd_ThirdProductList
+                        {
+                            Wt_AddTime = DateTime.Now,
+                            Wt_CurrentGuID = Guid.NewGuid().ToString(),
+                            Wt_IsDelete = 0,
+                            Wt_IsTrue = 1,
+                            Wt_OriginCollName = collName,
+                            Wt_OriginProductID = item.SelectToken("itemId").ToString(),
+                            Wt_OriginProductMall = "weidian",
+                            Wt_Title = item.SelectToken("itemName").ToString(),
+                            //移除额外参数
+                            Wt_Image = item.SelectToken("itemImg").ToString().Split('?')[0],
+                            Wt_Price = item.SelectToken("price").ToObject<decimal>()
+                        });
+                    }
+                }
+                page++;
+            } while (currentPageSize == pageSize);
+
+            await this.wd_ThirdProductListRepository.Value.DeleteCollAsync(collName);
+            await this.wd_ThirdProductListRepository.Value.AddListAsync(fileDataList.ToArray());
+
+            Console.WriteLine("1");
         }
 
         /// <summary>

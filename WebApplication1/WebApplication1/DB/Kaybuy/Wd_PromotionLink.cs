@@ -10,7 +10,7 @@ namespace WebApplication1.DB.CMS
         /// <summary>
         /// 主键
         /// </summary>
-        [PropertyMapper(isPrimaryKey: true)]
+        [PropertyMapper(isPrimaryKey: true, isIdentityInsert: true)]
         public int Wt_ID { get; set; }
         /// <summary>
         /// 产品原始链接

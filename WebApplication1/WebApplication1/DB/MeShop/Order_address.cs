@@ -13,7 +13,7 @@ namespace WebApplication1.DB.MeShop
         /// <summary>
         /// 主键
         /// </summary>
-        [PropertyMapper(isPrimaryKey: true)]
+        [PropertyMapper(isPrimaryKey: true, isIdentityInsert: true)]
         public long ID { get; set; }
 
         /// <summary>

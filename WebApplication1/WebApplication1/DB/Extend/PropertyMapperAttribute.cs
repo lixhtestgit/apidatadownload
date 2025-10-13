@@ -19,6 +19,11 @@ namespace WebApplication1.DB.Extend
         public bool IsPrimaryKey { get; set; }
 
         /// <summary>
+        /// 是否是自增列
+        /// </summary>
+        public bool IsIdentityInsert { get; set; }
+
+        /// <summary>
         /// 是否忽略该列
         /// </summary>
         public bool Ignored { get; set; }
@@ -26,7 +31,7 @@ namespace WebApplication1.DB.Extend
         /// <summary>
         /// 构造
         /// </summary>
-        public PropertyMapperAttribute() : this(null, false, false)
+        public PropertyMapperAttribute() : this(null, false, false, false)
         {
 
         }
@@ -34,7 +39,7 @@ namespace WebApplication1.DB.Extend
         /// 构造
         /// </summary>
         /// <param name="dbColumnName"></param>
-        public PropertyMapperAttribute(string dbColumnName) : this(dbColumnName, false, false)
+        public PropertyMapperAttribute(string dbColumnName) : this(dbColumnName, false, false, false)
         {
 
         }
@@ -42,15 +47,16 @@ namespace WebApplication1.DB.Extend
         /// 构造
         /// </summary>
         /// <param name="isPrimaryKey"></param>
-        public PropertyMapperAttribute(bool isPrimaryKey) : this(null, false, isPrimaryKey)
+        public PropertyMapperAttribute(bool isPrimaryKey, bool isIdentityInsert) : this(null, false, isPrimaryKey, isIdentityInsert)
         {
+
         }
         /// <summary>
         /// 构造
         /// </summary>
         /// <param name="dbColumnName"></param>
         /// <param name="isPrimaryKey"></param>
-        public PropertyMapperAttribute(string dbColumnName, bool isPrimaryKey) : this(dbColumnName, false, isPrimaryKey)
+        public PropertyMapperAttribute(string dbColumnName, bool isPrimaryKey, bool isIdentityInsert) : this(dbColumnName, false, isPrimaryKey, isIdentityInsert)
         {
         }
         /// <summary>
@@ -59,11 +65,12 @@ namespace WebApplication1.DB.Extend
         /// <param name="dbColumnName"></param>
         /// <param name="ignored"></param>
         /// <param name="isPrimaryKey"></param>
-        public PropertyMapperAttribute(string dbColumnName, bool ignored, bool isPrimaryKey)
+        public PropertyMapperAttribute(string dbColumnName, bool ignored, bool isPrimaryKey, bool isIdentityInsert)
         {
             DBColumnName = dbColumnName;
             Ignored = ignored;
             IsPrimaryKey = isPrimaryKey;
+            IsIdentityInsert = isIdentityInsert;
         }
     }
 }
