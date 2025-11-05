@@ -110,7 +110,7 @@ namespace WebApplication1.Controllers
         }
 
         /// <summary>
-        /// 订单发货数据过滤
+        /// 下载产品图
         /// api/MoMoImage/ExecImage
         /// </summary>
         /// <returns></returns>
@@ -197,20 +197,123 @@ namespace WebApplication1.Controllers
         {
             await Task.CompletedTask;
             //1-设置数据源
-            string dataDicPath = @$"C:\Users\lixianghong\Desktop\三方产品列表整理.xlsx";
-            //2-设置保存目录
-            string savePath = $@"C:\Users\lixianghong\Desktop\三方产品列表整理_{DateTime.Now.ToString("HHmmss")}.xlsx";
+            string dataDicPath = @$"C:\Users\lixianghong\Desktop\snack-零食-20251105.xlsx";
+            string dataCollName = "snack";
 
             List<ExcelProductData_MoMo> fileDataList = this.ExcelHelper.ReadTitleDataList<ExcelProductData_MoMo>(dataDicPath, new ExcelFileDescription());
 
             List<string> sqlList = new List<string>();
 
+            string detailTaobaoApiUrl = "https://api-gw.onebound.cn/taobao/item_get?key=t3169987115&secret=7115cf6e&api_name=item_get&result_type=json&num_iid={productID}";
+
+            int index = 0;
             foreach (ExcelProductData_MoMo item in fileDataList)
             {
-                sqlList.Add($"INSERT INTO dbo.Wd_ThirdProductList ( Wt_Title , Wt_Image , Wt_Price , Wt_OriginProductMall , Wt_OriginProductID , Wt_IsDelete , Wt_CurrentGuID , Wt_IsTrue , Wt_OrderID , Wt_AddTime) VALUES ( '{item.Wt_Title}' , '{item.Wt_Image}' , {item.Wt_Price} , '{item.Wt_OriginProductMall}' , '{item.Wt_OriginProductID}' , 0 , N'{Guid.NewGuid().ToString()}' , 1 , 0 , GETDATE())");
+                index++;
+                if (index <= 14)
+                {
+                    continue;
+                }
+
+                Console.WriteLine($"正在处理第{index}/{fileDataList.Count}条数据...");
+
+                //获取产品地址分类
+                var productIdResult = this.GetProductIdByUrl(item.Wt_ProductUrl);
+                if (productIdResult.Item1 == null || string.IsNullOrWhiteSpace(productIdResult.Item2))
+                {
+                    continue;
+                }
+                string productID = productIdResult.Item2;
+
+                //获取产品原始数据
+                string productTitle = null;
+                string productOriginData = null;
+                if (productIdResult.Item1 == EMallPlatform.淘宝)
+                {
+                    string requestUrl = detailTaobaoApiUrl.Replace("{productID}", productID);
+                    var getResult = await this.PayHttpClient.Get(requestUrl);
+                    productOriginData = getResult.Item2;
+                    JObject proJObj = JObject.Parse(productOriginData);
+                    productTitle = proJObj.SelectToken("item.title")?.ToString();
+                }
+
+                if (string.IsNullOrWhiteSpace(productTitle))
+                {
+                    continue;
+                }
+
+                //生成插入脚本
+                string productPlatformName = "taobao";
+                if (productIdResult.Item1 == EMallPlatform.官方1688)
+                {
+                    productPlatformName = "1688";
+                }
+                else if (productIdResult.Item1 == EMallPlatform.微店)
+                {
+                    productPlatformName = "weidian";
+                }
+
+                string insertProductSql = $@"
+                        INSERT INTO dbo.Wd_ThirdProductList
+                                ( Wt_Price ,
+                                  Wt_OriginProductMall ,
+                                  Wt_OriginProductID ,
+                                  Wt_IsDelete ,
+                                  Wt_CurrentGuID ,
+                                  Wt_IsTrue ,
+                                  Wt_OrderID ,
+                                  Wt_AddTime ,
+                                  Wt_UpdateTime ,
+                                  Wt_OriginProductDataJson ,
+                                  Wt_OriginProductUnionKey ,
+                                  Wt_IsAutoSync
+                                )
+                        VALUES  ( {item.Wt_ProductPrice} , -- Wt_Price - decimal
+                                  '{productPlatformName}' , -- Wt_OriginProductMall - varchar(10)
+                                  '{productID}' , -- Wt_OriginProductID - varchar(100)
+                                  0 , -- Wt_IsDelete - bit
+                                  N'{Guid.NewGuid().ToString()}' , -- Wt_CurrentGuID - nvarchar(50)
+                                  1 , -- Wt_IsTrue - bit
+                                  0 , -- Wt_OrderID - int
+                                  GETDATE() , -- Wt_AddTime - datetime
+                                  GETDATE() , -- Wt_UpdateTime - datetime
+                                  N'{productOriginData}' , -- Wt_OriginProductDataJson - nvarchar(max)
+                                  N'{productPlatformName}_{productID}' , -- Wt_OriginProductUnionKey - nvarchar(110)
+                                  0  -- Wt_IsAutoSync - bit
+                                )
+                        ";
+
+                string insertProductCollSql = $@"
+                        INSERT INTO dbo.Wd_ThirdProductColl
+                                ( Wt_Title ,
+                                    Wt_OriginProductMall ,
+                                    Wt_OriginProductID ,
+                                    Wt_OriginProductUnionKey ,
+                                    Wt_IsDelete ,
+                                    Wt_CurrentGuID ,
+                                    Wt_IsTrue ,
+                                    Wt_OrderID ,
+                                    Wt_AddTime ,
+                                    Wt_UpdateTime
+                                )
+                        VALUES  ( N'{dataCollName}' , -- Wt_Title - nvarchar(200)
+                                    N'{productPlatformName}' , -- Wt_OriginProductMall - nvarchar(10)
+                                    N'{productID}' , -- Wt_OriginProductID - nvarchar(100)
+                                    N'{productPlatformName}_{productID}' , -- Wt_OriginProductUnionKey - nvarchar(110)
+                                    0 , -- Wt_IsDelete - bit
+                                    N'{Guid.NewGuid().ToString()}' , -- Wt_CurrentGuID - nvarchar(50)
+                                    1 , -- Wt_IsTrue - bit
+                                    0 , -- Wt_OrderID - int
+                                    GETDATE() , -- Wt_AddTime - datetime
+                                    GETDATE()  -- Wt_UpdateTime - datetime
+                                )
+                ";
+
+                sqlList.Add(insertProductSql);
+                sqlList.Add(insertProductCollSql);
             }
 
-            string sql = string.Join(";", sqlList);
+            string sql = string.Join(";", sqlList) + ";";
             Console.WriteLine(sql);
         }
 
@@ -268,6 +371,76 @@ namespace WebApplication1.Controllers
                 this.imgUrlDic.Add(webFileUrl, imageBytes);
                 System.IO.File.WriteAllBytes(filePath, imageBytes);
             }
+        }
+
+        /// <summary>
+        /// 根据产品原始链接获取产品ID
+        /// </summary>
+        /// <param name="productUrl"></param>
+        /// <returns></returns>
+        private (EMallPlatform?, string) GetProductIdByUrl(string productUrl)
+        {
+            if (string.IsNullOrWhiteSpace(productUrl))
+            {
+                return (null, "");
+            }
+            if (!productUrl.StartsWith("https:"))
+            {
+                return (null, productUrl);
+            }
+
+            string? productID = productUrl;
+            EMallPlatform mallPlatform = EMallPlatform.其他;
+
+            Uri downloadUrlUri = new Uri(productID);
+            var queryString = HttpUtility.ParseQueryString(downloadUrlUri.Query);
+
+            //1688产品
+            string itemDownloadUrlNoParam = productID.Split('?')[0];
+            if (itemDownloadUrlNoParam.Contains("1688."))
+            {
+                string downloadUrl = productID.Split('?')[0];
+                productID = downloadUrl.Split('/').LastOrDefault()?.Split('.')[0];
+                mallPlatform = EMallPlatform.官方1688;
+            }
+            //淘宝+天猫产品
+            else if (itemDownloadUrlNoParam.Contains("taobao.") || itemDownloadUrlNoParam.Contains("tmall."))
+            {
+                productID = queryString.Get("id");
+                mallPlatform = EMallPlatform.淘宝;
+            }
+            //微店产品
+            else if (itemDownloadUrlNoParam.Contains("weidian."))
+            {
+                productID = queryString.Get("itemID");
+                mallPlatform = EMallPlatform.微店;
+            }
+
+            return (mallPlatform, productID ?? productUrl);
+        }
+
+        /// <summary>
+        /// 店铺平台枚举
+        /// </summary>
+        private enum EMallPlatform
+        {
+            /// <summary>
+            /// 其他
+            /// </summary>
+            其他 = 0,
+
+            /// <summary>
+            /// 1688
+            /// </summary>
+            官方1688 = 7,
+            /// <summary>
+            /// 淘宝
+            /// </summary>
+            淘宝 = 12,
+            /// <summary>
+            /// 微店
+            /// </summary>
+            微店 = 14,
         }
     }
 }
