@@ -210,10 +210,6 @@ namespace WebApplication1.Controllers
             foreach (ExcelProductData_MoMo item in fileDataList)
             {
                 index++;
-                if (index <= 14)
-                {
-                    continue;
-                }
 
                 Console.WriteLine($"正在处理第{index}/{fileDataList.Count}条数据...");
 
@@ -235,6 +231,7 @@ namespace WebApplication1.Controllers
                     productOriginData = getResult.Item2;
                     JObject proJObj = JObject.Parse(productOriginData);
                     productTitle = proJObj.SelectToken("item.title")?.ToString();
+                    productOriginData = JsonHelper.ConvertJsonToStr(proJObj);
                 }
 
                 if (string.IsNullOrWhiteSpace(productTitle))
@@ -268,7 +265,7 @@ namespace WebApplication1.Controllers
                                   Wt_OriginProductUnionKey ,
                                   Wt_IsAutoSync
                                 )
-                        VALUES  ( {item.Wt_ProductPrice} , -- Wt_Price - decimal
+                        VALUES  ( NULL , -- Wt_Price - decimal
                                   '{productPlatformName}' , -- Wt_OriginProductMall - varchar(10)
                                   '{productID}' , -- Wt_OriginProductID - varchar(100)
                                   0 , -- Wt_IsDelete - bit
@@ -277,7 +274,7 @@ namespace WebApplication1.Controllers
                                   0 , -- Wt_OrderID - int
                                   GETDATE() , -- Wt_AddTime - datetime
                                   GETDATE() , -- Wt_UpdateTime - datetime
-                                  N'{productOriginData}' , -- Wt_OriginProductDataJson - nvarchar(max)
+                                  N'{productOriginData.Replace("'","''")}' , -- Wt_OriginProductDataJson - nvarchar(max)
                                   N'{productPlatformName}_{productID}' , -- Wt_OriginProductUnionKey - nvarchar(110)
                                   0  -- Wt_IsAutoSync - bit
                                 )
