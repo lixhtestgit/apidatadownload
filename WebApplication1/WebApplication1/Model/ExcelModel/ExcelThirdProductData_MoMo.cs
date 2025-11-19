@@ -3,14 +3,20 @@
 namespace WebApplication1.Model.ExcelModel
 {
     /// <summary>
-    /// 产品数据-MoMo
+    /// 三方配置产品数据-MoMo
     /// </summary>
-    public class ExcelProductData_MoMo
+    public class ExcelThirdProductData_MoMo
     {
+        [ExcelTitle("专题")]
+        public string Wt_Coll { get; set; }
+
         [ExcelTitle("采集链接")]
         public string Wt_ProductUrl { get; set; }
 
         [ExcelTitle("人民币¥")]
         public string Wt_ProductPrice { get; set; }
+
+        [ExcelTitle("原始数据")]
+        public string Wt_OriginProductDataJson { get; set; }
     }
 }
