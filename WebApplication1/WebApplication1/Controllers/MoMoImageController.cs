@@ -348,8 +348,7 @@ namespace WebApplication1.Controllers
             JToken taobaoOriginJObj = JObject.Parse(taobaoOriginJson);
 
             // 创建DTO对象
-            ThirdApiWeidianProductOriginObj dto = new ThirdApiWeidianProductOriginObj();
-            var detail = dto.Item;
+            ThirdApiProductDetailDto detail = new ThirdApiProductDetailDto();
 
             // 解析基本信息
             var itemData = taobaoOriginJObj.SelectToken("item");
@@ -358,12 +357,15 @@ namespace WebApplication1.Controllers
             var skuPropMappingList = taobaoOriginJObj.SelectToken("skuBase.skus").ToObject<JArray>();
             var propList = taobaoOriginJObj.SelectToken("skuBase.props").ToObject<JArray>();
 
+            //店铺
+            detail.ShopID = $"{sellerData.SelectToken("shopId").ToString()}_{sellerData.SelectToken("sellerId").ToString()}";
+            detail.ShopName = sellerData.SelectToken("shopName").ToString();
             //产品标识
-            detail.Num_iid = itemData.SelectToken("itemId").ToString();
+            detail.ItemId = itemData.SelectToken("itemId").ToString();
             //标题
-            detail.Title = itemData.SelectToken("title").ToString();
+            detail.Name = itemData.SelectToken("title").ToString();
             //价格
-            detail.Price = TypeParseHelper.StrToDecimal(skuData["0"].SelectToken("price.priceText").ToString());
+            detail.ApplicablePrice = TypeParseHelper.StrToDecimal(skuData["0"].SelectToken("price.priceText").ToString());
 
             //主图列表
             JArray imageJArray = itemData.SelectToken("images").ToObject<JArray>();
@@ -371,17 +373,13 @@ namespace WebApplication1.Controllers
             {
                 foreach (var image in imageJArray)
                 {
-                    detail.Item_imgs.Add(new ThirdApiWeidianProductOriginObj_Image
-                    {
-                        Url = image.ToString()
-                    });
+                    detail.PicUrls.Add(image.ToString());
                 }
+                detail.MainImageUrl = detail.PicUrls.FirstOrDefault();
             }
+
             //属性图列表和属性列表
-            detail.Prop_imgs = new ThirdApiWeidianProductOriginObj_Propimgs
-            {
-                Prop_img = new List<ThirdApiWeidianProductOriginObj_Propimgs_Detail>()
-            };
+            detail.ItemOptions = new List<ThirdApiProductDetailDto_ItemOption>();
 
             Dictionary<string, string> optionPropDic = new Dictionary<string, string>();
 
@@ -389,6 +387,18 @@ namespace WebApplication1.Controllers
             {
                 string optionID = prop["pid"].ToString();
                 string optionName = prop["name"].ToString();
+
+                ThirdApiProductDetailDto_ItemOption itemOption = detail.ItemOptions.FirstOrDefault(m => m.OptionID == optionID);
+                if (itemOption == null)
+                {
+                    itemOption = new ThirdApiProductDetailDto_ItemOption
+                    {
+                        OptionID = optionID,
+                        Name = optionName,
+                        ChoiceList = new List<ThirdApiProductDetailDto_ItemOptionChoice>()
+                    };
+                    detail.ItemOptions.Add(itemOption);
+                }
 
                 JArray propValues = prop["values"].ToObject<JArray>();
                 foreach (JToken propValue in propValues)
@@ -398,30 +408,21 @@ namespace WebApplication1.Controllers
 
                     string choiceImg = propValue["image"]?.ToString();
 
-                    //选项卡选项键：选项卡ID:选项ID
-                    string optionChoiceKey = $"{optionID}:{choiceID}";
-                    //选项卡选项值：选项卡名称:选项名称
-                    string optionChoiceValue = $"{optionName}:{choiceName}";
-
-                    if (!string.IsNullOrWhiteSpace(choiceImg))
+                    ThirdApiProductDetailDto_ItemOptionChoice itemOptionChoice = itemOption.ChoiceList.FirstOrDefault(m => m.ChoiceID == choiceID);
+                    if (itemOptionChoice == null)
                     {
-                        detail.Prop_imgs.Prop_img.Add(new ThirdApiWeidianProductOriginObj_Propimgs_Detail
-                        {
-                            Properties = optionChoiceKey,
-                            Url = choiceImg
-                        });
+                        itemOptionChoice = new ThirdApiProductDetailDto_ItemOptionChoice();
+                        itemOption.ChoiceList.Add(itemOptionChoice);
                     }
 
-                    optionPropDic.Add(optionChoiceKey, optionChoiceValue);
+                    itemOptionChoice.ChoiceID = choiceID;
+                    itemOptionChoice.Name = choiceName;
+                    itemOptionChoice.Src = choiceImg;
                 }
             }
-            detail.Props_list = optionPropDic;
 
             //SKU
-            detail.Skus = new ThirdApiWeidianProductOriginObj_Skus
-            {
-                Sku = new List<ThirdApiWeidianProductOriginObj_Skus_Detail>()
-            };
+            detail.Skus = new List<ThirdApiProductDetailDto_Sku>();
 
             Dictionary<string, string> skuIDPropMappingDic = new System.Collections.Generic.Dictionary<string, string>();
             foreach (JToken skuPropMapping in skuPropMappingList)
@@ -432,11 +433,23 @@ namespace WebApplication1.Controllers
             foreach (JToken skuJToken in skuPropMappingList)
             {
                 string skuID = skuJToken["skuId"].ToString();
+                JToken skuItemPropObj = skuData[skuID];
+                //SKU库存
+                int skuQuantity = skuItemPropObj["quantity"].ToObject<int>();
+                decimal skuPrice = skuItemPropObj.SelectToken("price.priceText").ToObject<decimal>();
+
+                ThirdApiProductDetailDto_Sku sku = new ThirdApiProductDetailDto_Sku
+                {
+                    Price = skuPrice,
+                    StockQuantity = skuQuantity,
+                    SkuId = skuID,
+                    Properties = new List<ThirdApiProductDetailDto_Property>()
+                };
+
 
                 string propMapping = skuJToken["propPath"].ToString();
                 string[] propMappingArray = propMapping.Split(';');
 
-                List<string> propIDNameList = new List<string>();
                 foreach (var item in propMappingArray)
                 {
                     string[] itemArray = item.Split(':');
@@ -448,41 +461,28 @@ namespace WebApplication1.Controllers
 
                     string optionName = optionPropValueArray[0];
                     string choiceName = optionPropValueArray[1];
-                    propIDNameList.Add($"{optionID}:{choiceID}:{optionName}:{choiceName}");
+
+                    sku.Properties.Add(new ThirdApiProductDetailDto_Property
+                    {
+                        OptionID = optionID,
+                        OptionName = optionName,
+                        ChoiceID = choiceID,
+                        ChoiceName = choiceName
+                    });
                 }
 
-                JToken skuItemPropObj = skuData[skuID];
-                //SKU库存
-                int skuQuantity = skuItemPropObj["quantity"].ToObject<int>();
-                decimal skuPrice = skuItemPropObj.SelectToken("price.priceText").ToObject<decimal>();
-
-                detail.Skus.Sku.Add(new ThirdApiWeidianProductOriginObj_Skus_Detail
-                {
-                    Price = skuPrice,
-                    Quantity = skuQuantity,
-                    Sku_id = skuID,
-                    Properties_name = string.Join(';', propIDNameList)
-                });
+                detail.Skus.Add(sku);
             }
 
-            //销量
-            detail.Sales = itemData.SelectToken("vagueSellCount").ToString();
-            // 处理卖家信息
-            detail.Seller_info = new ThirdApiWeidianProductOriginObj_Sellerinfo
-            {
-                Shop_name = sellerData.SelectToken("shopName").ToString()
-            };
-            detail.Seller_id = sellerData.SelectToken("sellerId").ToString();
-            detail.Shop_id = sellerData.SelectToken("shopId").ToString();
             //描述
             string descGetUrl = itemData.SelectToken("pcADescUrl").ToString();
             descGetUrl = descGetUrl.StartsWith("//") ? $"https:{descGetUrl}" : descGetUrl;
             //var getDescResult = await this.PayHttpClient.Get(descGetUrl);
-            detail.Desc = $@"<iframe src=""{descGetUrl}""></iframe>";
+            detail.Information = $@"<iframe src=""{descGetUrl}""></iframe>";
             //产品链接
-            detail.Detail_url = $"https://item.taobao.com/item.htm?id={detail.Num_iid}";
+            detail.ProductUrl = $"https://item.taobao.com/item.htm?id={detail.ItemId}";
 
-            return Ok(dto);
+            return Ok(detail);
         }
 
         private async Task Download(string webFileUrl, string filePath)
