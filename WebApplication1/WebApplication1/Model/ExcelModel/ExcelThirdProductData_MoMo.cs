@@ -13,6 +13,12 @@ namespace WebApplication1.Model.ExcelModel
         [ExcelTitle("采集链接")]
         public string Wt_ProductUrl { get; set; }
 
+        [ExcelTitle("标题")]
+        public string Wt_ProductTitle { get; set; }
+
+        [ExcelTitle("首图")]
+        public string Wt_ProductImage { get; set; }
+
         [ExcelTitle("人民币¥")]
         public string Wt_ProductPrice { get; set; }
 
