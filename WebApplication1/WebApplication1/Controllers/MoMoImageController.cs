@@ -202,6 +202,7 @@ namespace WebApplication1.Controllers
 
             List<ExcelThirdProductData_MoMo> fileDataList = this.ExcelHelper.ReadTitleDataList<ExcelThirdProductData_MoMo>(dataDicPath, new ExcelFileDescription());
 
+            List<string> productUnionKeyList = new List<string>();
             List<string> sqlList = new List<string>();
 
             //万邦-淘宝API
@@ -274,6 +275,8 @@ namespace WebApplication1.Controllers
                     productPlatformName = "weidian";
                 }
 
+                productUnionKeyList.Add($"{productPlatformName}_{productID}");
+
                 string insertProductSql = $@"
                         INSERT INTO dbo.Wd_ThirdProductList
                                 ( 
@@ -345,8 +348,9 @@ namespace WebApplication1.Controllers
                 sqlList.Add(insertProductCollSql);
             }
 
+            string productUnionKeys = string.Join(",", productUnionKeyList.Distinct().Select(m => $"'{m}'"));
             string sql = string.Join(";", sqlList) + ";";
-            return Ok(sql);
+            return Ok(productUnionKeys + "\r\n\r\n" + sql);
         }
 
         /// <summary>
@@ -367,7 +371,7 @@ namespace WebApplication1.Controllers
             return Ok(detail);
         }
 
-        private async Task<ThirdApiProductDetailDto> convertTaobaoJsonToProduct(string taobaoOriginDataJson)
+        private Task<ThirdApiProductDetailDto> convertTaobaoJsonToProduct(string taobaoOriginDataJson)
         {
             JToken taobaoOriginJObj = JObject.Parse(taobaoOriginDataJson);
 
@@ -449,6 +453,8 @@ namespace WebApplication1.Controllers
                     itemOptionChoice.ChoiceID = choiceID;
                     itemOptionChoice.Name = choiceName;
                     itemOptionChoice.Src = choiceImg;
+
+                    optionPropDic.Add($"{optionID}:{choiceID}", $"{optionName}:{choiceName}");
                 }
             }
 
@@ -523,7 +529,7 @@ namespace WebApplication1.Controllers
             //产品链接
             detail.ProductUrl = $"https://item.taobao.com/item.htm?id={detail.ItemId}";
 
-            return detail;
+            return Task.FromResult(detail);
         }
 
         private async Task Download(string webFileUrl, string filePath)
